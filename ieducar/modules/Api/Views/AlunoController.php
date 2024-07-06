@@ -179,6 +179,11 @@ class AlunoController extends ApiCoreController
         return $this->validatesPresenceOf('instituicao_id') && $this->validatesPresenceOf('escola');
     }
 
+    protected function canGetAlunosByGuardianCpf()
+    {
+        return $this->validatesPresenceOf('aluno_id') && $this->validatesPresenceOf('cpf');
+    }
+
     protected function validateInepCode()
     {
         if ($this->getRequest()->aluno_inep_id) {
@@ -640,6 +645,8 @@ class AlunoController extends ApiCoreController
         $aluno->url_laudo_medico = $this->getRequest()->url_laudo_medico;
 
         $aluno->tipo_transporte = (new TransportationProvider())->from($this->getRequest()->tipo_transporte);
+        $aluno->rota_transporte = $this->getRequest()->rota_transporte;
+        $aluno->utiliza_transporte_rural = (bool) $this->getRequest()->utiliza_transporte_rural;
 
         if (is_null($id)) {
             $id = $aluno->cadastra();
@@ -1152,6 +1159,8 @@ class AlunoController extends ApiCoreController
                 'parentesco_cinco',
                 'emancipado',
                 'tipo_transporte',
+                'rota_transporte',
+                'utiliza_transporte_rural',
             ];
 
             $aluno = Portabilis_Array_Utils::filter($alunoDetalhe, $attrs);
@@ -1161,6 +1170,7 @@ class AlunoController extends ApiCoreController
             $aluno['tipo_responsavel'] = $this->tipoResponsavel($aluno);
             $aluno['aluno_inep_id'] = $this->loadAlunoInepId($id);
             $aluno['ativo'] = $aluno['ativo'] == 1;
+            $aluno['utiliza_transporte_rural'] = $aluno['utiliza_transporte_rural'] === true ? 1 : 0;
 
             $aluno['veiculo_transporte_escolar'] = Portabilis_Utils_Database::pgArrayToArray($aluno['veiculo_transporte_escolar']);
             $aluno['alfabetizado'] = $aluno['analfabeto'] == 0;
@@ -1322,6 +1332,62 @@ class AlunoController extends ApiCoreController
             return [
                 'alunos' => $alunos,
             ];
+        }
+    }
+
+    protected function getIdpesFromCpf($cpf)
+    {
+        $sql = 'SELECT idpes FROM cadastro.fisica WHERE cpf = $1';
+
+        return $this->fetchPreparedQuery($sql, $cpf, true, 'first-field');
+    }
+
+    protected function checkAlunoIdpesGuardian($idpesGuardian, $alunoId)
+    {
+        $sql = '
+            SELECT 1
+            FROM pmieducar.aluno
+            INNER JOIN cadastro.fisica ON (aluno.ref_idpes = fisica.idpes)
+            WHERE cod_aluno = $2
+            AND (idpes_pai = $1
+            OR idpes_mae = $1
+            OR idpes_responsavel = $1) LIMIT 1
+        ';
+
+        return $this->fetchPreparedQuery($sql, [$idpesGuardian, $alunoId], true, 'first-field') == 1;
+    }
+
+    protected function getAlunosByGuardianCpf()
+    {
+        if ($this->canGetAlunosByGuardianCpf()) {
+            $cpf = $this->getRequest()->cpf;
+            $alunoId = $this->getRequest()->aluno_id;
+
+            $idpesGuardian = $this->getIdpesFromCpf($cpf);
+
+            if (is_numeric($idpesGuardian) && $this->checkAlunoIdpesGuardian($idpesGuardian, $alunoId)) {
+                $sql = '
+                    SELECT cod_aluno as aluno_id, pessoa.nome as nome_aluno
+                    FROM pmieducar.aluno
+                    INNER JOIN cadastro.fisica ON (aluno.ref_idpes = fisica.idpes)
+                    INNER JOIN cadastro.pessoa ON (pessoa.idpes = fisica.idpes)
+                    WHERE idpes_pai = $1
+                    OR idpes_mae = $1
+                    OR idpes_responsavel = $1
+                ';
+
+                $alunos = $this->fetchPreparedQuery($sql, [$idpesGuardian]);
+                $attrs = ['aluno_id', 'nome_aluno'];
+                $alunos = Portabilis_Array_Utils::filterSet($alunos, $attrs);
+
+                foreach ($alunos as &$aluno) {
+                    $aluno['nome_aluno'] = Portabilis_String_Utils::toUtf8($aluno['nome_aluno']);
+                }
+
+                return ['alunos' => $alunos];
+            } else {
+                $this->messenger->append('Não foi encontrado nenhum vínculos entre esse aluno e cpf.');
+            }
         }
     }
 
@@ -2077,6 +2143,8 @@ class AlunoController extends ApiCoreController
             $this->appendResponse($this->getOcorrenciasDisciplinares());
         } elseif ($this->isRequestFor('get', 'grade_ultimo_historico')) {
             $this->appendResponse($this->getGradeUltimoHistorico());
+        } elseif ($this->isRequestFor('get', 'alunos_by_guardian_cpf')) {
+            $this->appendResponse($this->getAlunosByGuardianCpf());
         } elseif ($this->isRequestFor('post', 'aluno')) {
             $this->appendResponse($this->post());
         } elseif ($this->isRequestFor('put', 'aluno')) {

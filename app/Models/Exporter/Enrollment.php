@@ -42,6 +42,7 @@ class Enrollment extends Model
                 'school_class_id' => 'ID Turma',
                 'grade_id' => 'ID Série',
                 'course_id' => 'ID Curso',
+                'inep_id' => 'Código INEP (Aluno)',
             ],
             'Aluno' => [
                 'name' => 'Nome',
@@ -70,6 +71,7 @@ class Enrollment extends Model
                 'course' => 'Curso',
                 'registration_date' => 'Data da Matrícula',
                 'registration_out' => 'Data de saída da matrícula',
+                'registration_school_out' => 'Data de saída da Escola',
                 'year' => 'Ano',
                 'status_text' => 'Situação da Matrícula',
                 'period' => 'Turno',
@@ -115,6 +117,7 @@ class Enrollment extends Model
                 'mother.organization' => 'Empresa da mãe',
                 'mother.monthly_income' => 'Renda Mensal da mãe',
                 'mother.gender' => 'Gênero da mãe',
+                'mother.phone' => 'Telefones da mãe',
             ],
             'Pai' => [
                 'father.id' => 'ID do pai',
@@ -132,6 +135,7 @@ class Enrollment extends Model
                 'father.organization' => 'Empresa do pai',
                 'father.monthly_income' => 'Renda Mensal do pai',
                 'father.gender' => 'Gênero do pai',
+                'father.phone' => 'Telefones do pai',
             ],
             'Responsável' => [
                 'guardian.id' => 'ID do responsável',
@@ -149,6 +153,7 @@ class Enrollment extends Model
                 'guardian.organization' => 'Empresa do responsável',
                 'guardian.monthly_income' => 'Renda Mensal do responsável',
                 'guardian.gender' => 'Gênero do responsável',
+                'guardian.phone' => 'Telefones do responsável',
             ],
         ];
     }
