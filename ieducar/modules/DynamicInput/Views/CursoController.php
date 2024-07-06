@@ -5,8 +5,7 @@ class CursoController extends ApiCoreController
     protected function canGetCursos()
     {
         return
-            $this->validatesId('instituicao') &&
-            $this->validatesId('escola');
+            $this->validatesId('instituicao');
     }
 
     protected function getCursos()
@@ -14,7 +13,7 @@ class CursoController extends ApiCoreController
         if ($this->canGetCursos()) {
             $userId = \Illuminate\Support\Facades\Auth::id();
             $instituicaoId = $this->getRequest()->instituicao_id;
-            $escolaId = $this->getRequest()->escola_id;
+            $escolaId = $this->getRequest()->escola_id ?: 0;
             $ano = $this->getRequest()->ano;
 
             $isOnlyProfessor = Portabilis_Business_Professor::isOnlyProfessor($instituicaoId, $userId);
@@ -25,16 +24,16 @@ class CursoController extends ApiCoreController
                 $params = [$escolaId];
 
                 $sql = '
-                    SELECT
+                    SELECT DISTINCT
                         c.cod_curso as id,
                         c.nm_curso as nome,
                         c.descricao
                     FROM
                         pmieducar.curso c,
                         pmieducar.escola_curso ec
-                    WHERE ec.ref_cod_escola = $1
-                    AND ec.ref_cod_curso = c.cod_curso
+                    WHERE ec.ref_cod_curso = c.cod_curso
                     AND ec.ativo = 1 AND c.ativo = 1
+                    AND CASE WHEN $1 = 0 THEN TRUE ELSE ec.ref_cod_escola = $1 END
                 ';
 
                 if (!empty($ano)) {

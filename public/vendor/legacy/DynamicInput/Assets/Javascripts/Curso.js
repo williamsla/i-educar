@@ -33,6 +33,7 @@
       $cursoField.change();
     };
 
+    $instituicaoField.change(updateCursos);
     $escolaField.change(updateCursos);
     $ano.change(function () {
 
