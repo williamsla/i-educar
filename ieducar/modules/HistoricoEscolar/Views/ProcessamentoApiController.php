@@ -727,6 +727,7 @@ class ProcessamentoApiController extends Core_Controller_Page_EditController
             $processarMediaGeral = $this->getRequest()->processar_media_geral;
             $casasDecimais = $this->getService()->getRegra()->get('qtdCasasDecimais');
             $aprovadoDependencia = $this->getSituacaoMatricula() == 12;
+            $aprovado = $this->getSituacaoMatricula() == App_Model_MatriculaSituacao::APROVADO;
 
             $isGlobalScoreForStage = $this->getService()->getEvaluationRule()->isGlobalScore();
 
@@ -758,7 +759,12 @@ class ProcessamentoApiController extends Core_Controller_Page_EditController
                     } elseif ($tpNota == RegraAvaliacao_Model_Nota_TipoValor::NUMERICACONCEITUAL) {
                         $nota = (string) $mediasCc[$ccId][0]->mediaArredondada;
                         $notaConceitualNumerica = (string) $mediasCc[$ccId][0]->media;
-                    }
+                    } elseif ($tpNota == RegraAvaliacao_Model_Nota_TipoValor::NENHUM) { // parecer descritivo
+                        if ($aprovado == true) {
+                            $dominio = $_SERVER['HTTP_HOST'];
+                            $nota = str_contains($dominio, "coitedonoia") ? "APC" : "PPC";
+                        }                        
+                    }                    
                 } else {
                     $nota = $this->getRequest()->notas;
                 }
