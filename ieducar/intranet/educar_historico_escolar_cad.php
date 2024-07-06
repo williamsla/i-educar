@@ -248,6 +248,7 @@ return new class extends clsCadastro
             12 => 'Aprovado com dependência',
             13 => 'Aprovado pelo conselho',
             14 => 'Reprovado por faltas',
+            16 => 'Promovido'
         ];
 
         $this->campoLista(nome: 'aprovado', campo: 'Situação', valor: $opcoes, default: $this->aprovado);

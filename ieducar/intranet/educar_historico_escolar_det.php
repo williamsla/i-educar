@@ -158,6 +158,8 @@ return new class extends clsDetalhe
                 $registro['aprovado'] = 'Aprovado pelo conselho';
             } elseif ($registro['aprovado'] == 14) {
                 $registro['aprovado'] = 'Reprovado por faltas';
+            } elseif ($registro['aprovado'] == 16) {
+                $registro['aprovado'] = 'Promovido';
             }
 
             $this->addDetalhe(['Situação', "{$registro['aprovado']}"]);
