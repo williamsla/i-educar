@@ -55,7 +55,7 @@ trait JsonDataSource
             SELECT
                 public.fcn_upper(instituicao.nm_instituicao) AS nm_instituicao,
                 public.fcn_upper(instituicao.nm_responsavel) AS nm_responsavel,
-                (CASE WHEN {$notSchool} THEN 'SECRETARIA DE EDUCAÇÃO' ELSE fcn_upper(view_dados_escola.nome) END) AS nm_escola,
+                (CASE WHEN {$notSchool} THEN 'SECRETARIA MUNICIPAL DE EDUCAÇÃO' ELSE fcn_upper(view_dados_escola.nome) END) AS nm_escola,
                 (CASE WHEN {$notSchool} THEN instituicao.bairro ELSE view_dados_escola.bairro END),
                 (CASE WHEN {$notSchool} THEN instituicao.ddd_telefone ELSE view_dados_escola.telefone_ddd END) AS fone_ddd,
                 (CASE WHEN {$notSchool} THEN 0 ELSE view_dados_escola.celular_ddd END) AS cel_ddd,
@@ -71,7 +71,8 @@ trait JsonDataSource
                 escola.ato_autorizativo,
                 escola.ato_criacao,
                 configuracoes_gerais.emitir_ato_autorizativo,
-                configuracoes_gerais.emitir_ato_criacao_credenciamento AS emitir_ato_criacao
+                configuracoes_gerais.emitir_ato_criacao_credenciamento AS emitir_ato_criacao,
+                to_char(juridica.cnpj, '00\".\"000\".\"000/0000-00') AS cnpj
             FROM
                 pmieducar.instituicao
             INNER JOIN pmieducar.configuracoes_gerais ON TRUE
@@ -80,6 +81,8 @@ trait JsonDataSource
                 AND (instituicao.cod_instituicao = escola.ref_cod_instituicao)
             INNER JOIN relatorio.view_dados_escola ON TRUE
                 AND (escola.cod_escola = view_dados_escola.cod_escola)
+            LEFT JOIN cadastro.juridica ON TRUE
+                AND juridica.idpes = escola.ref_idpes
             LEFT JOIN person_has_place php ON TRUE
                 AND php.person_id = escola.ref_idpes AND php.type = 1
             LEFT JOIN addresses a ON TRUE
