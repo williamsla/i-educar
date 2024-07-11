@@ -551,66 +551,66 @@ return new class extends clsCadastro
         $this->inputsHelper()->textArea(attrName: 'cartorio_emissao_certidao_civil', inputOptions: $options);
 
         // Passaporte
-        $options = [
-            'required' => false,
-            'label' => 'Passaporte',
-            'value' => $documentos['passaporte'],
-            'cols' => 45,
-            'max_length' => 20,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => 'Passaporte',
+        //     'value' => $documentos['passaporte'],
+        //     'cols' => 45,
+        //     'max_length' => 20,
+        // ];
 
-        $this->inputsHelper()->text(attrNames: 'passaporte', inputOptions: $options);
+        //$this->inputsHelper()->text(attrNames: 'passaporte', inputOptions: $options);
 
         // carteira de trabalho
 
-        $options = [
-            'required' => false,
-            'label' => 'Carteira de trabalho / Série',
-            'placeholder' => 'Carteira de trabalho',
-            'value' => $documentos['num_cart_trabalho'],
-            'max_length' => 7,
-            'inline' => true,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => 'Carteira de trabalho / Série',
+        //     'placeholder' => 'Carteira de trabalho',
+        //     'value' => $documentos['num_cart_trabalho'],
+        //     'max_length' => 7,
+        //     'inline' => true,
+        // ];
 
-        $this->inputsHelper()->integer(attrName: 'carteira_trabalho', inputOptions: $options);
+        //$this->inputsHelper()->integer(attrName: 'carteira_trabalho', inputOptions: $options);
 
         // serie carteira de trabalho
 
-        $options = [
-            'required' => false,
-            'label' => '',
-            'placeholder' => 'Série',
-            'value' => $documentos['serie_cart_trabalho'],
-            'max_length' => 5,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => '',
+        //     'placeholder' => 'Série',
+        //     'value' => $documentos['serie_cart_trabalho'],
+        //     'max_length' => 5,
+        // ];
 
-        $this->inputsHelper()->integer(attrName: 'serie_carteira_trabalho', inputOptions: $options);
+        // $this->inputsHelper()->integer(attrName: 'serie_carteira_trabalho', inputOptions: $options);
 
         // uf emissão carteira de trabalho
 
-        $options = [
-            'required' => false,
-            'label' => 'Estado emissão / Data emissão',
-            'value' => $documentos['sigla_uf_cart_trabalho'],
-            'inline' => true,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => 'Estado emissão / Data emissão',
+        //     'value' => $documentos['sigla_uf_cart_trabalho'],
+        //     'inline' => true,
+        // ];
 
-        $helperOptions = [
-            'attrName' => 'uf_emissao_carteira_trabalho',
-        ];
+        // $helperOptions = [
+        //     'attrName' => 'uf_emissao_carteira_trabalho',
+        // ];
 
-        $this->inputsHelper()->uf(inputOptions: $options, helperOptions: $helperOptions);
+        // $this->inputsHelper()->uf(inputOptions: $options, helperOptions: $helperOptions);
 
         // data emissão carteira de trabalho
 
-        $options = [
-            'required' => false,
-            'label' => '',
-            'placeholder' => 'Data emissão',
-            'value' => $documentos['data_emissao_cart_trabalho'],
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => '',
+        //     'placeholder' => 'Data emissão',
+        //     'value' => $documentos['data_emissao_cart_trabalho'],
+        // ];
 
-        $this->inputsHelper()->date(attrName: 'data_emissao_carteira_trabalho', inputOptions: $options);
+        // $this->inputsHelper()->date(attrName: 'data_emissao_carteira_trabalho', inputOptions: $options);
 
         // titulo eleitor
 
@@ -764,23 +764,23 @@ return new class extends clsCadastro
         $this->campoRotulo(nome: 'contato', campo: '<b>Contato</b>', valor: '', duplo: '', descricao: 'Informações de contato da pessoa');
         $this->inputTelefone(type: '1', typeLabel: 'Telefone residencial');
         $this->inputTelefone(type: '2', typeLabel: 'Celular');
-        $this->inputTelefone(type: 'mov', typeLabel: 'Telefone adicional');
-        $this->inputTelefone(type: 'fax', typeLabel: 'Fax');
+        // $this->inputTelefone(type: 'mov', typeLabel: 'Telefone adicional');
+        // $this->inputTelefone(type: 'fax', typeLabel: 'Fax');
         $this->campoTexto(nome: 'email', campo: 'E-mail', valor: $this->email, tamanhovisivel: '50', tamanhomaximo: '255');
 
         // renda
         $this->campoRotulo(nome: 'renda', campo: '<b>Trabalho e renda</b>', valor: '', duplo: '', descricao: 'Informações de trabalho e renda da pessoa');
         $this->campoTexto(nome: 'ocupacao', campo: 'Ocupação', valor: $this->ocupacao, tamanhovisivel: '50', tamanhomaximo: '255');
-        $this->campoMonetario(nome: 'renda_mensal', campo: 'Renda mensal (R$)', valor: $this->renda_mensal, tamanhovisivel: '9', tamanhomaximo: '10');
-        $this->campoData(nome: 'data_admissao', campo: 'Data de admissão', valor: $this->data_admissao);
-        $this->campoTexto(nome: 'empresa', campo: 'Empresa', valor: $this->empresa, tamanhovisivel: '50', tamanhomaximo: '255');
-        $this->inputTelefone(type: 'empresa', typeLabel: 'Telefone da empresa');
-        $this->campoTexto(nome: 'pessoa_contato', campo: 'Pessoa de contato na empresa', valor: $this->pessoa_contato, tamanhovisivel: '50', tamanhomaximo: '255');
-        $this->campoTexto(nome: 'observacao', campo: 'Observação', valor: $this->observacao, tamanhovisivel: '50', tamanhomaximo: '255');
+        // $this->campoMonetario(nome: 'renda_mensal', campo: 'Renda mensal (R$)', valor: $this->renda_mensal, tamanhovisivel: '9', tamanhomaximo: '10');
+        // $this->campoData(nome: 'data_admissao', campo: 'Data de admissão', valor: $this->data_admissao);
+        // $this->campoTexto(nome: 'empresa', campo: 'Empresa', valor: $this->empresa, tamanhovisivel: '50', tamanhomaximo: '255');
+        // $this->inputTelefone(type: 'empresa', typeLabel: 'Telefone da empresa');
+        // $this->campoTexto(nome: 'pessoa_contato', campo: 'Pessoa de contato na empresa', valor: $this->pessoa_contato, tamanhovisivel: '50', tamanhomaximo: '255');
+        // $this->campoTexto(nome: 'observacao', campo: 'Observação', valor: $this->observacao, tamanhovisivel: '50', tamanhomaximo: '255');
 
-        $fileService = new FileService(urlPresigner: new UrlPresigner);
-        $files = $this->cod_pessoa_fj && is_numeric($this->cod_pessoa_fj) ? $fileService->getFiles(relation: LegacyIndividual::find($this->cod_pessoa_fj)) : [];
-        $this->addHtml(html: view(view: 'uploads.upload', data: ['files' => $files])->render());
+        // $fileService = new FileService(urlPresigner: new UrlPresigner);
+        // $files = $this->cod_pessoa_fj && is_numeric($this->cod_pessoa_fj) ? $fileService->getFiles(relation: LegacyIndividual::find($this->cod_pessoa_fj)) : [];
+        // $this->addHtml(html: view(view: 'uploads.upload', data: ['files' => $files])->render());
 
         // after change pessoa pai / mae
 

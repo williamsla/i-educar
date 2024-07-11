@@ -99,7 +99,7 @@ var checkTipoNacionalidade = function() {
     }
     $j('#pais_origem_nome').show();
   } else {
-    $j('#naturalidade_nome').makeRequired();
+    $j('#naturalidade_nome').makeUnrequired();
     $j('#pais_origem_nome').hide();
   }
 }
