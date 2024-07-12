@@ -101,7 +101,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
                 <td>
                     <select id='percentual-frequencia' class='obrigatorio disable-on-search'>
                         <option value=''>Selecione</option>
-                        <option value='buscar-boletim'>Usar do boletim</option>
+                        <option value='buscar-boletim' selected>Usar do boletim</option>
                         <option value='informar-manualmente'>Informar manualmente</option>
                     </select>
                 </td>
@@ -113,7 +113,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
                 <td colspan='2'>
                     <select id='situacao' class='obrigatorio disable-on-search'>
                         <option value=''>Selecione</option>
-                        <option value='buscar-matricula'>Usar do boletim</option>
+                        <option value='buscar-matricula' selected>Usar do boletim</option>
                         <option value='em-andamento'>Cursando</option>
                         <option value='aprovado'>Aprovado</option>
                         <option value='reprovado'>Reprovado</option>
@@ -129,7 +129,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
                 <td>
                     <select id='disciplinas' name='disciplinas' class='obrigatorio disable-on-search'>
                         <option value=''>Selecione</option>
-                        <option value='buscar-boletim'>Usar do boletim</option>
+                        <option value='buscar-boletim' selected>Usar do boletim</option>
                         <option value='informar-manualmente'>Informar manualmente</option>
                     </select>
                 </td>
@@ -165,7 +165,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
                 <td>
                     <select id='notas' class='obrigatorio disable-on-search disable-and-hide-wen-disciplinas-manual'>
                         <option value=''>Selecione</option>
-                        <option value='buscar-boletim'>Lançadas no boletim</option>
+                        <option value='buscar-boletim' selected>Lançadas no boletim</option>
                         <option value='AP'>AP</option>
                         <option value='informar-manualmente'>Informar manualmente</option>
                     </select>
@@ -178,7 +178,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
                 <td>
                     <select id='faltas' class='obrigatorio disable-on-search disable-and-hide-wen-disciplinas-manual'>
                         <option value=''>Selecione</option>
-                        <option value='buscar-boletim'>Lançadas no boletim</option>
+                        <option value='buscar-boletim' selected>Lançadas no boletim</option>
                         <option value='informar-manualmente'>Informar manualmente</option>
                     </select>
                 </td>
@@ -195,7 +195,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
 
             " . $campoPosicao . '
 
-            <tr>
+            <!--<tr>
                 <td><label for=\'registro\'>Registro (arquivo)</label></td>
                 <td colspan=\'2\'><input type=\'text\' id=\'registro\' name=\'registro\'></input></td>
             </tr>
@@ -208,7 +208,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
             <tr>
                 <td><label for=\'dias-letivos\'>Folha</label></td>
                 <td colspan=\'2\'><input type=\'text\' id=\'folha\' name=\'folha\'></input></td>
-            </tr>
+            </tr>-->
 
             <tr>
                 <td><label for=\'observacao\'>Observação</label></td>
@@ -220,7 +220,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
                 <td colspan=\'2\'><input type=\'checkbox\' id=\'extra-curricular\' name=\'extra-curricular\'></input></td>
             </tr>
 
-            <tr>
+            <!--<tr>
                                 <td>
                                         <label for=\'media-area-conhecimento\'>Fechar média por área de conhecimento</label><br>
                                         <sub style=\'vertical-align:top;\'>Caso esse campo seja selecionado, será gerado o histórico das áreas de conhecimento e não dos componentes curriculares</sub>
@@ -231,7 +231,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
             <tr>
                 <td><label for=\'processar-media-geral\'>Processar média geral dos alunos</label><br></td>
                 <td colspan=\'2\'><input type=\'checkbox\' id=\'processar-media-geral\' name=\'processar-media-geral\'></input></td>
-            </tr>
+            </tr>-->
 
         </table>';
 
