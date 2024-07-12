@@ -29,10 +29,11 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
 
     public function Gerar()
     {
-        Portabilis_View_Helper_Application::loadStylesheet($this, [
+        $styles = [
             '/vendor/legacy/HistoricoEscolar/Static/styles/processamento.css',
             '/vendor/legacy/Portabilis/Assets/Plugins/Chosen/chosen.css',
-        ]);
+        ];
+        Portabilis_View_Helper_Application::loadStylesheet($this, $styles);
 
         $this->inputsHelper()->dynamic(['ano', 'instituicao', 'escola']);
 
@@ -236,16 +237,15 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
 
         $this->appendOutput($resourceOptionsTable);
 
-        Portabilis_View_Helper_Application::loadJavascript(
-            $this,
-            [
-                '/vendor/legacy/Portabilis/Assets/Javascripts/Utils.js',
-                '/vendor/legacy/Portabilis/Assets/Plugins/Chosen/chosen.jquery.min.js',
-                '/vendor/legacy/Portabilis/Assets/Javascripts/Frontend/Inputs/MultipleSearch.js',
-                '/vendor/legacy/Portabilis/Assets/Javascripts/Frontend/Inputs/SimpleSearch.js',
-                '/vendor/legacy/HistoricoEscolar/Static/scripts/processamento.js',
-            ]
-        );
+        $scripts = [
+            '/vendor/legacy/Portabilis/Assets/Javascripts/Utils.js',
+            '/vendor/legacy/Portabilis/Assets/Plugins/Chosen/chosen.jquery.min.js',
+            '/vendor/legacy/Portabilis/Assets/Javascripts/Frontend/Inputs/MultipleSearch.js',
+            '/vendor/legacy/Portabilis/Assets/Javascripts/Frontend/Inputs/SimpleSearch.js',
+            '/vendor/legacy/HistoricoEscolar/Static/scripts/processamento.js',
+        ];
+
+        Portabilis_View_Helper_Application::loadJavascript($this, $scripts);
     }
 
     public function getSelectGradeCurso()
