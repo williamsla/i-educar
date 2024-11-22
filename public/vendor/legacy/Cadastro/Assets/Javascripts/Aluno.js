@@ -279,7 +279,7 @@ function formularioValido() {
     return certidaoCasamentoInvalida();
   }
 
-  if (
+  /*if (
     $j("#aluno_estado_id").val() !== "" &&
     !(
       $j("#aluno_estado_id").val().length === 13 ||
@@ -290,7 +290,7 @@ function formularioValido() {
       "O campo Código rede estadual (RA) deve conter exatos 13 ou 11 dígitos."
     );
     return false;
-  }
+  }*/
 
   $tipoTransporte = $j("#tipo_transporte");
 

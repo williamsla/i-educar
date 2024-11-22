@@ -361,12 +361,12 @@ class AlunoController extends Portabilis_Controller_Page_EditController
             $this->inputsHelper()->integer('aluno_inep_id', $options);
         }
 
-        $this->campoRA(
-            'aluno_estado_id',
-            'Código rede estadual do aluno (RA)',
-            $this->aluno_estado_id,
-            false
-        );
+        // $this->campoRA(
+        //     'aluno_estado_id',
+        //     'Código rede estadual do aluno (RA)',
+        //     $this->aluno_estado_id,
+        //     false
+        // );
 
         if (config('legacy.app.alunos.mostrar_codigo_sistema')) {
             $options = [
@@ -615,16 +615,16 @@ class AlunoController extends Portabilis_Controller_Page_EditController
 
         $this->inputsHelper()->select('justificativa_falta_documentacao', $options);
 
-        $labelPassaporte = 'Passaporte';
-        $options = [
-            'required' => false,
-            'label' => $labelPassaporte,
-            'value' => $documentos['passaporte'],
-            'cols' => 45,
-            'max_length' => 20,
-        ];
+        // $labelPassaporte = 'Passaporte';
+        // $options = [
+        //     'required' => false,
+        //     'label' => $labelPassaporte,
+        //     'value' => $documentos['passaporte'],
+        //     'cols' => 45,
+        //     'max_length' => 20,
+        // ];
 
-        $this->inputsHelper()->text('passaporte', $options);
+        // $this->inputsHelper()->text('passaporte', $options);
 
         $options = [
             'required' => false,
@@ -648,90 +648,90 @@ class AlunoController extends Portabilis_Controller_Page_EditController
 
         $this->inputsHelper()->text('parentesco_um', $options);
 
-        $options = [
-            'required' => false,
-            'label' => 'Nome autorizado a buscar o aluno / Parentesco',
-            'placeholder' => 'Nome autorizado',
-            'max_length' => 150,
-            'size' => 50,
-            'inline' => true,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => 'Nome autorizado a buscar o aluno / Parentesco',
+        //     'placeholder' => 'Nome autorizado',
+        //     'max_length' => 150,
+        //     'size' => 50,
+        //     'inline' => true,
+        // ];
 
-        $this->inputsHelper()->text('autorizado_dois', $options);
+        // $this->inputsHelper()->text('autorizado_dois', $options);
 
-        $options = [
-            'required' => false,
-            'label' => '',
-            'placeholder' => 'Parentesco',
-            'max_length' => 150,
-            'size' => 15,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => '',
+        //     'placeholder' => 'Parentesco',
+        //     'max_length' => 150,
+        //     'size' => 15,
+        // ];
 
-        $this->inputsHelper()->text('parentesco_dois', $options);
+        // $this->inputsHelper()->text('parentesco_dois', $options);
 
-        $options = [
-            'required' => false,
-            'label' => 'Nome autorizado a buscar o aluno / Parentesco',
-            'placeholder' => 'Nome autorizado',
-            'max_length' => 150,
-            'size' => 50,
-            'inline' => true,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => 'Nome autorizado a buscar o aluno / Parentesco',
+        //     'placeholder' => 'Nome autorizado',
+        //     'max_length' => 150,
+        //     'size' => 50,
+        //     'inline' => true,
+        // ];
 
-        $this->inputsHelper()->text('autorizado_tres', $options);
+        // $this->inputsHelper()->text('autorizado_tres', $options);
 
-        $options = [
-            'required' => false,
-            'label' => '',
-            'placeholder' => 'Parentesco',
-            'max_length' => 150,
-            'size' => 15,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => '',
+        //     'placeholder' => 'Parentesco',
+        //     'max_length' => 150,
+        //     'size' => 15,
+        // ];
 
-        $this->inputsHelper()->text('parentesco_tres', $options);
+        // $this->inputsHelper()->text('parentesco_tres', $options);
 
-        $options = [
-            'required' => false,
-            'label' => 'Nome autorizado a buscar o aluno / Parentesco',
-            'placeholder' => 'Nome autorizado',
-            'max_length' => 150,
-            'size' => 50,
-            'inline' => true,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => 'Nome autorizado a buscar o aluno / Parentesco',
+        //     'placeholder' => 'Nome autorizado',
+        //     'max_length' => 150,
+        //     'size' => 50,
+        //     'inline' => true,
+        // ];
 
-        $this->inputsHelper()->text('autorizado_quatro', $options);
+        // $this->inputsHelper()->text('autorizado_quatro', $options);
 
-        $options = [
-            'required' => false,
-            'label' => '',
-            'placeholder' => 'Parentesco',
-            'max_length' => 150,
-            'size' => 15,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => '',
+        //     'placeholder' => 'Parentesco',
+        //     'max_length' => 150,
+        //     'size' => 15,
+        // ];
 
-        $this->inputsHelper()->text('parentesco_quatro', $options);
+        // $this->inputsHelper()->text('parentesco_quatro', $options);
 
-        $options = [
-            'required' => false,
-            'label' => 'Nome autorizado a buscar o aluno / Parentesco',
-            'placeholder' => 'Nome autorizado',
+        // $options = [
+        //     'required' => false,
+        //     'label' => 'Nome autorizado a buscar o aluno / Parentesco',
+        //     'placeholder' => 'Nome autorizado',
 
-            'max_length' => 150,
-            'size' => 50,
-            'inline' => true,
-        ];
+        //     'max_length' => 150,
+        //     'size' => 50,
+        //     'inline' => true,
+        // ];
 
-        $this->inputsHelper()->text('autorizado_cinco', $options);
+        // $this->inputsHelper()->text('autorizado_cinco', $options);
 
-        $options = [
-            'required' => false,
-            'label' => '',
-            'placeholder' => 'Parentesco',
-            'max_length' => 150,
-            'size' => 15,
-        ];
+        // $options = [
+        //     'required' => false,
+        //     'label' => '',
+        //     'placeholder' => 'Parentesco',
+        //     'max_length' => 150,
+        //     'size' => 15,
+        // ];
 
-        $this->inputsHelper()->text('parentesco_cinco', $options);
+        // $this->inputsHelper()->text('parentesco_cinco', $options);
 
         $this->inputPai();
 
@@ -769,31 +769,31 @@ class AlunoController extends Portabilis_Controller_Page_EditController
 
         $this->inputsHelper()->select('tipo_transporte', $options);
 
-        $options = [
-            'label' => 'Utiliza transporte rural',
-            'resources' => [
-                null => 'Selecione',
-                true => 'Sim',
-                false => 'Não',
-            ],
-            'required' => false,
-        ];
+        // $options = [
+        //     'label' => 'Utiliza transporte rural',
+        //     'resources' => [
+        //         null => 'Selecione',
+        //         true => 'Sim',
+        //         false => 'Não',
+        //     ],
+        //     'required' => false,
+        // ];
 
-        $this->inputsHelper()->select('utiliza_transporte_rural', $options);
+        // $this->inputsHelper()->select('utiliza_transporte_rural', $options);
 
-        $veiculos = VeiculoTransporteEscolar::getDescriptiveValues();
-        $helperOptions = ['objectName' => 'veiculo_transporte_escolar'];
-        $options = [
-            'label' => 'Veículo utilizado',
-            'required' => true,
-            'options' => [
-                'all_values' => $veiculos,
-            ],
-        ];
-        $this->inputsHelper()->multipleSearchCustom('', $options, $helperOptions);
+        // $veiculos = VeiculoTransporteEscolar::getDescriptiveValues();
+        // $helperOptions = ['objectName' => 'veiculo_transporte_escolar'];
+        // $options = [
+        //     'label' => 'Veículo utilizado',
+        //     'required' => true,
+        //     'options' => [
+        //         'all_values' => $veiculos,
+        //     ],
+        // ];
+        // $this->inputsHelper()->multipleSearchCustom('', $options, $helperOptions);
 
-        $options = ['label' => $this->_getLabel('rota_transporte'), 'required' => false, 'size' => 50, 'max_length' => 200, 'value' => $this->rota_transporte];
-        $this->inputsHelper()->textArea('rota_transporte', $options);
+        // $options = ['label' => $this->_getLabel('rota_transporte'), 'required' => false, 'size' => 50, 'max_length' => 200, 'value' => $this->rota_transporte];
+        // $this->inputsHelper()->textArea('rota_transporte', $options);
 
         $this->inputsHelper()->religiao(['required' => false, 'label' => 'Religião']);
 
@@ -834,8 +834,8 @@ class AlunoController extends Portabilis_Controller_Page_EditController
             $this->inputsHelper()->hidden('alfabetizado');
         }
 
-        $options = ['label' => $this->_getLabel('emancipado')];
-        $this->inputsHelper()->checkbox('emancipado', $options);
+        // $options = ['label' => $this->_getLabel('emancipado')];
+        // $this->inputsHelper()->checkbox('emancipado', $options);
 
         $this->campoArquivo('documento', $this->_getLabel('documento'), $this->documento, 40, '<br/> <span id=\'span-documento\' style=\'font-style: italic; font-size= 10px;\'\'> São aceitos arquivos nos formatos jpg, png, pdf e gif. Tamanho máximo: 2MB</span>');
 

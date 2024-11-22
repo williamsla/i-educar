@@ -28,6 +28,20 @@
         };
 
         getResources(options);
+      } else if ($instituicaoField.val()) {
+        $cursoField.children().first().html('Aguarde carregando...');
+        let urlForGetCursos = getResourceUrlBuilder.buildUrl('/module/DynamicInput/Curso', 'cursos', {
+          instituicao_id: $instituicaoField.attr('value'),
+          ano: ($ano.val() && $ano.val() != "NaN" ? $ano.val() : '')
+        });
+
+        let options = {
+          url: urlForGetCursos,
+          dataType: 'json',
+          success: handleGetCursos
+        };
+
+        getResources(options);
       }
 
       $cursoField.change();
