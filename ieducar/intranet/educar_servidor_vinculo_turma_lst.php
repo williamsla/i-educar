@@ -77,7 +77,7 @@ return new class extends clsListagem
             $obj_vinculo->codUsuario = $this->pessoa_logada;
         }
 
-        $obj_vinculo->setOrderby(strNomeCampo: ' nm_escola, nm_curso, nm_serie, nm_turma ASC');
+        $obj_vinculo->setOrderby(strNomeCampo: ' ano DESC, nm_escola, nm_curso, nm_serie, nm_turma ASC');
 
         $obj_vinculo->setLimite(intLimiteQtd: $this->limite, intLimiteOffset: $this->offset);
 
