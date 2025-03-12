@@ -731,6 +731,8 @@ class ProcessamentoApiController extends Core_Controller_Page_EditController
 
             $isGlobalScoreForStage = $this->getService()->getEvaluationRule()->isGlobalScore();
 
+            $dominio = $_SERVER['HTTP_HOST'];
+
             foreach ($this->getService()->getComponentes() as $componenteCurricular) {
                 if (!$this->shouldProcessAreaConhecimento($componenteCurricular->get('area_conhecimento'))) {
                     continue;
@@ -750,9 +752,12 @@ class ProcessamentoApiController extends Core_Controller_Page_EditController
                     $nota = $this->DISCIPLINA_DISPENSADA;
                 } elseif ($this->getRequest()->notas == 'buscar-boletim') {
                     if ($tpNota == RegraAvaliacao_Model_Nota_TipoValor::CONCEITUAL) {
-                        if (config('legacy.app.processar_historicos_conceituais') == '1') {
-                            $nota = (string) $mediasCc[$ccId][0]->mediaArredondada;
-                            $notaConceitualNumerica = (string) $mediasCc[$ccId][0]->media;
+                        // if (config('legacy.app.processar_historicos_conceituais') == '1') {
+                        //     $nota = (string) $mediasCc[$ccId][0]->mediaArredondada;
+                        //     $notaConceitualNumerica = (string) $mediasCc[$ccId][0]->media;
+                        // }
+                        if ($aprovado == true) {                            
+                            $nota = (str_contains($dominio, "coitedonoia") || str_contains($dominio, "japaratinga")) ? "APC" : "PPC";
                         }
                     } elseif ($tpNota == RegraAvaliacao_Model_Nota_TipoValor::NUMERICA) {
                         $nota = (string) $mediasCc[$ccId][0]->mediaArredondada;
@@ -761,8 +766,7 @@ class ProcessamentoApiController extends Core_Controller_Page_EditController
                         $notaConceitualNumerica = (string) $mediasCc[$ccId][0]->media;
                     } elseif ($tpNota == RegraAvaliacao_Model_Nota_TipoValor::NENHUM) { // parecer descritivo
                         if ($aprovado == true) {
-                            $dominio = $_SERVER['HTTP_HOST'];
-                            $nota = str_contains($dominio, "coitedonoia") ? "APC" : "PPC";
+                            $nota = (str_contains($dominio, "coitedonoia") || str_contains($dominio, "japaratinga")) ? "APC" : "PPC";
                         }                        
                     }                    
                 } else {
