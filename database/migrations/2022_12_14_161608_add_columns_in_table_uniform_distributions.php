@@ -8,13 +8,18 @@ return new class() extends Migration
 {
     public function up()
     {
-        Schema::table('uniform_distributions', function (Blueprint $table) {
-            $table->smallInteger('coat_jacket_qty')->nullable();
-            $table->string('coat_jacket_tm', 20)->nullable();
-            $table->string('type', 20)->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
+        if (!Schema::hasColumn('public.uniform_distributions', 'coat_jacket_qty')
+            && !Schema::hasColumn('public.uniform_distributions', 'coat_jacket_tm')
+            && !Schema::hasColumn('public.uniform_distributions', 'type')) {
+
+            Schema::table('uniform_distributions', function (Blueprint $table) {
+                $table->smallInteger('coat_jacket_qty')->nullable();
+                $table->string('coat_jacket_tm', 20)->nullable();
+                $table->string('type', 20)->nullable();
+                $table->timestamps();
+                $table->softDeletes();
+            });
+        }
     }
 
     public function down()

@@ -6,7 +6,9 @@ return new class() extends Migration
 {
     public function up()
     {
-        DB::unprepared('ALTER TABLE IF EXISTS pmieducar.uniform_distributions SET SCHEMA public;');
+        if (!Schema::hasTable('public.uniform_distributions')) {
+            DB::unprepared('ALTER TABLE IF EXISTS pmieducar.uniform_distributions SET SCHEMA public;');
+        }
     }
 
     public function down()

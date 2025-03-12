@@ -8,10 +8,14 @@ return new class() extends Migration
 {
     public function up(): void
     {
-        Schema::table('pmieducar.turma', function (Blueprint $table) {
-            $table->text('outras_unidades_curriculares_obrigatorias')->nullable();
-            $table->smallInteger('classe_com_lingua_brasileira_sinais')->nullable();
-        });
+        if (!Schema::hasColumn('pmieducar.turma', 'outras_unidades_curriculares_obrigatorias')
+            && !Schema::hasColumn('pmieducar.turma', 'classe_com_lingua_brasileira_sinais')) {
+            
+            Schema::table('pmieducar.turma', function (Blueprint $table) {
+                $table->text('outras_unidades_curriculares_obrigatorias')->nullable();
+                $table->smallInteger('classe_com_lingua_brasileira_sinais')->nullable();
+            });
+        }
     }
 
     public function down(): void

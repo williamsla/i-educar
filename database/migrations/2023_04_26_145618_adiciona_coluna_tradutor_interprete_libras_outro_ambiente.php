@@ -13,9 +13,11 @@ return new class() extends Migration
      */
     public function up()
     {
-        Schema::table('pmieducar.escola', function (Blueprint $table) {
-            $table->integer('qtd_tradutor_interprete_libras_outro_ambiente')->nullable();
-        });
+        if (!Schema::hasColumn('pmieducar.escola', 'qtd_tradutor_interprete_libras_outro_ambiente')) { 
+            Schema::table('pmieducar.escola', function (Blueprint $table) {
+                $table->integer('qtd_tradutor_interprete_libras_outro_ambiente')->nullable();
+            });
+        }
     }
 
     /**

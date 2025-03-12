@@ -8,9 +8,11 @@ return new class() extends Migration
 {
     public function up()
     {
-        Schema::table('pmieducar.instituicao', function (Blueprint $table) {
-            $table->boolean('obrigar_cpf')->default(true);
-        });
+        if (!Schema::hasColumn('pmieducar.instituicao', 'obrigar_cpf')) { 
+            Schema::table('pmieducar.instituicao', function (Blueprint $table) {
+                $table->boolean('obrigar_cpf')->default(true);
+            });
+        }
     }
 
     public function down()

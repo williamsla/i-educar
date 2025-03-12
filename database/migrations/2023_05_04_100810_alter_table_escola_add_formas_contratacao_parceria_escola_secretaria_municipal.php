@@ -19,12 +19,14 @@ return new class() extends Migration
 
         DB::connection()->setSchemaGrammar($typeClass);
 
-        Schema::table(
-            'pmieducar.escola',
-            static fn (Blueprint $table) => $table
-                ->addColumn('int_array', 'formas_contratacao_parceria_escola_secretaria_municipal')
-                ->nullable()
-        );
+        if (!Schema::hasColumn('pmieducar.escola', 'formas_contratacao_parceria_escola_secretaria_municipal')) {
+            Schema::table(
+                'pmieducar.escola',
+                static fn (Blueprint $table) => $table
+                    ->addColumn('int_array', 'formas_contratacao_parceria_escola_secretaria_municipal')
+                    ->nullable()
+            );
+        }
     }
 
     /**

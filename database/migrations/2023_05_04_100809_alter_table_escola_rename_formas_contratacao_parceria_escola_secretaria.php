@@ -12,7 +12,9 @@ return new class() extends Migration
      */
     public function up()
     {
-        DB::unprepared('alter table pmieducar.escola rename column formas_contratacao_parceria_escola_secretaria to formas_contratacao_parceria_escola_secretaria_estadual;');
+        if (!Schema::hasColumn('pmieducar.escola', 'formas_contratacao_parceria_escola_secretaria_estadual')) {
+            DB::unprepared('alter table pmieducar.escola rename column formas_contratacao_parceria_escola_secretaria to formas_contratacao_parceria_escola_secretaria_estadual;');
+        }
     }
 
     /**

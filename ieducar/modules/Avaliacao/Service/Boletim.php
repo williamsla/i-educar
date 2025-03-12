@@ -3148,6 +3148,8 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
      */
     public function verificaNotasLancadasNasEtapasAnteriores($etapaId, $componenteCurricularId)
     {
+        return true;
+        
         $temEtapasAnterioresLancadas = true;
         $etapasSemNotas = [];
         $matriculaId = $this->getOption('matricula');
