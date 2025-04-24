@@ -9,10 +9,10 @@ class Portabilis_View_Helper_Input_Resource_Religiao extends Portabilis_View_Hel
         $resources = $options['resources'];
 
         if (empty($options['resources'])) {
-            $resources = Religion::query()
-                ->orderBy('name')
-                ->pluck('name', 'id')
-                ->prepend('Selecione', '');
+            // $resources = Religion::query()
+            //     ->orderBy('nm_religiao')
+            //     ->pluck('nm_religiao', 'cod_religiao')
+            //     ->prepend('Selecione', '');
         }
 
         return $this->insertOption(null, 'Religião', $resources);
