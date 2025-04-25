@@ -41,6 +41,30 @@
     </script>
 
     <style>
+        /* Estilos básicos */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Fundo com curvas coloridas e suaves */
+        body::before {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M-10,100 C100,200 300,0 500,150 S800,200 1000,50" stroke="%2378C1F3" stroke-width="3" stroke-opacity="0.3" fill="none"/><path d="M-50,300 C150,100 350,400 600,250 S900,300 1200,100" stroke="%23A389F4" stroke-width="3" stroke-opacity="0.3" fill="none"/><path d="M-30,500 C200,600 400,350 700,500 S1100,500 1300,300" stroke="%23FF9F43" stroke-width="3" stroke-opacity="0.3" fill="none"/></svg>');
+            opacity: 0.5;
+            z-index: -1;
+        }
+        
         #eye {
             cursor: pointer;
             position: absolute;
