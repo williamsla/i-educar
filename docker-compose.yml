@@ -1,10 +1,11 @@
-version: '3.8'
+version: '3.7'
 
 services:
 
   php:
     container_name: ieducar-php
     build: docker/php
+    # command: sh ./docker/php/start
     links:
       - postgres
       - redis
@@ -16,6 +17,11 @@ services:
     working_dir: /var/www/ieducar
     volumes:
       - ./:/var/www/ieducar
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - ieducar
 
   nginx:
     container_name: ieducar-nginx
@@ -26,6 +32,11 @@ services:
     volumes:
       - ./:/var/www/ieducar
       - ./docker/nginx:/etc/nginx/conf.d/
+    depends_on:
+      - php
+    networks:
+      - ieducar
+    
 
   postgres:
     container_name: ieducar-postgres
@@ -36,11 +47,20 @@ services:
       POSTGRES_PASSWORD: ieducar
     volumes:
       - postgres:/var/lib/postgresql/data
+      - /home/usuario/projetos/edu/backup:/backup
+      # command: executar manualmente dentro do container ieducar-postgres os comandos do arquivo ./script/restore-backup
+    networks:
+      - ieducar
 
   redis:
     container_name: ieducar-redis
     image: redis:alpine
     restart: always
+    networks:
+      - ieducar
 
 volumes:
     postgres:
+
+networks:
+  ieducar:

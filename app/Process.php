@@ -24,6 +24,8 @@ class Process
 
     public const MENU_EMPLOYEES = 71;
 
+    public const MENU_GOODS = 72; //Merenda
+
     public const REGISTRATIONS = 578;
 
     public const ENROLLMENT_HISTORY = 1001;
@@ -75,4 +77,20 @@ class Process
     public const CONSULTAS = 9998890;
 
     public const ACTIVE_LOOKING = 9998921;
+
+    public const ANNOUNCEMENT = 9999114;
+
+    public const BLOCK_ENROLLMENT = 9999115;
+
+    public const SCHOOLCLASS_PERIOD = 9999116;
+
+    public const FORNECEDORES = 9999118; //Merenda
+
+    public const PRODUTOS = 9999119; //Merenda
+
+    public const ENTRADAS = 9999120; //Merenda
+
+    public const SAIDAS = 9999121; //Merenda
+
+    public const CARDAPIOS = 9999122; //Merenda
 }

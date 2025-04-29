@@ -1,0 +1,25 @@
+#!/bin/bash
+
+composer install
+
+composer plug-and-play:update
+php artisan storage:link
+php artisan migrate
+
+php artisan db:seed --class=MenuMerendaSeeder
+
+mkdir -p storage/logs
+mkdir -p storage/framework/views
+mkdir -p storage/framework/cache
+mkdir -p storage/framework/sessions
+
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+
+if ! test -f ".setup"; then
+
+
+  touch .setup
+fi
+
+echo "Starting.."
