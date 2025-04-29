@@ -25,7 +25,7 @@ AS SELECT p.idpes AS id,
               else 'Não informado'::varchar
           end as nationality,
           COALESCE( ci."name"||' - '||st.abbreviation , 'Não informado') as birthplace,
-          re.nm_religiao AS religion
+          re.name AS religion
    FROM cadastro.pessoa p
      JOIN cadastro.fisica f ON f.idpes = p.idpes
      LEFT JOIN cadastro.fisica_raca fr ON fr.ref_idpes = f.idpes
@@ -33,5 +33,5 @@ AS SELECT p.idpes AS id,
      LEFT JOIN cadastro.documento d ON d.idpes = p.idpes
      LEFT JOIN public.cities ci ON ci.id = f.idmun_nascimento
      LEFT JOIN public.states st on ci.state_id = st.id
-     LEFT JOIN pmieducar.religions re on re.cod_religiao = f.ref_cod_religiao
+     LEFT JOIN pmieducar.religions re on re.id = f.ref_cod_religiao
   WHERE true AND f.ativo = 1;

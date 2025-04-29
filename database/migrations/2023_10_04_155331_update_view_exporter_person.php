@@ -13,7 +13,7 @@ return new class() extends Migration
         $this->dropView('public.exporter_student');
         $this->dropView('public.exporter_student_grouped_registration');
         $this->dropView('public.exporter_teacher');
-        $this->dropView('public.exporter_person');
+        DB::statement('DROP VIEW IF EXISTS public.exporter_person CASCADE;');
 
         $this->createView('public.exporter_person', '2023-10-05');
         $this->createView('public.exporter_teacher', '2023-06-19');
@@ -28,7 +28,7 @@ return new class() extends Migration
         $this->dropView('public.exporter_student');
         $this->dropView('public.exporter_student_grouped_registration');
         $this->dropView('public.exporter_teacher');
-        $this->dropView('public.exporter_person');
+        DB::statement('DROP VIEW IF EXISTS public.exporter_person CASCADE;');
 
         $this->createView('public.exporter_person', '2023-10-04');
         $this->createView('public.exporter_teacher', '2023-06-19');

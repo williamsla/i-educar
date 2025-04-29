@@ -13,11 +13,13 @@ return new class() extends Migration
      */
     public function up()
     {
-        Schema::table('pmieducar.aluno', static function (Blueprint $table) {
-            return $table
-                ->integer('tipo_transporte')
-                ->default(0);
-        });
+        if (!Schema::hasColumn('pmieducar.aluno', 'tipo_transporte')) {
+            Schema::table('pmieducar.aluno', static function (Blueprint $table) {
+                return $table
+                    ->integer('tipo_transporte')
+                    ->default(0);
+            });
+        }
     }
 
     /**
@@ -27,8 +29,10 @@ return new class() extends Migration
      */
     public function down()
     {
-        Schema::table('pmieducar.aluno', static function (Blueprint $table) {
-            return $table->dropColumn('tipo_transporte');
-        });
+        if (Schema::hasColumn('pmieducar.aluno', 'tipo_transporte')) {
+            Schema::table('pmieducar.aluno', static function (Blueprint $table) {
+                return $table->dropColumn('tipo_transporte');
+            });
+        }
     }
 };

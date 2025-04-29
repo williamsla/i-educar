@@ -19,9 +19,11 @@ return new class() extends Migration
 
         DB::connection()->setSchemaGrammar($typeClass);
 
-        Schema::table('pmieducar.servidor', function (Blueprint $table) {
-            $table->addColumn('int_array', 'complementacao_pedagogica')->nullable();
-        });
+        if (!Schema::hasColumn('pmieducar.servidor', 'complementacao_pedagogica')) {
+            Schema::table('pmieducar.servidor', function (Blueprint $table) {
+                $table->addColumn('int_array', 'complementacao_pedagogica')->nullable();
+            });
+        }
     }
 
     /**
@@ -31,8 +33,10 @@ return new class() extends Migration
      */
     public function down()
     {
-        Schema::table('pmieducar.servidor', function (Blueprint $table) {
-            $table->dropColumn('complementacao_pedagogica');
-        });
+        if (Schema::hasColumn('pmieducar.servidor', 'complementacao_pedagogica')) {
+            Schema::table('pmieducar.servidor', function (Blueprint $table) {
+                $table->dropColumn('complementacao_pedagogica');
+            });
+        }
     }
 };
