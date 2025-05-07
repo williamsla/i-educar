@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.7'
 
 services:
 
@@ -16,26 +16,32 @@ services:
     working_dir: /var/www/ieducar
     volumes:
       - ./:/var/www/ieducar
+    entrypoint: ["sh", "/usr/local/bin/entrypoint.sh"]
 
   nginx:
     container_name: ieducar-nginx
     image: nginx:alpine
+    ports:
+      - "80:80"
     links:
       - php
     working_dir: /var/www/ieducar
     volumes:
       - ./:/var/www/ieducar
-      - ./docker/nginx:/etc/nginx/conf.d/
+      - ./docker/nginx:/etc/nginx/conf.d/      
 
   postgres:
     container_name: ieducar-postgres
     image: postgres:alpine
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: ieducar
       POSTGRES_USER: ieducar
       POSTGRES_PASSWORD: ieducar
     volumes:
       - postgres:/var/lib/postgresql/data
+      - ../backup:/backup
 
   redis:
     container_name: ieducar-redis

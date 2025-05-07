@@ -8,12 +8,14 @@
 /docker/jasper/
 /vendor
 /ieducar-*
+composer.lock
 composer-plug-and-play.json
 composer-plug-and-play.lock
 laravel-echo-server.json
 package-lock.json
 
 ieducar-*.tar.gz
+.setup
 .env
 .env.host
 .env.testing
@@ -24,6 +26,7 @@ docker-compose.override.yml
 /public/hot
 /public/storage
 /storage/*.key
+/storage/*/.gitignore
 Homestead.json
 Homestead.yaml
 npm-debug.log

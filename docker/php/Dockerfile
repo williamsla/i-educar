@@ -20,7 +20,7 @@ RUN apk add --update \
     libzip-dev  \
     linux-headers \
     openjdk8  \
-    postgresql14-client \
+    postgresql-client \
     postgresql-dev \
     ttf-dejavu \
     unzip \
@@ -64,3 +64,6 @@ RUN apk del .phpize_deps
 RUN ln -s /var/www/ieducar/artisan /usr/local/bin/artisan
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
