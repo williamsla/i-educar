@@ -92,15 +92,18 @@ class ServidorController extends ApiCoreController
         }
 
         $sql = "
-            SELECT
+            SELECT DISTINCT
                 s.cod_servidor as servidor_id,
                 LPAD(f.cpf::text, 11, '0') AS cpf,
                 p.nome as nome,
                 s.ativo as ativo,
                 sa.ref_cod_escola as escola_id,
+                func.nm_funcao as nm_funcao,
                 greatest(p.data_rev::timestamp(0), s.updated_at) as updated_at
             FROM pmieducar.servidor s
             INNER JOIN pmieducar.servidor_alocacao sa ON sa.ref_cod_servidor = s.cod_servidor
+            INNER JOIN pmieducar.servidor_funcao sf on sf.cod_servidor_funcao = sa.ref_cod_servidor_funcao 
+            INNER JOIN pmieducar.funcao func on func.cod_funcao = sf.ref_cod_funcao  
             INNER JOIN cadastro.pessoa p ON s.cod_servidor = p.idpes
             INNER JOIN cadastro.fisica f ON f.idpes = p.idpes
             WHERE s.ref_cod_instituicao = $1
@@ -110,7 +113,7 @@ class ServidorController extends ApiCoreController
 
         $servidores = $this->fetchPreparedQuery($sql, $params);
 
-        $attrs = ['servidor_id', 'cpf', 'nome', 'ativo', 'escola_id', 'updated_at'];
+        $attrs = ['servidor_id', 'cpf', 'nome', 'ativo', 'escola_id', 'nm_funcao', 'updated_at'];
 
         $servidores = Portabilis_Array_Utils::filterSet($servidores, $attrs);
 
