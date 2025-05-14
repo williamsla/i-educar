@@ -94,7 +94,7 @@ class ServidorController extends ApiCoreController
         $sql = "
             SELECT DISTINCT
                 s.cod_servidor as servidor_id,
-                LPAD(f.cpf::text, 11, '0') AS cpf,
+                REGEXP_REPLACE(LPAD(f.cpf::text, 11, '0'), '(\d{3})(\d{3})(\d{3})(\d{2})', '\1.\2.\3-\4') as cpf,
                 p.nome as nome,
                 s.ativo as ativo,
                 sa.ref_cod_escola as escola_id,
