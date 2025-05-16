@@ -7,7 +7,10 @@
 
   $j(function () {
     if (campoInstituicao.length === 2) {
-    $j('#ref_cod_instituicao option:eq(1)').prop('selected', true).change();
+      $j('#ref_cod_instituicao option:eq(1)').prop('selected', true).change();
+      if (campoEscola.length === 2) {
+        $j('#ref_cod_escola option:eq(1)').prop('selected', true).change();
+      }    
     }    
   });
 
