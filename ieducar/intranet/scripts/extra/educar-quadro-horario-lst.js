@@ -16,11 +16,13 @@
 
   campoInstituicao.onchange = function()
   {
-    setAttributes(campoEscola,'Carregando escola');
-    setAttributes(campoCurso,'Selecione uma escola antes');
-    setAttributes(campoSerie,'Selecione um curso antes');
-    setAttributes(campoTurma,'Selecione uma Série antes');
-    getApiResource("/api/resource/school",getEscola,{institution:campoInstituicao.value});
+    if (campoEscola.length < 2) {
+      setAttributes(campoEscola,'Carregando escola');
+      setAttributes(campoCurso,'Selecione uma escola antes');
+      setAttributes(campoSerie,'Selecione um curso antes');
+      setAttributes(campoTurma,'Selecione uma Série antes');
+      getApiResource("/api/resource/school",getEscola,{institution:campoInstituicao.value});
+    }
   };
 
   campoEscola.onchange = function()
@@ -55,26 +57,24 @@
   };
 
   if (document.getElementById('botao_busca')) {
-  obj_botao_busca = document.getElementById('botao_busca');
-  obj_botao_busca.onclick = function()
-{
-  document.formcadastro.action = 'educar_quadro_horario_lst.php?busca=S';
-  acao();
-};
-}
+    obj_botao_busca = document.getElementById('botao_busca');
+    obj_botao_busca.onclick = function() {
+        document.formcadastro.action = 'educar_quadro_horario_lst.php?busca=S';
+        acao();
+    };
+  }
 
   function envia(obj, var1, var2, var3, var4, var5, var6, var7, var8)
   {
     var identificador = Math.round(1000000000 * Math.random());
 
     if (obj.innerHTML) {
-    document.formcadastro.action = 'educar_quadro_horario_cad.php?ref_cod_turma=' + var1 + '&ref_cod_serie=' + var2 + '&ref_cod_curso=' + var3 + '&ref_cod_escola=' + var4 + '&ref_cod_instituicao=' + var5 + '&ref_cod_quadro_horario=' + var6 + '&dia_semana=' + var7 + '&ano=' + var8 + '&identificador=' + identificador;
-    document.formcadastro.submit();
-  }
-    else {
-    document.formcadastro.action = 'educar_quadro_horario_cad.php?ref_cod_turma=' + var1 + '&ref_cod_serie=' + var2 + '&ref_cod_curso=' + var3 + '&ref_cod_escola=' + var4 + '&ref_cod_instituicao=' + var5 + '&ref_cod_quadro_horario=' + var6 + '&dia_semana=' + var7 + '&ano=' + var8 + '&identificador=' + identificador;
-    document.formcadastro.submit();
-  }
+      document.formcadastro.action = 'educar_quadro_horario_horarios_cad.php?ref_cod_turma=' + var1 + '&ref_cod_serie=' + var2 + '&ref_cod_curso=' + var3 + '&ref_cod_escola=' + var4 + '&ref_cod_instituicao=' + var5 + '&ref_cod_quadro_horario=' + var6 + '&dia_semana=' + var7 + '&ano=' + var8 + '&identificador=' + identificador;
+      document.formcadastro.submit();
+    } else {
+      document.formcadastro.action = 'educar_quadro_horario_horarios_cad.php?ref_cod_turma=' + var1 + '&ref_cod_serie=' + var2 + '&ref_cod_curso=' + var3 + '&ref_cod_escola=' + var4 + '&ref_cod_instituicao=' + var5 + '&ref_cod_quadro_horario=' + var6 + '&dia_semana=' + var7 + '&ano=' + var8 + '&identificador=' + identificador;
+      document.formcadastro.submit();
+    }
   }
 
   if (document.createStyleSheet) {
