@@ -778,9 +778,9 @@ class clsPmieducarServidor extends Model
             OR ('{$array_horario[1]}' = qhh.hora_inicial AND '{$array_horario[2]}' = qhh.hora_final)
             OR ('{$array_horario[1]}' <= qhh.hora_inicial AND '{$array_horario[2]}' >= qhh.hora_final))
         AND qhh.ativo = '1'
-        {$whereAno}";
+        {$whereAno} ";
             if (is_string($lst_matriculas)) {
-                $filtros .= "AND qhh.ref_servidor NOT IN ({$lst_matriculas})";
+                $filtros .= " AND qhh.ref_servidor NOT IN ({$lst_matriculas})";
             }
             $filtros .= ' ) OR s.multi_seriado) ';
             $whereAnd = ' AND ';

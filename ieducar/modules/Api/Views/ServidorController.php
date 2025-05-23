@@ -94,7 +94,7 @@ class ServidorController extends ApiCoreController
         $sql = "
             SELECT DISTINCT
                 s.cod_servidor as servidor_id,
-                REGEXP_REPLACE(LPAD(f.cpf::text, 11, '0'), '(\d{3})(\d{3})(\d{3})(\d{2})', '\1.\2.\3-\4') as cpf,
+                public.formata_cpf(f.cpf) as cpf,
                 p.nome as nome,
                 s.ativo as ativo,
                 sa.ref_cod_escola as escola_id,
@@ -106,9 +106,11 @@ class ServidorController extends ApiCoreController
             INNER JOIN pmieducar.funcao func on func.cod_funcao = sf.ref_cod_funcao  
             INNER JOIN cadastro.pessoa p ON s.cod_servidor = p.idpes
             INNER JOIN cadastro.fisica f ON f.idpes = p.idpes
+            INNER JOIN pmieducar.escola_ano_letivo eal ON eal.ref_cod_escola = sa.ref_cod_escola
             WHERE s.ref_cod_instituicao = $1
+            AND eal.andamento = 1 AND sa.ano > eal.ano AND sa.ativo = 1
             {$where}
-            order by updated_at
+            order by updated_at desc
         ";
 
         $servidores = $this->fetchPreparedQuery($sql, $params);
