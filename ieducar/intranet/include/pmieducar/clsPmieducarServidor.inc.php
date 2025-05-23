@@ -563,20 +563,7 @@ class clsPmieducarServidor extends Model
             AND qhh.ativo = '1'
             AND qhh.dia_semana <> '$int_dia_semana'
             AND qhh.ref_servidor = a.ref_cod_servidor
-            GROUP BY qhh.ref_servidor) ,'00:00')  + '$str_hr_mat' + COALESCE(
-            (SELECT SUM( qhha.hora_final - qhha.hora_inicial )
-              FROM pmieducar.quadro_horario_horarios_aux qhha
-              INNER JOIN pmieducar.quadro_horario ON (quadro_horario.cod_quadro_horario = qhha.ref_cod_quadro_horario
-                                                      AND quadro_horario.ativo = 1)
-              INNER JOIN pmieducar.turma ON (turma.cod_turma = quadro_horario.ref_cod_turma
-                                             AND turma.ativo = 1)
-              WHERE qhha.ref_cod_instituicao_servidor = '$int_ref_cod_instituicao'
-              AND qhha.ref_cod_escola = $int_ref_cod_escola
-              AND qhha.hora_inicial >= '06:00'
-              AND qhha.hora_inicial <= '12:00'
-              AND qhha.ref_servidor = a.ref_cod_servidor
-              AND identificador = '$int_identificador'
-              GROUP BY qhha.ref_servidor),'00:00')) OR s.multi_seriado )";
+            GROUP BY qhh.ref_servidor) ,'00:00')  + '$str_hr_mat') OR s.multi_seriado )";
                     } else {
                         $filtros .= "
       {$whereAnd} (s.cod_servidor NOT IN (SELECT a.ref_cod_servidor
@@ -622,21 +609,7 @@ class clsPmieducarServidor extends Model
                     ORDER BY s_qhh.sequencial DESC
                     LIMIT 1
                   )
-                  GROUP BY qhh.ref_servidor ),'00:00') + '$str_hr_ves' +  COALESCE(
-                  (SELECT SUM( qhha.hora_final - qhha.hora_inicial )
-                    FROM pmieducar.quadro_horario_horarios_aux qhha
-                    INNER JOIN pmieducar.quadro_horario ON (quadro_horario.cod_quadro_horario = qhha.ref_cod_quadro_horario
-                                                            AND quadro_horario.ativo = 1)
-                    INNER JOIN pmieducar.turma ON (turma.cod_turma = quadro_horario.ref_cod_turma
-                                                   AND turma.ativo = 1)
-                    WHERE qhha.ref_cod_instituicao_servidor = '$int_ref_cod_instituicao'
-                    AND qhha.ref_cod_escola = '$int_ref_cod_escola'
-                    AND qhha.ref_servidor = a.ref_cod_servidor
-                    AND qhha.hora_inicial >= '12:00'
-                    AND qhha.hora_inicial <= '18:00'".
-                 ($ano_alocacao ? " AND quadro_horario.ano = {$ano_alocacao}" : '')
-                 ." AND identificador = '$int_identificador'
-                    GROUP BY qhha.ref_servidor),'00:00') ) OR s.multi_seriado ) ";
+                  GROUP BY qhh.ref_servidor ),'00:00') + '$str_hr_ves') OR s.multi_seriado ) ";
                     } else {
                         $filtros .= "
       {$whereAnd} (s.cod_servidor NOT IN ( SELECT a.ref_cod_servidor
@@ -670,20 +643,7 @@ class clsPmieducarServidor extends Model
                 AND qhh.hora_inicial <= '23:59'
                 AND qhh.dia_semana <> '$int_dia_semana'
                 AND qhh.ref_servidor = a.ref_cod_servidor
-                GROUP BY qhh.ref_servidor ),'00:00')  + '$str_hr_not' +  COALESCE(
-                  (SELECT SUM( qhha.hora_final - qhha.hora_inicial )
-                  FROM pmieducar.quadro_horario_horarios_aux qhha
-                  INNER JOIN pmieducar.quadro_horario ON (quadro_horario.cod_quadro_horario = qhha.ref_cod_quadro_horario
-                                                          AND quadro_horario.ativo = 1)
-                  INNER JOIN pmieducar.turma ON (turma.cod_turma = quadro_horario.ref_cod_turma
-                                                 AND turma.ativo = 1)
-                  WHERE qhha.ref_cod_instituicao_servidor = '$int_ref_cod_instituicao'
-                  AND qhha.ref_cod_escola = '$int_ref_cod_escola'
-                  AND qhha.ref_servidor = a.ref_cod_servidor
-                  AND qhha.hora_inicial >= '18:00'
-                  AND qhha.hora_inicial <= '23:59'
-                  AND identificador = '$int_identificador'
-                  GROUP BY qhha.ref_servidor),'00:00') ) OR s.multi_seriado) ";
+                GROUP BY qhh.ref_servidor ),'00:00')  + '$str_hr_not') OR s.multi_seriado) ";
                     } else {
                         $filtros .= "
       {$whereAnd} (s.cod_servidor NOT IN (
