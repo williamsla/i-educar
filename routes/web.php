@@ -178,8 +178,8 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
     Route::post('/enrollments-promotion', [EnrollmentsPromotionController::class, 'processEnrollmentsPromotionJobs'])
         ->name('enrollments.promotion');
 
-    Route::get('/exportar-xml', [ExportacaoXmlController::class, 'exportar']);
     Route::get('/exportar-xml-view', [ExportacaoXmlController::class, 'index']);
+    Route::get('/exportar-xml', [ExportacaoXmlController::class, 'exportar']);
 
     Route::fallback([WebController::class, 'fallback']);
 });
