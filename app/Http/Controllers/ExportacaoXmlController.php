@@ -70,23 +70,22 @@ class ExportacaoXmlController extends Controller
             $xmlEscola->addChild('edu:idEscola', $escola->inep_escola, $xml->getNamespaces()['edu']);
 
             $turmas = $this->getTurmas($ano, $escola->cod_escola);
-            // var_dump($turmas);
           
             foreach ($turmas as $turma) {
+                $turmaPeriodo = $this->getTurmaPeriodo($turma->cod_turma);
+
                 $xmlTurma = $xmlEscola->addChild('edu:turma', null, $xml->getNamespaces()['edu']);
-                //$xmlTurma->addChild('edu:periodo', $turma->periodo, $xml->getNamespaces()['edu']);
+                $xmlTurma->addChild('edu:periodo', $turmaPeriodo->periodo, $xml->getNamespaces()['edu']);
                 $xmlTurma->addChild('edu:descricao', $turma->nm_turma, $xml->getNamespaces()['edu']);
                 $xmlTurma->addChild('edu:turno', $turma->turno, $xml->getNamespaces()['edu']);
 
                 $series = $this->getSeries($turma->cod_turma);
-                // var_dump($series);
                             
                 foreach ($series as $serie) {
                     $xmlSerie = $xmlTurma->addChild('edu:serie', null, $xml->getNamespaces()['edu']);
                     $xmlSerie->addChild('edu:idSerie', $serie->idSerie, $xml->getNamespaces()['edu']);
                     
                     $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie);
-                    var_dump($matriculas);
                     foreach ($matriculas as $matricula) {
                         $xmlMatricula = $xmlSerie->addChild('edu:matricula', null, $xml->getNamespaces()['edu']);
                         $xmlMatricula->addChild('edu:numero', $matricula->cod_matricula, $xml->getNamespaces()['edu']);
@@ -97,24 +96,39 @@ class ExportacaoXmlController extends Controller
                         $xmlAluno = $xmlMatricula->addChild('edu:aluno', null, $xml->getNamespaces()['edu']);
                         
                         if (!empty($aluno->cpf)) {
-                            $xmlAluno->addChild('edu:cpfAluno', $matricula->cpf, $xml->getNamespaces()['edu']);
+                            $xmlAluno->addChild('edu:cpfAluno', $this->getCpfNumbers($matricula->cpf), $xml->getNamespaces()['edu']);
                         }
                         $xmlAluno->addChild('edu:data_nascimento', $matricula->data_nascimento, $xml->getNamespaces()['edu']);
                         $xmlAluno->addChild('edu:nome', $matricula->nome, $xml->getNamespaces()['edu']);
-                        // $xmlAluno->addChild('edu:pcd', $matricula->pcd ? '1' : '0', $xml->getNamespaces()['edu']);
-                        $xmlAluno->addChild('edu:sexo', $matricula->sexo, $xml->getNamespaces()['edu']);
+                        $xmlAluno->addChild('edu:pcd', $matricula->pcd > 0 ? '1' : '0', $xml->getNamespaces()['edu']);
+                        
+                        $sexo_as_num = $matricula->sexo == 'M' ? 1 : ($matricula->sexo == 'F' ? 2 : 3);
+                        $xmlAluno->addChild('edu:sexo', $sexo_as_num, $xml->getNamespaces()['edu']);
                         
                         if (empty($aluno->cpf)) {
-                            $xmlAluno->addChild('edu:justSemCpf', 1, $xml->getNamespaces()['edu']);
+                            $xmlAluno->addChild('edu:justSemCpf', 3, $xml->getNamespaces()['edu']);
                         }
                     }
+                }
+                
+                $horarios = $this->getHorarios($turma->cod_turma);
+                
+                foreach ($horarios as $horario) {
+                    var_dump($horario);
+                    $xmlHorario = $xmlTurma->addChild('edu:horario', null, $xml->getNamespaces()['edu']);
+                    
+                    $xmlHorario->addChild('edu:dia_semana', $horario->dia_semana, $xml->getNamespaces()['edu']);
+                    $xmlHorario->addChild('edu:duracao', $horario->duracao, $xml->getNamespaces()['edu']);
+                    $xmlHorario->addChild('edu:hora_inicio', $horario->hora_inicial, $xml->getNamespaces()['edu']);
+                    $xmlHorario->addChild('edu:disciplina', $horario->disciplina, $xml->getNamespaces()['edu']);
+                    $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);                    
                 }
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
             }
         }
 
-        return $this->compactarEEnviar($xml, 'modeloA');
+        return $this->compactarEEnviar($xml, 'Educacao');
     }
 
     private function exportarModeloSIAP($ano, $mes)
@@ -164,6 +178,44 @@ class ExportacaoXmlController extends Controller
             ->get();
     }
 
+    /** 
+     * Retorna:
+     * 0 → Anual (> 8 meses)
+     * 1 → Semestral (1º semestre)
+     * 2 → Semestral (2º semestre)
+    */
+    public function getTurmaPeriodo($cod_turma)
+    {
+        return DB::table('pmieducar.turma as t')
+                ->join('pmieducar.curso as c', 'c.cod_curso', '=', 't.ref_cod_curso')
+                ->leftJoin('pmieducar.turma_modulo as tm', 'tm.ref_cod_turma', '=', 't.cod_turma')
+                ->leftJoin('pmieducar.ano_letivo_modulo as alm', function ($join) {
+                    $join->on('alm.ref_ano', '=', 't.ano')
+                        ->on('alm.ref_ref_cod_escola', '=', 't.ref_ref_cod_escola');
+                })
+                ->where('t.cod_turma', $cod_turma)
+                ->select(DB::raw("
+                    CASE
+                        WHEN (
+                            DATE_PART('month', AGE(
+                                MAX(CASE WHEN c.padrao_ano_escolar = 0 THEN tm.data_fim ELSE alm.data_fim END),
+                                MIN(CASE WHEN c.padrao_ano_escolar = 0 THEN tm.data_inicio ELSE alm.data_inicio END)
+                            )) + DATE_PART('year', AGE(
+                                MAX(CASE WHEN c.padrao_ano_escolar = 0 THEN tm.data_fim ELSE alm.data_fim END),
+                                MIN(CASE WHEN c.padrao_ano_escolar = 0 THEN tm.data_inicio ELSE alm.data_inicio END)
+                            )) * 12
+                        ) > 8 THEN 0
+
+                        WHEN DATE_PART('month', MIN(
+                            CASE WHEN c.padrao_ano_escolar = 0 THEN tm.data_inicio ELSE alm.data_inicio END
+                        )) BETWEEN 1 AND 6 THEN 1
+
+                        ELSE 2
+                    END as periodo        
+                "))
+                ->first();
+    }
+
     private function getSeries($cod_turma)
     {
         return DB::table('pmieducar.serie')
@@ -191,15 +243,20 @@ class ExportacaoXmlController extends Controller
             ->select(
                 'matricula.cod_matricula',
                 'matricula.ref_cod_aluno',
-                'matricula.data_matricula',
+                DB::raw('matricula.data_matricula::date AS data_matricula'),
                 DB::raw('relatorio.get_total_faltas(matricula.cod_matricula) as faltas'),
                 'matricula.aprovado',
                 'pessoa.nome',
-                DB::raw('public.formata_cpf(fisica.cpf) as cpf'),
-                'fisica.data_nasc AS data_nascimento',
-                'fisica.sexo',
-                // 'aluno.pcd'
+                DB::raw('public.formata_cpf(fisica.cpf) AS cpf'),
+                DB::raw('fisica.data_nasc::date AS data_nascimento'),
+                'fisica.sexo'     
             )
+            ->selectSub(function ($query) {
+                $query->from('cadastro.fisica_deficiencia')
+                    ->selectRaw('count(fisica_deficiencia.ref_cod_deficiencia)')
+                    ->whereColumn('fisica_deficiencia.ref_idpes', 'fisica.idpes')
+                    ->limit(1);
+            }, 'pcd')
             ->where('matricula_turma.ref_cod_turma', '=', $cod_turma)
             ->where('matricula.ref_ref_cod_serie', '=', $cod_serie)
             ->where('matricula.ativo', '=', 1)
@@ -209,24 +266,31 @@ class ExportacaoXmlController extends Controller
             ->get();
     }
 
-    private function getAlunosPorTurma($cod_turma)
+    private function getHorarios($cod_turma)
     {
-        return DB::table('aluno')
-            ->join('matricula', 'matricula.ref_ref_cod_aluno', '=', 'aluno.cod_aluno')
-            ->select(
-                'aluno.cpf',
-                'aluno.data_nascimento',
-                'aluno.nome',
-                'aluno.pcd',
-                'aluno.sexo'
-            )
-            ->where('matricula.ref_ref_cod_turma', '=', $cod_turma)
-            ->get();
+        return DB::table('quadro_horario_horarios as qhh')
+                    ->join('quadro_horario as qh', 'qh.cod_quadro_horario', '=', 'qhh.ref_cod_quadro_horario')
+                    ->join('modules.componente_curricular as cc', 'cc.id', '=', 'qhh.ref_cod_disciplina')
+                    ->join('cadastro.pessoa as p', 'p.idpes', '=', 'qhh.ref_servidor')
+                    ->join('cadastro.fisica as f', 'f.idpes', '=', 'p.idpes')
+                    ->select([
+                        'qhh.dia_semana',
+                        'qhh.hora_inicial',
+                        'cc.nome as disciplina',
+                        DB::raw("public.formata_cpf(f.cpf) as cpf_professor"),
+                        DB::raw('COUNT(*) as duracao')
+                    ])
+                    ->where('qh.ref_cod_turma', $cod_turma)
+                    ->groupBy('qhh.dia_semana', 'qhh.hora_inicial', 'cc.nome', 'f.cpf')
+                    ->orderBy('qhh.dia_semana')
+                    ->orderBy('qhh.hora_inicial')
+                    ->get();
     }
 
+    
     private function compactarEEnviar(SimpleXMLElement $xml, string $modelo)
     {
-        $filenameBase = 'exportacoes/' . $modelo . '_' . now()->format('Ymd_His');
+        $filenameBase = 'exportacoes/' . $modelo;
         $filenameXml = $filenameBase . '.xml';
         $filenameZip = $filenameBase . '.zip';
 
@@ -236,6 +300,8 @@ class ExportacaoXmlController extends Controller
         $zipPath = storage_path('app/' . $filenameZip);
         $xmlPath = storage_path('app/' . $filenameXml);
 
+        var_dump($xmlPath);
+        var_dump($filenameXml);
         if ($zip->open($zipPath, ZipArchive::CREATE) === TRUE) {
             $zip->addFile($xmlPath, basename($filenameXml));
             $zip->close();
@@ -245,5 +311,9 @@ class ExportacaoXmlController extends Controller
 
         // Storage::delete($filenameXml); // se quiser remover o XML após zipar
         return response()->download($zipPath)->deleteFileAfterSend(true);
+    }
+
+    private function getCpfNumbers($cpf) {
+        return preg_replace('/\D/', '', $cpf);
     }
 }
