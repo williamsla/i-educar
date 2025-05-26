@@ -708,15 +708,13 @@ class clsPmieducarServidor extends Model
       (SELECT
          1
        FROM
-         pmieducar.servidor_funcao sf, pmieducar.funcao f, pmieducar.servidor_disciplina sd
+         pmieducar.servidor_funcao sf, pmieducar.funcao f
        WHERE
         f.cod_funcao = sf.ref_cod_funcao AND
         f.professor = 1 AND
         sf.ref_ref_cod_instituicao = s.ref_cod_instituicao AND
-        s.cod_servidor = sf.ref_cod_servidor AND
-        s.cod_servidor = sd.ref_cod_servidor AND
-        s.ref_cod_instituicao = sd.ref_ref_cod_instituicao
-        {$servidorDisciplinas})";
+        s.cod_servidor = sf.ref_cod_servidor 
+        )";
             $whereAnd = ' AND ';
         }
 
