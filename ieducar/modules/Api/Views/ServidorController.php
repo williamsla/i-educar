@@ -108,7 +108,7 @@ class ServidorController extends ApiCoreController
             INNER JOIN cadastro.fisica f ON f.idpes = p.idpes
             INNER JOIN pmieducar.escola_ano_letivo eal ON eal.ref_cod_escola = sa.ref_cod_escola
             WHERE s.ref_cod_instituicao = $1
-            AND eal.andamento = 1 AND sa.ano > eal.ano AND sa.ativo = 1
+            AND eal.andamento = 1 AND sa.ano >= eal.ano AND sa.ativo = 1
             {$where}
             order by updated_at desc
         ";
