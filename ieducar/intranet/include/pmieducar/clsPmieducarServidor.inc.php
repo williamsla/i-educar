@@ -555,7 +555,7 @@ class clsPmieducarServidor extends Model
             INNER JOIN pmieducar.quadro_horario ON (quadro_horario.cod_quadro_horario = qhh.ref_cod_quadro_horario
                                                     AND quadro_horario.ativo = 1)
             INNER JOIN pmieducar.turma ON (turma.cod_turma = quadro_horario.ref_cod_turma
-                                           AND turma.ativo = 1)
+                                           AND turma.ativo = 1 AND turma.ano = '$ano_alocacao')
             WHERE qhh.ref_cod_instituicao_servidor = '$int_ref_cod_instituicao'
             AND qhh.ref_cod_escola = '$int_ref_cod_escola'
             AND qhh.hora_inicial >= '06:00'
@@ -635,7 +635,7 @@ class clsPmieducarServidor extends Model
                INNER JOIN pmieducar.quadro_horario ON (quadro_horario.cod_quadro_horario = qhh.ref_cod_quadro_horario
                                                        AND quadro_horario.ativo = 1)
                INNER JOIN pmieducar.turma ON (turma.cod_turma = quadro_horario.ref_cod_turma
-                                              AND turma.ativo = 1)
+                                              AND turma.ativo = 1 AND turma.ano = '$ano_alocacao')
                 WHERE qhh.ref_cod_instituicao_servidor = '$int_ref_cod_instituicao'
                 AND qhh.ref_cod_escola = '$int_ref_cod_escola'
                 AND qhh.ativo = '1'
