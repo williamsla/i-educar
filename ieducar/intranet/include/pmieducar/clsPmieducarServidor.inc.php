@@ -718,31 +718,6 @@ class clsPmieducarServidor extends Model
             $whereAnd = ' AND ';
         }
 
-        if (is_string($str_horario) && $str_horario == 'S') {
-            $whereAno = is_numeric($ano_alocacao) ? 'AND quadro_horario.ano = ' . $ano_alocacao : null;
-            $filtros .= "
-    {$whereAnd} (s.cod_servidor NOT IN
-      (SELECT DISTINCT qhh.ref_servidor
-         FROM pmieducar.quadro_horario_horarios qhh
-        INNER JOIN pmieducar.quadro_horario ON (quadro_horario.cod_quadro_horario = qhh.ref_cod_quadro_horario
-                                                AND quadro_horario.ativo = 1)
-        INNER JOIN pmieducar.turma ON (turma.cod_turma = quadro_horario.ref_cod_turma
-                                       AND turma.ativo = 1)
-        WHERE qhh.ref_servidor = s.cod_servidor
-        AND qhh.ref_cod_instituicao_servidor = s.ref_cod_instituicao
-        AND qhh.dia_semana = '{$array_horario[0]}'
-        AND ((('{$array_horario[1]}' > qhh.hora_inicial AND '{$array_horario[1]}' < qhh.hora_final)
-              OR ('{$array_horario[2]}' > qhh.hora_inicial AND '{$array_horario[2]}' < qhh.hora_final))
-            OR ('{$array_horario[1]}' = qhh.hora_inicial AND '{$array_horario[2]}' = qhh.hora_final)
-            OR ('{$array_horario[1]}' <= qhh.hora_inicial AND '{$array_horario[2]}' >= qhh.hora_final))
-        AND qhh.ativo = '1'
-        {$whereAno} ";
-            if (is_string($lst_matriculas)) {
-                $filtros .= " AND qhh.ref_servidor NOT IN ({$lst_matriculas})";
-            }
-            $filtros .= ' ) OR s.multi_seriado) ';
-            $whereAnd = ' AND ';
-        }
         $countCampos = count(explode(',', $this->_campos_lista));
         $resultado = [];
         $sql = "SELECT distinct {$this->_campos_lista2} FROM {$this->_schema}servidor s{$tabela_compl} {$filtros}" . $this->getOrderby() . $this->getLimite();
