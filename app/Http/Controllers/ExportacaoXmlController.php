@@ -114,7 +114,6 @@ class ExportacaoXmlController extends Controller
                 $horarios = $this->getHorarios($turma->cod_turma);
                 
                 foreach ($horarios as $horario) {
-                    var_dump($horario);
                     $xmlHorario = $xmlTurma->addChild('edu:horario', null, $xml->getNamespaces()['edu']);
                     
                     $xmlHorario->addChild('edu:dia_semana', $horario->dia_semana, $xml->getNamespaces()['edu']);
@@ -125,8 +124,40 @@ class ExportacaoXmlController extends Controller
                 }
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
+            } // fim do bloco turma
+
+            $diretor = $this->getDiretor($escola->inep_escola);
+            if (!$diretor) {
+                continue; // Se não houver diretor, pula para a próxima escola
             }
-        }
+            var_dump($diretor);
+            exit;
+            $xmlDiretor = $xmlEscola->addChild('edu:diretor', null, $xml->getNamespaces()['edu']);
+            $xmlDiretor->addChild('edu:cpfDiretor', $this->getCpfNumbers($diretor->cpf), $xml->getNamespaces()['edu']);
+            $xmlDiretor->addChild('edu:nrAto', $diretor->nome, $xml->getNamespaces()['edu']);
+          
+            //<edu:cardapio><!--Informar cardápio para cada dia da semana-->
+            // <edu:data>2024-08-30</edu:data>
+            // <edu:turno>2</edu:turno>
+            // <edu:descricao_merenda>Arroz com frango desfiado, repolho refogado e banana.</edu:descricao_merenda>
+            // <edu:ajustado>0</edu:ajustado>
+            // </edu:cardapio>
+            $cardapios = $this->getCardapios($escola->sigla, $escola->sigla, $turma->turno);
+            foreach ($cardapios as $c) {
+                $xmlCardapio = $xml->addChild('edu:cardapio', null, $xml->getNamespaces()['edu']);
+                $xmlCardapio->addChild('edu:data', $c['data'], $xml->getNamespaces()['edu']);
+                $xmlCardapio->addChild('edu:turno', $c['turno'], $xml->getNamespaces()['edu']);
+                $xmlCardapio->addChild('edu:descricao_merenda', $c['descricao'], $xml->getNamespaces()['edu']);
+                $xmlCardapio->addChild('edu:ajustado', 0, $xml->getNamespaces()['edu']);
+            }
+        } //fim do bloco escola
+
+        // <edu:profissional><!--Informar demais profissionais que atuam na educação (Vigilante, merendeira, psicologo(a), dentre outros-->
+        //     <edu:cpfProfissional>98765432100</edu:cpfProfissional>
+        //     <edu:especialidade>Vigilante</edu:especialidade>
+        //     <edu:idEscola>00000</edu:idEscola>
+        //     <edu:fundeb>true</edu:fundeb><!--Informar se o profissional é pago com recurso do FUNDEB-->
+        // </edu:profissional>
 
         return $this->compactarEEnviar($xml, 'Educacao');
     }
@@ -287,7 +318,33 @@ class ExportacaoXmlController extends Controller
                     ->get();
     }
 
-    
+    private function getDiretor($inep_escola)
+    {
+        return DB::table('pmieducar.escola')
+            ->join('pmieducar.servidor', 'pmieducar.servidor.cod_servidor', '=', 'pmieducar.escola.ref_idpes_gestor')
+            ->join('cadastro.pessoa', 'cadastro.pessoa.idpes', '=', 'pmieducar.servidor.cod_servidor')
+            ->join('cadastro.fisica', 'cadastro.fisica.idpes', '=', 'cadastro.pessoa.idpes')
+            ->join('modules.educacenso_cod_escola', 'modules.educacenso_cod_escola.cod_escola', '=', 'pmieducar.escola.cod_escola')
+            ->select(DB::raw('public.formata_cpf(cadastro.fisica.cpf) as cpf'), 'cadastro.pessoa.nome')
+            ->where('modules.educacenso_cod_escola.cod_escola_inep', $inep_escola)
+            ->where('pmieducar.servidor.ativo', '=', 1)
+            ->where('pmieducar.escola.ativo', '=', 1)          
+            ->first();
+    }    
+
+    private function getCardapios($nome_escola, $curso_sigla, $turno) {
+        $cardapios = json_decode(file_get_contents(storage_path('app/cardapios.json')), true);
+
+        foreach ($cardapios as $c) {
+            $xmlCardapio = $xml->addChild('edu:cardapio', null, $xml->getNamespaces()['edu']);
+            $xmlCardapio->addChild('edu:data', $c['data'], $xml->getNamespaces()['edu']);
+            $xmlCardapio->addChild('edu:turno', $c['turno'], $xml->getNamespaces()['edu']);
+            $xmlCardapio->addChild('edu:descricao_merenda', $c['descricao'], $xml->getNamespaces()['edu']);
+            $xmlCardapio->addChild('edu:ajustado', 0, $xml->getNamespaces()['edu']);
+        }
+
+    }
+
     private function compactarEEnviar(SimpleXMLElement $xml, string $modelo)
     {
         $filenameBase = 'exportacoes/' . $modelo;
