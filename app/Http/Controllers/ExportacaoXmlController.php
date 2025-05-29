@@ -70,6 +70,8 @@ class ExportacaoXmlController extends Controller
             $xmlEscola->addChild('edu:idEscola', $escola->inep_escola, $xml->getNamespaces()['edu']);
 
             $turmas = $this->getTurmas($ano, $escola->cod_escola);
+
+            $mapCursoTurno = [];
           
             foreach ($turmas as $turma) {
                 $turmaPeriodo = $this->getTurmaPeriodo($turma->cod_turma);
@@ -84,6 +86,9 @@ class ExportacaoXmlController extends Controller
                 foreach ($series as $serie) {
                     $xmlSerie = $xmlTurma->addChild('edu:serie', null, $xml->getNamespaces()['edu']);
                     $xmlSerie->addChild('edu:idSerie', $serie->idSerie, $xml->getNamespaces()['edu']);
+                    
+                    $curso_sigla = $this->getCursoSigla($serie->idSerie);
+                    $this->adicionarUnico($mapCursoTurno, $turma->turno, $curso_sigla);
                     
                     $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie);
                     foreach ($matriculas as $matricula) {
@@ -127,29 +132,35 @@ class ExportacaoXmlController extends Controller
             } // fim do bloco turma
 
             $diretor = $this->getDiretor($escola->inep_escola);
-            if (!$diretor) {
-                continue; // Se não houver diretor, pula para a próxima escola
+            if ($diretor === null || !isset($diretor->cpf)) {
+                $this->alert('Diretor da escola INEP ' . $escola->inep_escola . ' não possui CPF cadastrado.');
+            } else {
+
+                $xmlDiretor = $xmlEscola->addChild('edu:diretor', null, $xml->getNamespaces()['edu']);
+                $xmlDiretor->addChild('edu:cpfDiretor', $this->getCpfNumbers($diretor->cpf), $xml->getNamespaces()['edu']);
+                $xmlDiretor->addChild('edu:nrAto', 00, $xml->getNamespaces()['edu']);
             }
-            var_dump($diretor);
-            exit;
-            $xmlDiretor = $xmlEscola->addChild('edu:diretor', null, $xml->getNamespaces()['edu']);
-            $xmlDiretor->addChild('edu:cpfDiretor', $this->getCpfNumbers($diretor->cpf), $xml->getNamespaces()['edu']);
-            $xmlDiretor->addChild('edu:nrAto', $diretor->nome, $xml->getNamespaces()['edu']);
           
             //<edu:cardapio><!--Informar cardápio para cada dia da semana-->
             // <edu:data>2024-08-30</edu:data>
             // <edu:turno>2</edu:turno>
             // <edu:descricao_merenda>Arroz com frango desfiado, repolho refogado e banana.</edu:descricao_merenda>
             // <edu:ajustado>0</edu:ajustado>
-            // </edu:cardapio>
-            $cardapios = $this->getCardapios($escola->sigla, $escola->sigla, $turma->turno);
-            foreach ($cardapios as $c) {
-                $xmlCardapio = $xml->addChild('edu:cardapio', null, $xml->getNamespaces()['edu']);
-                $xmlCardapio->addChild('edu:data', $c['data'], $xml->getNamespaces()['edu']);
-                $xmlCardapio->addChild('edu:turno', $c['turno'], $xml->getNamespaces()['edu']);
-                $xmlCardapio->addChild('edu:descricao_merenda', $c['descricao'], $xml->getNamespaces()['edu']);
-                $xmlCardapio->addChild('edu:ajustado', 0, $xml->getNamespaces()['edu']);
+            //</edu:cardapio>
+            foreach ($mapCursoTurno as $chave => $valores) {
+                
+                foreach ($valores as $valor) {
+                    $cardapios = $this->getCardapios($escola->inep_escola, $valor, $chave);
+                    foreach ($cardapios as $c) {
+                        $xmlCardapio = $xml->addChild('edu:cardapio', null, $xml->getNamespaces()['edu']);
+                        $xmlCardapio->addChild('edu:data', $c['data'], $xml->getNamespaces()['edu']);
+                        $xmlCardapio->addChild('edu:turno', $c['turno'], $xml->getNamespaces()['edu']);
+                        $xmlCardapio->addChild('edu:descricao_merenda', $c['descricao'], $xml->getNamespaces()['edu']);
+                        $xmlCardapio->addChild('edu:ajustado', 0, $xml->getNamespaces()['edu']);
+                    }
+                }
             }
+            
         } //fim do bloco escola
 
         // <edu:profissional><!--Informar demais profissionais que atuam na educação (Vigilante, merendeira, psicologo(a), dentre outros-->
@@ -158,6 +169,10 @@ class ExportacaoXmlController extends Controller
         //     <edu:idEscola>00000</edu:idEscola>
         //     <edu:fundeb>true</edu:fundeb><!--Informar se o profissional é pago com recurso do FUNDEB-->
         // </edu:profissional>
+
+        $servidores = $this->getServidores($escola->inep_escola, $ano);
+        var_dump($servidores);
+        exit;
 
         return $this->compactarEEnviar($xml, 'Educacao');
     }
@@ -178,6 +193,27 @@ class ExportacaoXmlController extends Controller
 
         return $this->compactarEEnviar($xml, 'modeloB');
     }
+
+    private function getCursoSigla($sigla_serie){
+        if (str_contains($sigla_serie, "FUN")) {
+            return 'FUN';
+        } elseif (str_contains($sigla_serie, 'EJA')) {
+            return 'EJA';
+        } else {
+            return $sigla_serie;
+        }
+    }
+
+    function adicionarUnico(&$mapa, $chave, $valor) {
+        if (!isset($mapa[$chave])) {
+            $mapa[$chave] = [];
+        }
+
+        if (!in_array($valor, $mapa[$chave], true)) {
+            $mapa[$chave][] = $valor;
+        }
+    }
+
 
     private function getEscolas()
     {
@@ -332,17 +368,55 @@ class ExportacaoXmlController extends Controller
             ->first();
     }    
 
-    private function getCardapios($nome_escola, $curso_sigla, $turno) {
-        $cardapios = json_decode(file_get_contents(storage_path('app/cardapios.json')), true);
+    private function getCardapios($inep_escola, $curso_sigla, $turno) {
+        $path = storage_path('app/cardapios.csv');
 
-        foreach ($cardapios as $c) {
-            $xmlCardapio = $xml->addChild('edu:cardapio', null, $xml->getNamespaces()['edu']);
-            $xmlCardapio->addChild('edu:data', $c['data'], $xml->getNamespaces()['edu']);
-            $xmlCardapio->addChild('edu:turno', $c['turno'], $xml->getNamespaces()['edu']);
-            $xmlCardapio->addChild('edu:descricao_merenda', $c['descricao'], $xml->getNamespaces()['edu']);
-            $xmlCardapio->addChild('edu:ajustado', 0, $xml->getNamespaces()['edu']);
+        $cardapios = [];
+
+        if (($handle = fopen($path, 'r')) !== false) {
+            $header = fgetcsv($handle, 1000, ','); // Lê o cabeçalho
+            while (($data = fgetcsv($handle, 1000, ',')) !== false) {
+                $cardapios[] = array_combine($header, $data);
+            }
+            fclose($handle);
         }
 
+        $filter_escola = array_filter($cardapios, function($cardapio) use ($inep_escola) {
+            return $cardapio['inep'] == $inep_escola;
+        });
+
+
+        if (!empty($filter_escola)) {
+            $cardapios = $filter_escola;
+        }
+        $cardapios = array_filter($cardapios, function($cardapio) use ($curso_sigla, $turno) {
+            return $cardapio['curso'] == $curso_sigla && $cardapio['turno'] == $turno;
+        });
+        
+        return $cardapios;
+    }
+
+    private function getServidores($inep_escola, $ano)
+    {        
+        return DB::table('pmieducar.servidor')
+            ->join('pmieducar.servidor_alocacao', 'pmieducar.servidor_alocacao.ref_cod_servidor', '=', 'pmieducar.servidor.cod_servidor')
+            ->join('pmieducar.servidor_funcao', 'pmieducar.servidor_funcao.cod_servidor_funcao', '=', 'pmieducar.servidor_alocacao.ref_cod_servidor_funcao')
+            ->join('pmieducar.funcao', 'pmieducar.funcao.cod_funcao', '=', 'pmieducar.servidor_funcao.ref_cod_funcao')
+            ->join('cadastro.pessoa', 'cadastro.pessoa.idpes', '=', 'pmieducar.servidor.cod_servidor')
+            ->join('cadastro.fisica', 'cadastro.fisica.idpes', '=', 'cadastro.pessoa.idpes')
+            ->join('pmieducar.escola_ano_letivo', 'pmieducar.escola_ano_letivo.ref_cod_escola', '=', 'pmieducar.servidor_alocacao.ref_cod_escola')
+            ->select(
+                'pmieducar.servidor.cod_servidor',
+                DB::raw('public.formata_cpf(cadastro.fisica.cpf) as cpf'),
+                'cadastro.pessoa.nome',
+                'pmieducar.funcao.nm_funcao'
+            )
+            ->where('pmieducar.servidor.ativo', '=', 1)
+            ->where('pmieducar.escola_ano_letivo.andamento', '=', 1)
+            ->where('pmieducar.servidor_alocacao.ativo', '=', 1)
+            ->where('pmieducar.servidor_alocacao.ano', '=', $ano)
+            ->where('pmieducar.servidor_alocacao.ref_cod_escola', '=', $inep_escola)
+            ->get();
     }
 
     private function compactarEEnviar(SimpleXMLElement $xml, string $modelo)
@@ -373,4 +447,9 @@ class ExportacaoXmlController extends Controller
     private function getCpfNumbers($cpf) {
         return preg_replace('/\D/', '', $cpf);
     }
+
+    function alert($mensagem) {
+        echo "<script>alert('".addslashes($mensagem)."');</script>";
+    }
+
 }
