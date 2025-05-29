@@ -50,10 +50,10 @@ class ExportacaoXmlController extends Controller
         $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><edu:educacao xmlns:edu="http://www.tce.se.gov.br/sagres2025/xml/sagresEdu"/>');
 
         $prestacao = $xml->addChild('edu:PrestacaoContas', null, $xml->getNamespaces()['edu']);
-        $prestacao->addChild('edu:codigoUnidGestora', '009999', $xml->getNamespaces()['edu']);
-        $prestacao->addChild('edu:nomeUnidGestora', 'Prefeitura Municipal de Narnia', $xml->getNamespaces()['edu']);
-        $prestacao->addChild('edu:cpfResponsavel', '12345678900', $xml->getNamespaces()['edu']);
-        $prestacao->addChild('edu:cpfGestor', '12345678900', $xml->getNamespaces()['edu']);
+        $prestacao->addChild('edu:codigoUnidGestora', '001301', $xml->getNamespaces()['edu']);
+        $prestacao->addChild('edu:nomeUnidGestora', 'Secretaria de Educação e Cultura', $xml->getNamespaces()['edu']);
+        $prestacao->addChild('edu:cpfResponsavel', '49902806520', $xml->getNamespaces()['edu']);
+        $prestacao->addChild('edu:cpfGestor', '00576785539', $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:anoReferencia', $ano, $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:mesReferencia', $mes, $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:versaoXml', '0', $xml->getNamespaces()['edu']);
@@ -147,10 +147,12 @@ class ExportacaoXmlController extends Controller
             // <edu:descricao_merenda>Arroz com frango desfiado, repolho refogado e banana.</edu:descricao_merenda>
             // <edu:ajustado>0</edu:ajustado>
             //</edu:cardapio>
-            foreach ($mapCursoTurno as $chave => $valores) {
+            dd($mapCursoTurno);
+            foreach ($mapCursoTurno as $turno => $valores) {
                 
                 foreach ($valores as $valor) {
-                    $cardapios = $this->getCardapios($escola->inep_escola, $valor, $chave);
+                    $cardapios = $this->getCardapios($escola->inep_escola, $valor, $turno);
+                    
                     foreach ($cardapios as $c) {
                         $xmlCardapio = $xml->addChild('edu:cardapio', null, $xml->getNamespaces()['edu']);
                         $xmlCardapio->addChild('edu:data', $c['data'], $xml->getNamespaces()['edu']);
@@ -170,10 +172,15 @@ class ExportacaoXmlController extends Controller
         //     <edu:fundeb>true</edu:fundeb><!--Informar se o profissional é pago com recurso do FUNDEB-->
         // </edu:profissional>
 
-        $servidores = $this->getServidores($escola->inep_escola, $ano);
-        var_dump($servidores);
-        exit;
-
+        $servidores = $this->getServidores($ano);
+        foreach ($servidores as $serv) {
+            $xmlProfissional = $xml->addChild('edu:profissional', null, $xml->getNamespaces()['edu']);
+            $xmlProfissional->addChild('edu:cpfProfissional', $this->getCpfNumbers($serv->cpf), $xml->getNamespaces()['edu']);
+            $xmlProfissional->addChild('edu:especialidade', $serv->funcao, $xml->getNamespaces()['edu']);
+            $xmlProfissional->addChild('edu:idEscola', $serv->inep_escola, $xml->getNamespaces()['edu']);
+            $xmlProfissional->addChild('edu:fundeb', 0, $xml->getNamespaces()['edu']);
+        }
+        
         return $this->compactarEEnviar($xml, 'Educacao');
     }
 
@@ -396,7 +403,7 @@ class ExportacaoXmlController extends Controller
         return $cardapios;
     }
 
-    private function getServidores($inep_escola, $ano)
+    private function getServidores($ano)
     {        
         return DB::table('pmieducar.servidor')
             ->join('pmieducar.servidor_alocacao', 'pmieducar.servidor_alocacao.ref_cod_servidor', '=', 'pmieducar.servidor.cod_servidor')
@@ -405,16 +412,19 @@ class ExportacaoXmlController extends Controller
             ->join('cadastro.pessoa', 'cadastro.pessoa.idpes', '=', 'pmieducar.servidor.cod_servidor')
             ->join('cadastro.fisica', 'cadastro.fisica.idpes', '=', 'cadastro.pessoa.idpes')
             ->join('pmieducar.escola_ano_letivo', 'pmieducar.escola_ano_letivo.ref_cod_escola', '=', 'pmieducar.servidor_alocacao.ref_cod_escola')
+            ->join('modules.educacenso_cod_escola', 'modules.educacenso_cod_escola.cod_escola', '=', 'pmieducar.servidor_alocacao.ref_cod_escola')
             ->select(
                 'pmieducar.servidor.cod_servidor',
                 DB::raw('public.formata_cpf(cadastro.fisica.cpf) as cpf'),
                 'cadastro.pessoa.nome',
-                'pmieducar.funcao.nm_funcao'
+                'pmieducar.funcao.nm_funcao as funcao',
+                'modules.educacenso_cod_escola.cod_escola_inep as inep_escola'
             )
             ->where('pmieducar.servidor.ativo', '=', 1)
             ->where('pmieducar.escola_ano_letivo.andamento', '=', 1)
             ->where('pmieducar.servidor_alocacao.ativo', '=', 1)
             ->where('pmieducar.servidor_alocacao.ano', '=', $ano)
+            ->where('pmieducar.funcao.professor', '=', 0)
             ->where('pmieducar.servidor_alocacao.ref_cod_escola', '=', $inep_escola)
             ->get();
     }
