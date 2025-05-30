@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use SimpleXMLElement;
 use ZipArchive;
+use PDO;
+
 
 class ExportacaoXmlController extends Controller
 {
@@ -138,7 +140,11 @@ class ExportacaoXmlController extends Controller
                 
                 $horarios = $this->getHorarios($turma->cod_turma);
                 if ($horarios->isEmpty()) {
-                    $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;                    
+                    $horarios = $this->getHorariosExterno($turma->cod_turma);
+                    
+                    if ($horarios->isEmpty()) {
+                        $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
+                    }
                 }
                 
                 foreach ($horarios as $horario) {
@@ -186,6 +192,9 @@ class ExportacaoXmlController extends Controller
 
         $servidores = $this->getServidores($ano);
         foreach ($servidores as $serv) {
+            if ($serv->funcao == 'Diretor') {
+                continue; // Diretor já foi adicionado anteriormente em campo específico
+            }
             $xmlProfissional = $xml->addChild('edu:profissional', null, $xml->getNamespaces()['edu']);
             $xmlProfissional->addChild('edu:cpfProfissional', $this->getCpfNumbers($serv->cpf), $xml->getNamespaces()['edu']);
             $xmlProfissional->addChild('edu:especialidade', $serv->funcao, $xml->getNamespaces()['edu']);
@@ -422,6 +431,83 @@ class ExportacaoXmlController extends Controller
                     ->orderBy('qhh.hora_inicial');
         
         return $query->get();
+    }
+
+    private function getHorariosExterno($cod_turma) {
+        $pdo = new PDO("pgsql:host=diario.caninde.ensino.site;port=2345;dbname=idiario;sslmode=require", 'idiario', 'GSVvE18C1g18e6');
+
+        $stmt = $pdo->prepare("SELECT lblw.weekday as dia_semana_nome, lbl.lesson_number as aula, d.description as disciplina, u.cpf as cpf_professor , 1 as duracao, lb.period as turno
+                                FROM public.lessons_board_lesson_weekdays lblw
+                                inner join public.lessons_board_lessons lbl on lbl.id = lblw.lessons_board_lesson_id
+                                inner join  public.lessons_boards AS lb on lb.id = lbl.lessons_board_id
+                                inner join public.classrooms_grades cg on cg.id = lb.classrooms_grade_id
+                                inner join public.classrooms c on c.id = cg.classroom_id
+                                inner join public.teacher_discipline_classrooms tdc on tdc.id = lblw.teacher_discipline_classroom_id
+                                inner join users u on u.assumed_teacher_id = tdc.teacher_id
+                                inner join disciplines d  on d.id = tdc.discipline_id
+                                WHERE c.api_code = ?");
+        
+        $stmt->execute([(string) $cod_turma]);
+
+        $result = $stmt->fetchAll(PDO::FETCH_OBJ);
+
+        $diaSemanaMap = [
+            'monday'    => 1,
+            'tuesday'   => 2,
+            'wednesday' => 3,
+            'thursday'  => 4,
+            'friday'    => 5,
+            'saturday'  => 6,
+            'sunday'    => 7,
+        ];
+        $aulaManhaMap = [
+            '1'    => '07:00:00',
+            '2'   => '07:50:00',
+            '3' => '08:40:00',
+            '4'  => '09:50:00',
+            '5'    => '10:40:00',
+        ];
+
+        $aulaTardeMap = [
+            '1'    => '13:00:00',
+            '2'   => '13:50:00',
+            '3' => '14:40:00',
+            '4'  => '15:40:00',
+            '5'    => '16:30:00',
+        ];
+
+        $dadosFormatados = [];
+
+        foreach ($result as $item) {
+            $novo = new \stdClass();
+            
+            // Copiar campos existentes que deseja manter
+            $novo->dia_semana_nome = $item->dia_semana_nome ?? null;
+            $novo->turno          = $item->turno ?? null;
+            $novo->aula           = $item->aula ?? null;
+            $novo->cpf_professor  = isset($item->cpf_professor) ? $this->getCpfNumbers($item->cpf_professor) : null;
+            $novo->duracao  = $item->duracao ?? null;
+            $novo->disciplina  = $item->disciplina ?? null;
+
+            
+            $novo->dia_semana = $diaSemanaMap[$item->dia_semana_nome] ?? null;
+
+            // Atributo novo: hora_inicio
+            if ($item->turno == 1) {
+                $novo->hora_inicial = $aulaManhaMap[(string) $item->aula] ?? null;
+            } elseif ($item->turno == 2) {
+                $novo->hora_inicial = $aulaTardeMap[(string) $item->aula] ?? null;
+            } else {
+                $novo->hora_inicial = null;
+            }
+
+            $novo->cpf_professor = $this->getCpfNumbers($item->cpf_professor);
+
+            $dadosFormatados[] = $novo;
+        }
+
+        return collect($dadosFormatados);
+
     }
 
     private function getDiretor($inep_escola)
