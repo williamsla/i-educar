@@ -48,9 +48,9 @@ class ExportacaoXmlController extends Controller
             $result = $this->exportarModeloSIAP($ano, $mes);
         }
 
-        if (!empty($this->alerts)) {
-            $this->showAlert(implode('\n', $this->alerts));            
-        }
+        // if (!empty($this->alerts)) {
+        //     $this->showAlert(implode('\n', $this->alerts));            
+        // }
 
         return $result;
     }
@@ -140,7 +140,7 @@ class ExportacaoXmlController extends Controller
                 
                 $horarios = $this->getHorarios($turma->cod_turma);
                 if ($horarios->isEmpty()) {
-                    $this->alerts[] = 'Nenhum horário encontrado para a turma ' . $turma->nm_turma . ' na escola INEP ' . $escola->inep_escola;                    
+                    $this->alerts[] = '  - Nenhum horário encontrado para a turma ' . $turma->nm_turma . ' na escola INEP ' . $escola->inep_escola;                    
                 }
                 
                 foreach ($horarios as $horario) {
@@ -153,7 +153,7 @@ class ExportacaoXmlController extends Controller
                     $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);
 
                     if ($horario->duracao < 1) {
-                        $this->alerts[] = 'Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana . ' na escola INEP ' . $escola->inep_escola;
+                        $this->alerts[] = '  - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana . ' na escola INEP ' . $escola->inep_escola;
                     }
                 }
 
@@ -495,6 +495,7 @@ class ExportacaoXmlController extends Controller
         $filenameBase = 'exportacoes/' . $modelo;
         $filenameXml = $filenameBase . '.xml';
         $filenameZip = $filenameBase . '.zip';
+        $filenameTxt = $filenameBase . '.txt';
 
         // Salva no disco 'public'
         Storage::disk('public')->put($filenameXml, $xml->asXML());
@@ -513,10 +514,18 @@ class ExportacaoXmlController extends Controller
         } else {
             return response()->json(['erro' => 'Erro ao criar ZIP.'], 500);
         }
-
-        $publicPath = Storage::disk('public')->url($filenameZip);
         
-        return redirect(asset($publicPath));
+        // Salva o TXT com avisos
+        Storage::disk('public')->put($filenameTxt, implode(PHP_EOL, $this->alerts));
+        
+        $zipUrl = Storage::disk('public')->url($filenameZip);
+        $txtUrl = Storage::disk('public')->url($filenameTxt);
+
+        // Retorna uma view com os links
+        return view('exportar-xml-result', [
+            'zipUrl' => asset($zipUrl),
+            'txtUrl' => asset($txtUrl),
+        ]);
     }
 
     private function getCpfNumbers($cpf) {
