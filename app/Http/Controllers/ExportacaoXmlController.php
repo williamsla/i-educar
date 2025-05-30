@@ -102,17 +102,16 @@ class ExportacaoXmlController extends Controller
                 $series = $turma->multiseriada == 1 ? $this->getSeriesTurmaMulti($turma->cod_turma) : $this->getSeriesTurmaNormal($turma->cod_turma);
                             
                 foreach ($series as $serie) {
-                    if ($this->existeMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie) === false) {
+                    if ($this->existeMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes) === false) {
                         continue; // Se não houver matrículas, pula para a próxima série
                     }
-                    // dd($serie);
                     $xmlSerie = $xmlTurma->addChild('edu:serie', null, $xml->getNamespaces()['edu']);
                     $xmlSerie->addChild('edu:idSerie', $serie->idSerie, $xml->getNamespaces()['edu']);
                     
                     $curso_sigla = $this->getCursoSigla($serie->idSerie);
                     $this->adicionarUnico($mapCursoTurno, $turma->turno, $curso_sigla);
                     
-                    $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie);
+                    $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes);
                     foreach ($matriculas as $matricula) {
                         $xmlMatricula = $xmlSerie->addChild('edu:matricula', null, $xml->getNamespaces()['edu']);
                         $xmlMatricula->addChild('edu:numero', $matricula->cod_matricula, $xml->getNamespaces()['edu']);
@@ -122,7 +121,7 @@ class ExportacaoXmlController extends Controller
                         
                         $xmlAluno = $xmlMatricula->addChild('edu:aluno', null, $xml->getNamespaces()['edu']);
                         
-                        if (!empty($aluno->cpf)) {
+                        if (!empty($matricula->cpf)) {
                             $xmlAluno->addChild('edu:cpfAluno', $this->getCpfNumbers($matricula->cpf), $xml->getNamespaces()['edu']);
                         }
                         $xmlAluno->addChild('edu:data_nascimento', $matricula->data_nascimento, $xml->getNamespaces()['edu']);
@@ -132,18 +131,20 @@ class ExportacaoXmlController extends Controller
                         $sexo_as_num = $matricula->sexo == 'M' ? 1 : ($matricula->sexo == 'F' ? 2 : 3);
                         $xmlAluno->addChild('edu:sexo', $sexo_as_num, $xml->getNamespaces()['edu']);
                         
-                        if (empty($aluno->cpf)) {
+                        if (empty($matricula->cpf)) {
                             $xmlAluno->addChild('edu:justSemCpf', 3, $xml->getNamespaces()['edu']);
                         }
                     }
                 }
-                
+
                 $horarios = $this->getHorarios($turma->cod_turma);
                 if ($horarios->isEmpty()) {
                     $horarios = $this->getHorariosExterno($turma->cod_turma);
                     
                     if ($horarios->isEmpty()) {
                         $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
+                        $horarios = $this->getHorarioAleatorioDaTurmaAux($turma->cod_turma); //distribuindo um horario aleatoriamente para o professor
+                        $horarios = $horarios ? reset($horarios) : [];
                     }
                 }
                 
@@ -364,7 +365,7 @@ class ExportacaoXmlController extends Controller
             ->exists();
     }
 
-    private function queryMatriculasPorTurmaESerie($cod_turma, $cod_serie)
+    private function queryMatriculasPorTurmaESerie($cod_turma, $cod_serie, $ano, $mes)
     {
         return DB::table('pmieducar.matricula')
             ->join('pmieducar.matricula_turma', 'matricula_turma.ref_cod_matricula', '=', 'matricula.cod_matricula')
@@ -390,23 +391,27 @@ class ExportacaoXmlController extends Controller
             }, 'pcd')
             ->where('matricula_turma.ref_cod_turma', '=', $cod_turma)
             ->where('matricula.ref_ref_cod_serie', '=', $cod_serie)
+            ->whereRaw(
+                    "matricula.data_matricula <= (DATE_TRUNC('month', make_date(?, ?, 1)) + INTERVAL '1 month - 1 day')::date",
+                    [$ano, $mes]
+            )
             ->where('matricula.ativo', '=', 1)
             ->where('matricula_turma.ativo', '=', 1)
             ->where('aluno.ativo', '=', 1)
             ->where('fisica.ativo', '=', 1);
     }
 
-    private function existeMatriculasPorTurmaESerie($cod_turma, $cod_serie)
+    private function existeMatriculasPorTurmaESerie($cod_turma, $cod_serie, $ano, $mes)
     {
-        $query = $this->queryMatriculasPorTurmaESerie($cod_turma, $cod_serie);
-        
+        $query = $this->queryMatriculasPorTurmaESerie($cod_turma, $cod_serie, $ano, $mes);
+
         return $query->exists();
     }
 
-    private function getMatriculasPorTurmaESerie($cod_turma, $cod_serie)
+    private function getMatriculasPorTurmaESerie($cod_turma, $cod_serie, $ano, $mes)
     {
-        $query = $this->queryMatriculasPorTurmaESerie($cod_turma, $cod_serie);
-        
+        $query = $this->queryMatriculasPorTurmaESerie($cod_turma, $cod_serie, $ano, $mes);
+
         return $query->get();
     }
 
@@ -430,7 +435,37 @@ class ExportacaoXmlController extends Controller
                     ->orderBy('qhh.dia_semana')
                     ->orderBy('qhh.hora_inicial');
         
-        return $query->get();
+        $result = $query->get();
+        
+        // i-educar considera domingo como 1 e o sagres considera domingo como 7
+        $diaSemanaMap = [
+            '1'    => 7,
+            '2'   => 1,
+            '3' => 2,
+            '4'  => 3,
+            '5'    => 4,
+            '6'  => 5,
+            '7'    => 6
+        ];
+
+        $dadosFormatados = [];
+
+        foreach ($result as $item) {
+            $novo = new \stdClass();
+            
+            // Copiar campos existentes que deseja manter
+            $novo->duracao  = $item->duracao ?? null;
+            $novo->disciplina  = $item->disciplina ?? null;
+            $novo->hora_inicial  = $item->hora_inicial ?? null;
+            
+            $novo->dia_semana = $diaSemanaMap[$item->dia_semana] ?? null;
+
+            $novo->cpf_professor = $this->getCpfNumbers($item->cpf_professor) ?? null;
+
+            $dadosFormatados[] = $novo;
+        }
+
+        return collect($dadosFormatados);
     }
 
     private function getHorariosExterno($cod_turma) {
@@ -510,6 +545,25 @@ class ExportacaoXmlController extends Controller
 
     }
 
+    private function getHorarioAleatorioDaTurmaAux($cod_turma){
+        $query = DB::table('modules.professor_turma_disciplina AS ptd')
+                    ->join('modules.professor_turma as pt', 'pt.id', '=', 'ptd.professor_turma_id')
+                    ->join('pmieducar.servidor as s', 's.cod_servidor', '=', 'pt.servidor_id')
+                    ->join('modules.componente_curricular as cc', 'cc.id', '=', 'ptd.componente_curricular_id')
+                    ->join('cadastro.fisica as f', 'f.idpes', '=', 's.cod_servidor')
+                    ->select([
+                        DB::raw('1 as dia_semana'),
+                        DB::raw("'07:30:00' as hora_inicial"),
+                        'cc.nome as disciplina',
+                        DB::raw("public.formata_cpf(f.cpf) as cpf_professor"),
+                        DB::raw('1 as duracao')
+                    ])
+                    ->where('pt.turma_id', $cod_turma)
+                    ->where('s.ativo', '1');
+        
+        return $query->get();
+    }
+
     private function getDiretor($inep_escola)
     {
         return DB::table('pmieducar.escola')
@@ -584,8 +638,16 @@ class ExportacaoXmlController extends Controller
         $filenameZip = $filenameBase . '.zip';
         $filenameTxt = $filenameBase . '.txt';
 
+        // Transformar para DOMDocument para aplicar indentação
+        $dom = new \DOMDocument('1.0');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = true;
+
+        // Carrega o XML do SimpleXMLElement no DOMDocument
+        $dom->loadXML($xml->asXML());
+
         // Salva no disco 'public'
-        Storage::disk('public')->put($filenameXml, $xml->asXML());
+        Storage::disk('public')->put($filenameXml, $dom->saveXML());
 
         $zip = new ZipArchive;
         $zipPath = Storage::disk('public')->path($filenameZip);
