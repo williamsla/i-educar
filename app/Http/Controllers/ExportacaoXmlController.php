@@ -70,12 +70,14 @@ class ExportacaoXmlController extends Controller
         $prestacao->addChild('edu:diaInicPresContas', '1', $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:diaFinaPresContas', '31', $xml->getNamespaces()['edu']);
 
-        $escolas = $this->getEscolas();
+        $escolas = $this->getEscolas($ano);
         if ($escolas->isEmpty()) {
             return response()->json(['erro' => 'Nenhuma escola encontrada.'], 404);
         } 
 
         foreach ($escolas as $escola) {
+            $this->alerts[] = 'ESCOLA: ' . $escola->sigla . ' - INEP: ' . $escola->inep_escola;
+            
             $xmlEscola = $xml->addChild('edu:escola', null, $xml->getNamespaces()['edu']);
             $xmlEscola->addChild('edu:idEscola', $escola->inep_escola, $xml->getNamespaces()['edu']);
 
@@ -96,10 +98,6 @@ class ExportacaoXmlController extends Controller
                 $xmlTurma->addChild('edu:turno', $turma->turno, $xml->getNamespaces()['edu']);
 
                 $series = $turma->multiseriada == 1 ? $this->getSeriesTurmaMulti($turma->cod_turma) : $this->getSeriesTurmaNormal($turma->cod_turma);
-                if ($turma->nm_turma == 'EDUCACAO INFANTIL - 2º PERIODO') {
-                    // var_dump($turma);
-                    // dd($series);
-                }
                             
                 foreach ($series as $serie) {
                     if ($this->existeMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie) === false) {
@@ -140,10 +138,14 @@ class ExportacaoXmlController extends Controller
                 
                 $horarios = $this->getHorarios($turma->cod_turma);
                 if ($horarios->isEmpty()) {
-                    $this->alerts[] = '  - Nenhum horário encontrado para a turma ' . $turma->nm_turma . ' na escola INEP ' . $escola->inep_escola;                    
+                    $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;                    
                 }
                 
                 foreach ($horarios as $horario) {
+                    if ($horario->duracao < 1) {
+                        $this->alerts[] = '     - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana;
+                        continue;
+                    }
                     $xmlHorario = $xmlTurma->addChild('edu:horario', null, $xml->getNamespaces()['edu']);
                     
                     $xmlHorario->addChild('edu:dia_semana', $horario->dia_semana, $xml->getNamespaces()['edu']);
@@ -151,10 +153,6 @@ class ExportacaoXmlController extends Controller
                     $xmlHorario->addChild('edu:hora_inicio', $horario->hora_inicial, $xml->getNamespaces()['edu']);
                     $xmlHorario->addChild('edu:disciplina', $horario->disciplina, $xml->getNamespaces()['edu']);
                     $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);
-
-                    if ($horario->duracao < 1) {
-                        $this->alerts[] = '  - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana . ' na escola INEP ' . $escola->inep_escola;
-                    }
                 }
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
@@ -164,7 +162,6 @@ class ExportacaoXmlController extends Controller
             if ($diretor === null || !isset($diretor->cpf)) {
                 $this->alerts[] = 'Diretor da escola INEP ' . $escola->inep_escola . ' não possui CPF cadastrado.';
             } else {
-
                 $xmlDiretor = $xmlEscola->addChild('edu:diretor', null, $xml->getNamespaces()['edu']);
                 $xmlDiretor->addChild('edu:cpfDiretor', $this->getCpfNumbers($diretor->cpf), $xml->getNamespaces()['edu']);
                 $xmlDiretor->addChild('edu:nrAto', 00, $xml->getNamespaces()['edu']);
@@ -237,18 +234,21 @@ class ExportacaoXmlController extends Controller
     }
 
 
-    private function getEscolas()
+    private function getEscolas($ano)
     {
-        return DB::table('escola')
+        $query = DB::table('escola')
+                ->join('pmieducar.escola_ano_letivo', 'escola.cod_escola', '=', 'pmieducar.escola_ano_letivo.ref_cod_escola')
                 ->leftJoin('modules.educacenso_cod_escola', 'escola.cod_escola', '=', 'modules.educacenso_cod_escola.cod_escola')
                 ->select(
                     'escola.cod_escola',
                     'escola.sigla',
                     'modules.educacenso_cod_escola.cod_escola_inep as inep_escola'
                 )
-                ->where('escola.ativo', '=', 1)
-                ->where('modules.educacenso_cod_escola.cod_escola_inep', '!=', null)
-                ->get();
+                ->where('escola.ativo', '=', '1')
+                ->where('pmieducar.escola_ano_letivo.ativo', '=', '1')
+                ->where('pmieducar.escola_ano_letivo.ano', '=', $ano);
+                
+        return $query->get();
     }
 
     private function getTurmas($ano, $codEscola)
@@ -416,10 +416,11 @@ class ExportacaoXmlController extends Controller
                         DB::raw('ROUND(EXTRACT(EPOCH from (qhh.hora_final - qhh.hora_inicial))/3600) as duracao')
                     ])
                     ->where('qh.ref_cod_turma', $cod_turma)
-                    ->where('qh.ativo', 1)
+                    ->where('qh.ativo', '1')
+                    ->where('qhh.ativo', '1')
                     ->orderBy('qhh.dia_semana')
                     ->orderBy('qhh.hora_inicial');
-
+        
         return $query->get();
     }
 
