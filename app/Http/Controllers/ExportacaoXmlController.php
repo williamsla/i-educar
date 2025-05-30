@@ -22,6 +22,8 @@ class ExportacaoXmlController extends Controller
         App_Model_MatriculaSituacao::APROVADO_PELO_CONSELHO,
     ];
 
+    private $alerts = [];
+
     public function index()
     {
         return view('exportar-xml');
@@ -34,15 +36,23 @@ class ExportacaoXmlController extends Controller
         $ano = $request->input('ano');
         $mes = $request->input('mes');
 
+        $this->alerts = [];
+
         if (!in_array($modelo, ['sagres', 'siap']) || !$ano || !$mes) {
             return back()->withErrors('Preencha todos os campos corretamente.');
         }
 
         if ($modelo === 'sagres') {
-            return $this->exportarModeloSAGRES($ano, $mes);
+            $result = $this->exportarModeloSAGRES($ano, $mes);
         } else {
-            return $this->exportarModeloSIAP($ano, $mes);
+            $result = $this->exportarModeloSIAP($ano, $mes);
         }
+
+        if (!empty($this->alerts)) {
+            $this->showAlert(implode('\n', $this->alerts));            
+        }
+
+        return $result;
     }
 
     private function exportarModeloSAGRES($ano, $mes)
@@ -74,6 +84,10 @@ class ExportacaoXmlController extends Controller
             $mapCursoTurno = [];
           
             foreach ($turmas as $turma) {
+                if ($this->existeMatriculasPorTurma($turma->cod_turma) === false) {
+                    continue; // Se não houver matrículas, pula para a próxima turma
+                }
+
                 $turmaPeriodo = $this->getTurmaPeriodo($turma->cod_turma);
 
                 $xmlTurma = $xmlEscola->addChild('edu:turma', null, $xml->getNamespaces()['edu']);
@@ -81,9 +95,17 @@ class ExportacaoXmlController extends Controller
                 $xmlTurma->addChild('edu:descricao', $turma->nm_turma, $xml->getNamespaces()['edu']);
                 $xmlTurma->addChild('edu:turno', $turma->turno, $xml->getNamespaces()['edu']);
 
-                $series = $this->getSeries($turma->cod_turma);
+                $series = $turma->multiseriada == 1 ? $this->getSeriesTurmaMulti($turma->cod_turma) : $this->getSeriesTurmaNormal($turma->cod_turma);
+                if ($turma->nm_turma == 'EDUCACAO INFANTIL - 2º PERIODO') {
+                    // var_dump($turma);
+                    // dd($series);
+                }
                             
                 foreach ($series as $serie) {
+                    if ($this->existeMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie) === false) {
+                        continue; // Se não houver matrículas, pula para a próxima série
+                    }
+                    // dd($serie);
                     $xmlSerie = $xmlTurma->addChild('edu:serie', null, $xml->getNamespaces()['edu']);
                     $xmlSerie->addChild('edu:idSerie', $serie->idSerie, $xml->getNamespaces()['edu']);
                     
@@ -117,6 +139,9 @@ class ExportacaoXmlController extends Controller
                 }
                 
                 $horarios = $this->getHorarios($turma->cod_turma);
+                if ($horarios->isEmpty()) {
+                    $this->alerts[] = 'Nenhum horário encontrado para a turma ' . $turma->nm_turma . ' na escola INEP ' . $escola->inep_escola;                    
+                }
                 
                 foreach ($horarios as $horario) {
                     $xmlHorario = $xmlTurma->addChild('edu:horario', null, $xml->getNamespaces()['edu']);
@@ -125,7 +150,11 @@ class ExportacaoXmlController extends Controller
                     $xmlHorario->addChild('edu:duracao', $horario->duracao, $xml->getNamespaces()['edu']);
                     $xmlHorario->addChild('edu:hora_inicio', $horario->hora_inicial, $xml->getNamespaces()['edu']);
                     $xmlHorario->addChild('edu:disciplina', $horario->disciplina, $xml->getNamespaces()['edu']);
-                    $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);                    
+                    $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);
+
+                    if ($horario->duracao < 1) {
+                        $this->alerts[] = 'Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana . ' na escola INEP ' . $escola->inep_escola;
+                    }
                 }
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
@@ -133,7 +162,7 @@ class ExportacaoXmlController extends Controller
 
             $diretor = $this->getDiretor($escola->inep_escola);
             if ($diretor === null || !isset($diretor->cpf)) {
-                $this->alert('Diretor da escola INEP ' . $escola->inep_escola . ' não possui CPF cadastrado.');
+                $this->alerts[] = 'Diretor da escola INEP ' . $escola->inep_escola . ' não possui CPF cadastrado.';
             } else {
 
                 $xmlDiretor = $xmlEscola->addChild('edu:diretor', null, $xml->getNamespaces()['edu']);
@@ -141,20 +170,13 @@ class ExportacaoXmlController extends Controller
                 $xmlDiretor->addChild('edu:nrAto', 00, $xml->getNamespaces()['edu']);
             }
           
-            //<edu:cardapio><!--Informar cardápio para cada dia da semana-->
-            // <edu:data>2024-08-30</edu:data>
-            // <edu:turno>2</edu:turno>
-            // <edu:descricao_merenda>Arroz com frango desfiado, repolho refogado e banana.</edu:descricao_merenda>
-            // <edu:ajustado>0</edu:ajustado>
-            //</edu:cardapio>
-            dd($mapCursoTurno);
             foreach ($mapCursoTurno as $turno => $valores) {
                 
                 foreach ($valores as $valor) {
                     $cardapios = $this->getCardapios($escola->inep_escola, $valor, $turno);
                     
                     foreach ($cardapios as $c) {
-                        $xmlCardapio = $xml->addChild('edu:cardapio', null, $xml->getNamespaces()['edu']);
+                        $xmlCardapio = $xmlEscola->addChild('edu:cardapio', null, $xml->getNamespaces()['edu']);
                         $xmlCardapio->addChild('edu:data', $c['data'], $xml->getNamespaces()['edu']);
                         $xmlCardapio->addChild('edu:turno', $c['turno'], $xml->getNamespaces()['edu']);
                         $xmlCardapio->addChild('edu:descricao_merenda', $c['descricao'], $xml->getNamespaces()['edu']);
@@ -165,20 +187,13 @@ class ExportacaoXmlController extends Controller
             
         } //fim do bloco escola
 
-        // <edu:profissional><!--Informar demais profissionais que atuam na educação (Vigilante, merendeira, psicologo(a), dentre outros-->
-        //     <edu:cpfProfissional>98765432100</edu:cpfProfissional>
-        //     <edu:especialidade>Vigilante</edu:especialidade>
-        //     <edu:idEscola>00000</edu:idEscola>
-        //     <edu:fundeb>true</edu:fundeb><!--Informar se o profissional é pago com recurso do FUNDEB-->
-        // </edu:profissional>
-
         $servidores = $this->getServidores($ano);
         foreach ($servidores as $serv) {
             $xmlProfissional = $xml->addChild('edu:profissional', null, $xml->getNamespaces()['edu']);
             $xmlProfissional->addChild('edu:cpfProfissional', $this->getCpfNumbers($serv->cpf), $xml->getNamespaces()['edu']);
             $xmlProfissional->addChild('edu:especialidade', $serv->funcao, $xml->getNamespaces()['edu']);
             $xmlProfissional->addChild('edu:idEscola', $serv->inep_escola, $xml->getNamespaces()['edu']);
-            $xmlProfissional->addChild('edu:fundeb', 0, $xml->getNamespaces()['edu']);
+            $xmlProfissional->addChild('edu:fundeb', 1, $xml->getNamespaces()['edu']);
         }
         
         return $this->compactarEEnviar($xml, 'Educacao');
@@ -285,12 +300,12 @@ class ExportacaoXmlController extends Controller
                         )) BETWEEN 1 AND 6 THEN 1
 
                         ELSE 2
-                    END as periodo        
+                    END as periodo
                 "))
                 ->first();
     }
 
-    private function getSeries($cod_turma)
+    private function getSeriesTurmaMulti($cod_turma)
     {
         return DB::table('pmieducar.serie')
             ->join('turma_serie', 'turma_serie.serie_id', '=', 'serie.cod_serie')
@@ -307,7 +322,40 @@ class ExportacaoXmlController extends Controller
             ->get();
     }
 
-    private function getMatriculasPorTurmaESerie($cod_turma, $cod_serie)
+    private function getSeriesTurmaNormal($cod_turma)
+    {
+        return DB::table('pmieducar.serie')
+            ->join('turma', 'turma.ref_ref_cod_serie', '=', 'serie.cod_serie')
+            ->select(
+                'serie.cod_serie',
+                'serie.nm_serie',
+                'serie.descricao as idSerie'
+            )
+            ->where('turma.cod_turma', '=', $cod_turma)
+            ->where('turma.ativo', '=', 1)
+            ->where('serie.ativo', '=', 1)
+            ->get();
+    }
+
+    private function existeMatriculasPorTurma($cod_turma)
+    {
+        return DB::table('pmieducar.matricula')
+            ->join('pmieducar.matricula_turma', 'matricula_turma.ref_cod_matricula', '=', 'matricula.cod_matricula')
+            ->join('pmieducar.aluno', 'aluno.cod_aluno', '=', 'matricula.ref_cod_aluno')
+            ->join('cadastro.pessoa', 'pessoa.idpes', '=', 'aluno.ref_idpes')
+            ->join('cadastro.fisica', 'fisica.idpes', '=', 'aluno.ref_idpes')
+            ->select(
+                'matricula.cod_matricula'
+            )
+            ->where('matricula_turma.ref_cod_turma', '=', $cod_turma)
+            ->where('matricula.ativo', '=', 1)
+            ->where('matricula_turma.ativo', '=', 1)
+            ->where('aluno.ativo', '=', 1)
+            ->where('fisica.ativo', '=', 1)
+            ->exists();
+    }
+
+    private function queryMatriculasPorTurmaESerie($cod_turma, $cod_serie)
     {
         return DB::table('pmieducar.matricula')
             ->join('pmieducar.matricula_turma', 'matricula_turma.ref_cod_matricula', '=', 'matricula.cod_matricula')
@@ -336,13 +384,26 @@ class ExportacaoXmlController extends Controller
             ->where('matricula.ativo', '=', 1)
             ->where('matricula_turma.ativo', '=', 1)
             ->where('aluno.ativo', '=', 1)
-            ->where('fisica.ativo', '=', 1)
-            ->get();
+            ->where('fisica.ativo', '=', 1);
+    }
+
+    private function existeMatriculasPorTurmaESerie($cod_turma, $cod_serie)
+    {
+        $query = $this->queryMatriculasPorTurmaESerie($cod_turma, $cod_serie);
+        
+        return $query->exists();
+    }
+
+    private function getMatriculasPorTurmaESerie($cod_turma, $cod_serie)
+    {
+        $query = $this->queryMatriculasPorTurmaESerie($cod_turma, $cod_serie);
+        
+        return $query->get();
     }
 
     private function getHorarios($cod_turma)
     {
-        return DB::table('quadro_horario_horarios as qhh')
+        $query = DB::table('quadro_horario_horarios as qhh')
                     ->join('quadro_horario as qh', 'qh.cod_quadro_horario', '=', 'qhh.ref_cod_quadro_horario')
                     ->join('modules.componente_curricular as cc', 'cc.id', '=', 'qhh.ref_cod_disciplina')
                     ->join('cadastro.pessoa as p', 'p.idpes', '=', 'qhh.ref_servidor')
@@ -352,13 +413,14 @@ class ExportacaoXmlController extends Controller
                         'qhh.hora_inicial',
                         'cc.nome as disciplina',
                         DB::raw("public.formata_cpf(f.cpf) as cpf_professor"),
-                        DB::raw('COUNT(*) as duracao')
+                        DB::raw('ROUND(EXTRACT(EPOCH from (qhh.hora_final - qhh.hora_inicial))/3600) as duracao')
                     ])
                     ->where('qh.ref_cod_turma', $cod_turma)
-                    ->groupBy('qhh.dia_semana', 'qhh.hora_inicial', 'cc.nome', 'f.cpf')
+                    ->where('qh.ativo', 1)
                     ->orderBy('qhh.dia_semana')
-                    ->orderBy('qhh.hora_inicial')
-                    ->get();
+                    ->orderBy('qhh.hora_inicial');
+
+        return $query->get();
     }
 
     private function getDiretor($inep_escola)
@@ -425,7 +487,6 @@ class ExportacaoXmlController extends Controller
             ->where('pmieducar.servidor_alocacao.ativo', '=', 1)
             ->where('pmieducar.servidor_alocacao.ano', '=', $ano)
             ->where('pmieducar.funcao.professor', '=', 0)
-            ->where('pmieducar.servidor_alocacao.ref_cod_escola', '=', $inep_escola)
             ->get();
     }
 
@@ -435,14 +496,17 @@ class ExportacaoXmlController extends Controller
         $filenameXml = $filenameBase . '.xml';
         $filenameZip = $filenameBase . '.zip';
 
-        Storage::put($filenameXml, $xml->asXML());
+        // Salva no disco 'public'
+        Storage::disk('public')->put($filenameXml, $xml->asXML());
 
         $zip = new ZipArchive;
-        $zipPath = storage_path('app/' . $filenameZip);
-        $xmlPath = storage_path('app/' . $filenameXml);
+        $zipPath = Storage::disk('public')->path($filenameZip);
+        $xmlPath = Storage::disk('public')->path($filenameXml);
 
-        var_dump($xmlPath);
-        var_dump($filenameXml);
+        if (!file_exists($xmlPath)) {
+            return response()->json(['erro' => 'Arquivo XML não encontrado em ' . $xmlPath], 500);
+        }
+
         if ($zip->open($zipPath, ZipArchive::CREATE) === TRUE) {
             $zip->addFile($xmlPath, basename($filenameXml));
             $zip->close();
@@ -450,15 +514,16 @@ class ExportacaoXmlController extends Controller
             return response()->json(['erro' => 'Erro ao criar ZIP.'], 500);
         }
 
-        // Storage::delete($filenameXml); // se quiser remover o XML após zipar
-        return response()->download($zipPath)->deleteFileAfterSend(true);
+        $publicPath = Storage::disk('public')->url($filenameZip);
+        
+        return redirect(asset($publicPath));
     }
 
     private function getCpfNumbers($cpf) {
         return preg_replace('/\D/', '', $cpf);
     }
 
-    function alert($mensagem) {
+    function showAlert($mensagem) {
         echo "<script>alert('".addslashes($mensagem)."');</script>";
     }
 
