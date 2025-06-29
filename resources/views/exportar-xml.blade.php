@@ -53,7 +53,7 @@
     @endif
 
     <form action="{{ url('/exportar-xml') }}" method="GET">
-        <label for="modelo">Escolha o modelo XML:</label>
+        <label for="modelo">Escolha o modelo:</label>
         <select name="modelo" id="modelo" required>
             <option value="sagres">SAGRES TCE-SE</option>
             <option value="siap">SIAP TCE-AL</option>

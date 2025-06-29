@@ -59,6 +59,9 @@ class ExportacaoXmlController extends Controller
 
     private function exportarModeloSAGRES($ano, $mes)
     {
+        $data = new DateTime("$ano-$mes-01");
+        $ultimo_dia_mes = $data->format('t');
+
         $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><edu:educacao xmlns:edu="http://www.tce.se.gov.br/sagres2025/xml/sagresEdu"/>');
 
         $prestacao = $xml->addChild('edu:PrestacaoContas', null, $xml->getNamespaces()['edu']);
@@ -70,7 +73,7 @@ class ExportacaoXmlController extends Controller
         $prestacao->addChild('edu:mesReferencia', $mes, $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:versaoXml', '0', $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:diaInicPresContas', '1', $xml->getNamespaces()['edu']);
-        $prestacao->addChild('edu:diaFinaPresContas', '31', $xml->getNamespaces()['edu']);
+        $prestacao->addChild('edu:diaFinaPresContas', $ultimo_dia_mes, $xml->getNamespaces()['edu']);
 
         $escolas = $this->getEscolas($ano);
         if ($escolas->isEmpty()) {
@@ -124,7 +127,13 @@ class ExportacaoXmlController extends Controller
                         if (!empty($matricula->cpf)) {
                             $xmlAluno->addChild('edu:cpfAluno', $this->getCpfNumbers($matricula->cpf), $xml->getNamespaces()['edu']);
                         }
-                        $xmlAluno->addChild('edu:data_nascimento', $matricula->data_nascimento, $xml->getNamespaces()['edu']);
+                        
+                        if (!empty($matricula->data_nascimento)) {
+                            $xmlAluno->addChild('edu:data_nascimento', $matricula->data_nascimento, $xml->getNamespaces()['edu']);
+                        } else {
+                            $this->alerts[] = '     - Aluno ' . $matricula->nome . ' não possui data de nascimento cadastrada.';
+                        }
+
                         $xmlAluno->addChild('edu:nome', $matricula->nome, $xml->getNamespaces()['edu']);
                         $xmlAluno->addChild('edu:pcd', $matricula->pcd > 0 ? '1' : '0', $xml->getNamespaces()['edu']);
                         
@@ -150,7 +159,7 @@ class ExportacaoXmlController extends Controller
                 
                 foreach ($horarios as $horario) {
                     if ($horario->duracao < 1) {
-                        $this->alerts[] = '     - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana;
+                        // $this->alerts[] = '     - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana;
                         continue;
                     }
                     $xmlHorario = $xmlTurma->addChild('edu:horario', null, $xml->getNamespaces()['edu']);
@@ -196,8 +205,14 @@ class ExportacaoXmlController extends Controller
             if ($serv->funcao == 'Diretor') {
                 continue; // Diretor já foi adicionado anteriormente em campo específico
             }
+
             $xmlProfissional = $xml->addChild('edu:profissional', null, $xml->getNamespaces()['edu']);
-            $xmlProfissional->addChild('edu:cpfProfissional', $this->getCpfNumbers($serv->cpf), $xml->getNamespaces()['edu']);
+            if (!isset($serv->cpf)) {
+                $this->alerts[] = 'Servidor ' . $serv->funcao . ' não possui CPF cadastrado.';
+            } else {
+                $xmlProfissional->addChild('edu:cpfProfissional', $this->getCpfNumbers($serv->cpf), $xml->getNamespaces()['edu']);
+            }
+            
             $xmlProfissional->addChild('edu:especialidade', $serv->funcao, $xml->getNamespaces()['edu']);
             $xmlProfissional->addChild('edu:idEscola', $serv->inep_escola, $xml->getNamespaces()['edu']);
             $xmlProfissional->addChild('edu:fundeb', 1, $xml->getNamespaces()['edu']);
