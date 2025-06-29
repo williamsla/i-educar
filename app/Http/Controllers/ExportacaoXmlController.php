@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 use SimpleXMLElement;
 use ZipArchive;
 use PDO;
-
+use DateTime;
 
 class ExportacaoXmlController extends Controller
 {
@@ -208,7 +208,7 @@ class ExportacaoXmlController extends Controller
 
             $xmlProfissional = $xml->addChild('edu:profissional', null, $xml->getNamespaces()['edu']);
             if (!isset($serv->cpf)) {
-                $this->alerts[] = 'Servidor ' . $serv->funcao . ' não possui CPF cadastrado.';
+                $this->alerts[] = '     - Servidor na função ' . $serv->funcao . ' não possui CPF cadastrado.';
             } else {
                 $xmlProfissional->addChild('edu:cpfProfissional', $this->getCpfNumbers($serv->cpf), $xml->getNamespaces()['edu']);
             }
