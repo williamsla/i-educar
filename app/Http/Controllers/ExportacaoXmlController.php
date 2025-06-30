@@ -206,16 +206,15 @@ class ExportacaoXmlController extends Controller
                 continue; // Diretor já foi adicionado anteriormente em campo específico
             }
 
-            $xmlProfissional = $xml->addChild('edu:profissional', null, $xml->getNamespaces()['edu']);
             if (!isset($serv->cpf)) {
-                $this->alerts[] = '     - Servidor na função ' . $serv->funcao . ' não possui CPF cadastrado.';
+                $this->alerts[] = '     - Servidor na função ' . $serv->nome . ' não possui CPF cadastrado.';
             } else {
+                $xmlProfissional = $xml->addChild('edu:profissional', null, $xml->getNamespaces()['edu']);
                 $xmlProfissional->addChild('edu:cpfProfissional', $this->getCpfNumbers($serv->cpf), $xml->getNamespaces()['edu']);
+                $xmlProfissional->addChild('edu:especialidade', $serv->funcao, $xml->getNamespaces()['edu']);
+                $xmlProfissional->addChild('edu:idEscola', $serv->inep_escola, $xml->getNamespaces()['edu']);
+                $xmlProfissional->addChild('edu:fundeb', 1, $xml->getNamespaces()['edu']);
             }
-            
-            $xmlProfissional->addChild('edu:especialidade', $serv->funcao, $xml->getNamespaces()['edu']);
-            $xmlProfissional->addChild('edu:idEscola', $serv->inep_escola, $xml->getNamespaces()['edu']);
-            $xmlProfissional->addChild('edu:fundeb', 1, $xml->getNamespaces()['edu']);
         }
         
         return $this->compactarEEnviar($xml, 'Educacao');
