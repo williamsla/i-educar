@@ -180,9 +180,8 @@ class ExportacaoXmlController extends Controller
                     $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);
                 }
 
-                if (count($series_adicionadas) > 1){
-                    $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
-                }
+                $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 && count($series_adicionadas) > 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
+                
             } // fim do bloco turma
 
             $diretor = $this->getDiretor($escola->inep_escola);
