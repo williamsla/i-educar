@@ -95,6 +95,21 @@ class ExportacaoXmlController extends Controller
                     continue; // Se não houver matrículas, pula para a próxima turma
                 }
 
+                $horarios = $this->getHorarios($turma->cod_turma);
+                if ($horarios->isEmpty()) {
+                    $horarios = $this->getHorariosExterno($turma->cod_turma);
+                    
+                    if ($horarios->isEmpty()) {
+                        $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
+                        $horarios = $this->getHorarioAleatorioDaTurmaAux($turma->cod_turma); //distribuindo um horario aleatoriamente para o professor
+                        $horarios = $horarios ? reset($horarios) : [];
+                    }
+                }
+                if ($horarios->isEmpty()) {
+                    $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
+                    continue; // Se não houver horários, pula para a próxima turma
+                }
+
                 $turmaPeriodo = $this->getTurmaPeriodo($turma->cod_turma);
 
                 $xmlTurma = $xmlEscola->addChild('edu:turma', null, $xml->getNamespaces()['edu']);
@@ -155,17 +170,7 @@ class ExportacaoXmlController extends Controller
                     }
                 }
 
-                $horarios = $this->getHorarios($turma->cod_turma);
-                if ($horarios->isEmpty()) {
-                    $horarios = $this->getHorariosExterno($turma->cod_turma);
-                    
-                    if ($horarios->isEmpty()) {
-                        $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
-                        $horarios = $this->getHorarioAleatorioDaTurmaAux($turma->cod_turma); //distribuindo um horario aleatoriamente para o professor
-                        $horarios = $horarios ? reset($horarios) : [];
-                    }
-                }
-                
+                                
                 foreach ($horarios as $horario) {
                     if ($horario->duracao < 1) {
                         // $this->alerts[] = '     - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana;
