@@ -103,16 +103,25 @@ class ExportacaoXmlController extends Controller
                 $xmlTurma->addChild('edu:turno', $turma->turno, $xml->getNamespaces()['edu']);
 
                 $series = $turma->multiseriada == 1 ? $this->getSeriesTurmaMulti($turma->cod_turma) : $this->getSeriesTurmaNormal($turma->cod_turma);
-                            
+                
+                $series_adicionadas = [];
+
                 foreach ($series as $serie) {
                     if ($this->existeMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes) === false) {
                         continue; // Se não houver matrículas, pula para a próxima série
                     }
-                    $xmlSerie = $xmlTurma->addChild('edu:serie', null, $xml->getNamespaces()['edu']);
-                    $xmlSerie->addChild('edu:idSerie', $serie->idSerie, $xml->getNamespaces()['edu']);
+                    $idSerie = $serie->idSerie;
                     
-                    $curso_sigla = $this->getCursoSigla($serie->idSerie);
-                    $this->adicionarUnico($mapCursoTurno, $turma->turno, $curso_sigla);
+                    if (!in_array($idSerie, $series_adicionadas)) {
+                        $series_adicionadas[] = $idSerie;
+                       
+                        $xmlSerie = $xmlTurma->addChild('edu:serie', null, $xml->getNamespaces()['edu']);
+                        $xmlSerie->addChild('edu:idSerie', $idSerie, $xml->getNamespaces()['edu']);
+                        
+                        $curso_sigla = $this->getCursoSigla($serie->idSerie);
+                        $this->adicionarUnico($mapCursoTurno, $turma->turno, $curso_sigla);
+                    }
+
                     
                     $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes);
                     foreach ($matriculas as $matricula) {
@@ -171,7 +180,9 @@ class ExportacaoXmlController extends Controller
                     $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);
                 }
 
-                $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
+                if (count($series_adicionadas) > 1){
+                    $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
+                }
             } // fim do bloco turma
 
             $diretor = $this->getDiretor($escola->inep_escola);
