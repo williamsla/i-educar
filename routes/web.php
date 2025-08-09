@@ -8,6 +8,7 @@ use App\Http\Controllers\WebController;
 use App\Process;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ExportacaoXmlController;
 
 Auth::routes(['register' => false]);
 
@@ -176,6 +177,9 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
 
     Route::post('/enrollments-promotion', [EnrollmentsPromotionController::class, 'processEnrollmentsPromotionJobs'])
         ->name('enrollments.promotion');
+
+    Route::get('/exportar-xml-view', [ExportacaoXmlController::class, 'index']);
+    Route::get('/exportar-xml', [ExportacaoXmlController::class, 'exportar']);
 
     Route::fallback([WebController::class, 'fallback']);
 });

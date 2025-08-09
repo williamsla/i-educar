@@ -35,6 +35,22 @@
         };
 
         getResources(options);
+      } else if ($instituicaoField.val() && $cursoField.val() && $cursoField.is(':enabled')) {
+        $serieField.children().first().html('Aguarde carregando...');
+
+        var urlForGetSeries = getResourceUrlBuilder.buildUrl('/module/DynamicInput/serie', 'series', {
+          instituicao_id: $instituicaoField.val(),
+          curso_id: $cursoField.val(),
+          ano: $ano.val()
+        });
+
+        var options = {
+          url: urlForGetSeries,
+          dataType: 'json',
+          success: handleGetSeries
+        };
+
+        getResources(options);
       }
 
       $serieField.change();

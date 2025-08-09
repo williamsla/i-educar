@@ -28,7 +28,7 @@ return new class extends clsCadastro
     {
         $anoLetivoHelperOptions = ['situacoes' => ['em_andamento', 'nao_iniciado']];
 
-        $this->inputsHelper()->dynamic(helperNames: 'ano');
+        $this->inputsHelper()->dynamic(helperNames: 'ano', inputOptions: ['label' => 'Ano anterior', 'value' => date("Y", strtotime("-1 year"))]);
         $this->inputsHelper()->dynamic(helperNames: ['instituicao', 'escola', 'curso', 'serie']);
         $this->inputsHelper()->dynamic(helperNames: 'turma', inputOptions: ['label' => 'Selecione a turma do ano anterior', 'required' => false]);
         $this->inputsHelper()->dynamic(helperNames: 'anoLetivo', inputOptions: ['label' => 'Ano destino'], helperOptions: $anoLetivoHelperOptions);

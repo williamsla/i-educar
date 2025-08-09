@@ -956,7 +956,7 @@ class AlunoController extends ApiCoreController
 
         // caso nao receba id da escola, pesquisa por nome aluno em todas as escolas,
         // alunos com e sem matricula são selecionados.
-        if (!$this->getRequest()->escola_id) {
+        if (!$this->getRequest()->turma_id) {
             $sqls[] = '
                 select
                     distinct aluno.cod_aluno as id,

@@ -412,7 +412,8 @@ function getAnoLetivo(anos)
         setAttributes(campoAno,'Selecione um ano',false);
 
         $j.each(anos, function(i, item) {
-            campoAno.options[campoAno.options.length] = new Option(item.year,item.year, false, false);
+            let selecionadoNaCriacao = (i == 0) ? true : false; // selecionado o ano mais recente
+            campoAno.options[campoAno.options.length] = new Option(item.year,item.year, false, selecionadoNaCriacao);
         });
     }
     else

@@ -44,6 +44,8 @@ class Process
 
     public const DOCUMENT_EXPORT = 1026;
 
+    public const TCE_EXPORT = 1027;
+
     public const UNDO_STUDENT_UNIFICATION = 2001;
 
     public const EXEMPTION_LIST = 2002;
