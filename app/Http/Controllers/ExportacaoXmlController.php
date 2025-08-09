@@ -95,20 +95,12 @@ class ExportacaoXmlController extends Controller
                     continue; // Se não houver matrículas, pula para a próxima turma
                 }
 
-                $horarios = $this->getHorarios($turma->cod_turma);
-                if ($horarios->isEmpty()) {
-                    $horarios = $this->getHorariosExterno($turma->cod_turma);
-                    
-                    if ($horarios->isEmpty()) {
-                        $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
-                        $horarios = $this->getHorarioAleatorioDaTurmaAux($turma->cod_turma); //distribuindo um horario aleatoriamente para o professor
-                        $horarios = $horarios ? reset($horarios) : [];
-                    }
-                }
-                if ($horarios->isEmpty()) {
-                    $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
-                    continue; // Se não houver horários, pula para a próxima turma
-                }
+
+                // TODO: Essa turma estava dando problema porque não tem quadro de horário nem professor vinculado a disciplina
+                // if ($turma->cod_turma == 1792) {
+                //     $this->alerts[] = '     - Turma ' . $turma->nm_turma . ' não deve ser exportada.';
+                //     continue; // Pula turmas específicas
+                // }
 
                 $turmaPeriodo = $this->getTurmaPeriodo($turma->cod_turma);
 
@@ -170,7 +162,17 @@ class ExportacaoXmlController extends Controller
                     }
                 }
 
-                                
+                $horarios = $this->getHorarios($turma->cod_turma);
+                if ($horarios->isEmpty()) {
+                    $horarios = $this->getHorariosExterno($turma->cod_turma);
+                    
+                    if ($horarios->isEmpty()) {
+                        $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
+                        $horarios = $this->getHorarioAleatorioDaTurmaAux($turma->cod_turma); //distribuindo um horario aleatoriamente para o professor
+                        $horarios = $horarios ? reset($horarios) : [];
+                    }
+                }
+                
                 foreach ($horarios as $horario) {
                     if ($horario->duracao < 1) {
                         // $this->alerts[] = '     - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana;
@@ -498,7 +500,13 @@ class ExportacaoXmlController extends Controller
     }
 
     private function getHorariosExterno($cod_turma) {
-        $pdo = new PDO("pgsql:host=diario.caninde.ensino.site;port=2345;dbname=idiario;sslmode=require", 'idiario', 'GSVvE18C1g18e6');
+        $host = getenv('DB_HOST_IDIARIO');
+        $port = getenv('DB_PORT_IDIARIO');
+        $dbname = getenv('DB_NAME_IDIARIO');
+        $user = getenv('DB_USER_IDIARIO');
+        $password = getenv('DB_PASSWORD_IDIARIO');
+
+        $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require", $user, $password);
 
         $stmt = $pdo->prepare("SELECT lblw.weekday as dia_semana_nome, lbl.lesson_number as aula, d.description as disciplina, u.cpf as cpf_professor , 1 as duracao, lb.period as turno
                                 FROM public.lessons_board_lesson_weekdays lblw
