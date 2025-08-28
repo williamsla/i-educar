@@ -396,6 +396,9 @@ class ExportacaoXmlController extends Controller
             ->exists();
     }
 
+    /**
+     * Contas faltas por mês
+     */
     private function queryMatriculasPorTurmaESerie($cod_turma, $cod_serie, $ano, $mes)
     {
         return DB::table('pmieducar.matricula')
@@ -548,6 +551,14 @@ class ExportacaoXmlController extends Controller
             '5'    => '16:30:00',
         ];
 
+        $aulaNoiteMap = [
+            '1'    => '18:30:00',
+            '2'   => '19:15:00',
+            '3' => '20:00:00',
+            '4'  => '20:55:00',
+            '5'    => '21:40:00',
+        ];
+
         $dadosFormatados = [];
 
         foreach ($result as $item) {
@@ -569,6 +580,8 @@ class ExportacaoXmlController extends Controller
                 $novo->hora_inicial = $aulaManhaMap[(string) $item->aula] ?? null;
             } elseif ($item->turno == 2) {
                 $novo->hora_inicial = $aulaTardeMap[(string) $item->aula] ?? null;
+            } elseif ($item->turno == 3) {
+                $novo->hora_inicial = $aulaNoiteMap[(string) $item->aula] ?? null;
             } else {
                 $novo->hora_inicial = null;
             }
@@ -582,6 +595,9 @@ class ExportacaoXmlController extends Controller
 
     }
 
+    /**
+     * TODO: verificar o turno da turma antes de retornar um horario aleatorio
+     */
     private function getHorarioAleatorioDaTurmaAux($cod_turma){
         $query = DB::table('modules.professor_turma_disciplina AS ptd')
                     ->join('modules.professor_turma as pt', 'pt.id', '=', 'ptd.professor_turma_id')
