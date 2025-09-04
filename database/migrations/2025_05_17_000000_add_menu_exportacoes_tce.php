@@ -14,7 +14,7 @@ class AddMenuExportacoesTCE extends Migration
     public function up()
     {
         Menu::query()->create([
-            'parent_id' => Menu::query()->where('old', Process::MENU_SCHOOL_TOOLS_EXPORTS)->firstOrFail()->getKey(),
+            'parent_id' => Menu::query()->where('old', Process::MENU_SCHOOL_TOOLS_EXPORTS)->firstOrCreate()->getKey(),
             'title' => 'Exportação para o TCE',
             'link' => '/exportacao-para-o-tce',
             'process' => Process::TCE_EXPORT,
