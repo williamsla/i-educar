@@ -23,7 +23,7 @@ return new class extends clsListagem
 
     public $ref_cod_tipo_ensino;
 
-    public $ref_cod_tipo_avaliacao;
+    public $ref_cod_tipo_avaliacao; // TODO: remover no futuro
 
     public $nm_curso;
 
@@ -101,14 +101,13 @@ return new class extends clsListagem
         $this->__limite = 20;
         $this->__offset = ($_GET["pagina_{$this->nome}"]) ? $_GET["pagina_{$this->nome}"] * $this->__limite - $this->__limite : 0;
 
-        $obj_curso = new clsPmieducarCurso();
+        $obj_curso = new clsPmieducarCurso;
         $obj_curso->setOrderby('nm_curso ASC');
         $obj_curso->setLimite(intLimiteQtd: $this->__limite, intLimiteOffset: $this->__offset);
 
         $lista = $obj_curso->lista(
             int_ref_cod_tipo_regime: $this->ref_cod_nivel_ensino,
             int_ref_cod_nivel_ensino: $this->ref_cod_tipo_ensino,
-            int_ref_cod_tipo_avaliacao: $this->nm_curso,
             date_data_cadastro_fim: 1
         );
 
@@ -143,7 +142,7 @@ return new class extends clsListagem
             }
         }
         $this->addPaginador2(strUrl: 'educar_curso_lst.php', intTotalRegistros: $total, mixVariaveisMantidas: $_GET, nome: $this->nome, intResultadosPorPagina: $this->__limite);
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         if ($obj_permissoes->permissao_cadastra(int_processo_ap: 0, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 0)) {
             $this->acao = 'go("educar_curso_cad.php")';
             $this->nome_acao = 'Novo';

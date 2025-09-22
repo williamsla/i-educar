@@ -15,7 +15,7 @@ class SchoolHistoryStatusTest extends EnumTestCase
             3 => 'Curs',
             4 => 'Tran',
             5 => 'Recl',
-            6 => 'Aban',
+            6 => 'DeFr',
             12 => 'AprDep',
             13 => 'AprCo',
             14 => 'RpFt',

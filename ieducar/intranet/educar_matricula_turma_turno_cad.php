@@ -54,7 +54,7 @@ return new class extends clsCadastro
             'educar_index.php' => 'Escola',
         ]);
 
-        $obj_aluno = new clsPmieducarAluno();
+        $obj_aluno = new clsPmieducarAluno;
         $lst_aluno = $obj_aluno->lista(int_cod_aluno: $this->ref_cod_aluno, int_ativo: 1);
         if (is_array($lst_aluno)) {
             $det_aluno = array_shift($lst_aluno);
@@ -106,7 +106,13 @@ return new class extends clsCadastro
             $codTurma = $codTurmaESequencial[0];
             $sequencial = $codTurmaESequencial[1];
 
-            if (LegacyEnrollment::where(column: 'ref_cod_matricula', operator: $this->cod_matricula)->where(column: 'ref_cod_turma', operator: $codTurma)->value('turno_id') != (int) $turno) {
+            $turnoEnturmacao = LegacyEnrollment::query()
+                ->where('ref_cod_matricula', $this->cod_matricula)
+                ->where('ref_cod_turma', $codTurma)
+                ->where('sequencial', $sequencial)
+                ->value('turno_id');
+
+            if ($turnoEnturmacao != (int) $turno) {
                 $is_change = true;
 
                 $obj = new clsPmieducarMatriculaTurma(ref_cod_matricula: $this->cod_matricula, ref_cod_turma: $codTurma, ref_usuario_exc: $this->pessoa_logada);
@@ -128,7 +134,7 @@ return new class extends clsCadastro
 
     private function validaPermissao()
     {
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(int_processo_ap: 578, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, str_pagina_redirecionar: "educar_matricula_lst.php?ref_cod_aluno={$this->ref_cod_aluno}");
     }
 

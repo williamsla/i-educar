@@ -30,7 +30,7 @@ return new class extends clsListagem
         $params['data_final'] = Portabilis_Date_Utils::brToPgSQL($params['data_final']);
         $params['seleciona_curso'] = empty($params['curso']) ? 0 : 1;
 
-        $base = new clsBanco();
+        $base = new clsBanco;
         $base->FraseConexao();
         $connectionString = 'pgsql:' . $base->getFraseConexao();
         $data = (new MovimentoGeralQueryFactory(connection: new \PDO($connectionString), params: $params))
@@ -127,7 +127,7 @@ return new class extends clsListagem
 
     table.push('<tr>');
       table.push('<td class="formdktd" style="font-weight: bold; text-align: center;">AD</td>');
-      table.push('<td class="formdktd" style="font-weight: bold; text-align: center;">AB</td>');
+      table.push('<td class="formdktd" style="font-weight: bold; text-align: center;">DF</td>');
       table.push('<td class="formdktd" style="font-weight: bold; text-align: center;">TR</td>');
     table.push('</tr>');
 

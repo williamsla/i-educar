@@ -86,17 +86,13 @@ abstract class Core_Controller_Page_EditController extends clsCadastro implement
      * Subclasses podem sobrescrever esse método para executar operações antes
      * da chamada ao construtor de clsCadastro().
      */
-    protected function _preConstruct()
-    {
-    }
+    protected function _preConstruct() {}
 
     /**
      * Subclasses podem sobrescrever esse método para executar operações após
      * a chamada ao construtor de clsCadastro().
      */
-    protected function _postConstruct()
-    {
-    }
+    protected function _postConstruct() {}
 
     /**
      * Retorna um label de um item de formulário.
@@ -254,7 +250,7 @@ abstract class Core_Controller_Page_EditController extends clsCadastro implement
     public function getClsPermissoes()
     {
         if (is_null($this->_clsPermissoes)) {
-            $this->setClsPermissoes(new clsPermissoes());
+            $this->setClsPermissoes(new clsPermissoes);
         }
 
         return $this->_clsPermissoes;

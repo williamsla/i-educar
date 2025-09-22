@@ -92,12 +92,24 @@ return new class extends clsDetalhe
                 $uniformDistribution->pants_jeans_qty ?: '0',
             ]);
             $this->addDetalhe(detalhe: [
+                'Quantidade de calça feminina (tecidos diversos)',
+                $uniformDistribution->pants_fem_qty ?: '0',
+            ]);
+            $this->addDetalhe(detalhe: [
+                'Quantidade de calça masculina (tecidos diversos)',
+                $uniformDistribution->pants_mas_qty ?: '0',
+            ]);
+            $this->addDetalhe(detalhe: [
                 'Quantidade de meias',
-                $uniformDistribution->meias_qtd ?: '0',
+                $uniformDistribution->socks_qty ?: '0',
             ]);
             $this->addDetalhe(detalhe: [
                 'Quantidade de saias',
                 $uniformDistribution->skirt_qty ?: '0',
+            ]);
+            $this->addDetalhe(detalhe: [
+                'Quantidade de shorts saias',
+                $uniformDistribution->shorts_skirt_qty ?: '0',
             ]);
             $this->addDetalhe(detalhe: [
                 'Bermuda masculina (tecidos diversos)',
@@ -113,7 +125,7 @@ return new class extends clsDetalhe
             ]);
         }
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
 
         if ($obj_permissoes->permissao_cadastra(int_processo_ap: 578, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7)) {
             $this->url_novo = "educar_distribuicao_uniforme_cad.php?ref_cod_aluno={$uniformDistribution->student_id}";

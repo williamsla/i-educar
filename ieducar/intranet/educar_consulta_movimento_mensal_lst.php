@@ -49,7 +49,7 @@ return new class extends clsListagem
         $params['data_inicial_calendario'] = $startDate ?: null;
         $params['data_final_calendario'] = $endDate ?: null;
 
-        $base = new clsBanco();
+        $base = new clsBanco;
         $base->FraseConexao();
         $connectionString = 'pgsql:' . $base->getFraseConexao();
         $data = (new MovimentoMensalQueryFactory(connection: new \PDO(dsn: $connectionString), params: $params))
@@ -177,7 +177,7 @@ return new class extends clsListagem
       table.push('<td class="formdktd" style="font-weight: bold; text-align: center;" rowspan="3">F</td>');
       table.push('<td class="formdktd" style="font-weight: bold; text-align: center;" rowspan="3">T</td>');
       table.push('<td class="formdktd" style="font-weight: bold; text-align: center;" colspan="2" rowspan="2">Transf.</td>');
-      table.push('<td class="formdktd" style="font-weight: bold; text-align: center;" colspan="2" rowspan="2">Aband.</td>');
+      table.push('<td class="formdktd" style="font-weight: bold; text-align: center;" colspan="2" rowspan="2">Deixou de Freq.</td>');
       table.push('<td class="formdktd" style="font-weight: bold; text-align: center;" colspan="2" rowspan="2">Admitido</td>');
       table.push('<td class="formdktd" style="font-weight: bold; text-align: center;" colspan="2" rowspan="2">Óbito</td>');
       table.push('<td class="formdktd" style="font-weight: bold; text-align: center;" colspan="4">Reclassificado</td>');

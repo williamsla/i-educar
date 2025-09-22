@@ -28,7 +28,7 @@ class ApiCoreController extends Core_Controller_Page_EditController
 
     public function __construct()
     {
-        $this->messenger = new Portabilis_Messenger();
+        $this->messenger = new Portabilis_Messenger;
         $this->validator = new Portabilis_Validator($this->messenger);
         $this->response = [];
     }
@@ -133,7 +133,7 @@ class ApiCoreController extends Core_Controller_Page_EditController
 
     protected function canChange()
     {
-        throw new Exception('canChange must be overwritten!');
+        return false;
     }
 
     protected function canPost()
@@ -248,7 +248,7 @@ class ApiCoreController extends Core_Controller_Page_EditController
             $this->messenger->append('Exception: ' . $e->getMessage(), 'error', $encodeToUtf8 = true);
         }
 
-        echo $this->prepareResponse();
+        $this->prepareResponse();
     }
 
     /**
@@ -353,7 +353,7 @@ class ApiCoreController extends Core_Controller_Page_EditController
 
     protected function getDataMapperFor($packageName, $modelName)
     {
-        return (new Portabilis_DataMapper_Utils())->getDataMapperFor($packageName, $modelName);
+        return (new Portabilis_DataMapper_Utils)->getDataMapperFor($packageName, $modelName);
     }
 
     protected function getEntityOf($dataMapper, $id)
@@ -412,6 +412,8 @@ class ApiCoreController extends Core_Controller_Page_EditController
 
             $this->messenger->append($msg, 'error', true);
         }
+
+        return null;
     }
 
     protected static function mergeOptions($options, $defaultOptions)

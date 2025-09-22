@@ -6,7 +6,9 @@ use App\Models\LegacySchoolClass;
 use App\Models\LegacySchoolClassType;
 use App\Models\LegacySchoolCourse;
 use App\Models\LegacyStageType;
+use App\Services\SchoolClass\SchoolClassService;
 use iEducar\Modules\Educacenso\Model\UnidadesCurriculares;
+use iEducar\Modules\SchoolClass\Period;
 use iEducar\Support\View\SelectOptions;
 
 return new class extends clsCadastro
@@ -142,16 +144,42 @@ return new class extends clsCadastro
 
     public $classe_com_lingua_brasileira_sinais;
 
+    public $horario_funcionamento_turno_matutino;
+
+    public $codigo_inep_matutino;
+
+    public $hora_inicial_matutino;
+
+    public $hora_inicio_intervalo_matutino;
+
+    public $hora_fim_intervalo_matutino;
+
+    public $hora_final_matutino;
+
+    public $horario_funcionamento_turma_vespertino;
+
+    public $codigo_inep_vespertino;
+
+    public $hora_inicial_vespertino;
+
+    public $hora_inicio_intervalo_vespertino;
+
+    public $hora_fim_intervalo_vespertino;
+
+    public $hora_final_vespertino;
+
+    private $hasStudentsPartials;
+
     public function Inicializar()
     {
         $retorno = 'Novo';
 
         $this->cod_turma = $_GET['cod_turma'];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(int_processo_ap: 586, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, str_pagina_redirecionar: 'educar_turma_lst.php');
 
-        //Define que esta tela executa suas ações atraves de requisições ajax
+        // Define que esta tela executa suas ações atraves de requisições ajax
         $this->acao_executa_submit_ajax = true;
 
         if (is_numeric(value: $this->cod_turma)) {
@@ -163,10 +191,11 @@ return new class extends clsCadastro
             $det_ser = $obj_ser->detalhe();
 
             $this->visivel = (int) $registro['visivel'];
+            $this->turma_turno_id = $registro['turma_turno_id'];
 
             $regra_avaliacao_id = $det_ser['regra_avaliacao_id'];
             if ($regra_avaliacao_id) {
-                $regra_avaliacao_mapper = new RegraAvaliacao_Model_RegraDataMapper();
+                $regra_avaliacao_mapper = new RegraAvaliacao_Model_RegraDataMapper;
                 $regra_avaliacao = $regra_avaliacao_mapper->find(pkey: $regra_avaliacao_id);
 
                 $this->definirComponentePorEtapa = ($regra_avaliacao->definirComponentePorEtapa == 1);
@@ -187,6 +216,18 @@ return new class extends clsCadastro
 
             if ($inep) {
                 $this->codigo_inep_educacenso = $inep;
+            }
+
+            if ($this->turma_turno_id === Period::FULLTIME) {
+
+                $service = new SchoolClassService;
+                $this->hasStudentsPartials = $service->hasStudentsPartials($this->cod_turma);
+
+                if ($this->hasStudentsPartials) {
+                    $this->codigo_inep_educacenso = $obj_turma->getInepTurno(Period::FULLTIME);
+                    $this->codigo_inep_matutino = $obj_turma->getInepTurno(Period::MORNING);
+                    $this->codigo_inep_vespertino = $obj_turma->getInepTurno(Period::AFTERNOON);
+                }
             }
 
             if ($registro) {
@@ -280,7 +321,7 @@ return new class extends clsCadastro
         if (!isset($this->cod_turma)) {
             $bloqueia = false;
         } elseif (is_numeric(value: $this->cod_turma)) {
-            $obj_matriculas_turma = new clsPmieducarMatriculaTurma();
+            $obj_matriculas_turma = new clsPmieducarMatriculaTurma;
             $obj_matriculas_turma->setOrderby(strNomeCampo: 'nome_aluno');
             $lst_matriculas_turma = $obj_matriculas_turma->lista(
                 int_ref_cod_turma: $this->cod_turma,
@@ -375,7 +416,7 @@ return new class extends clsCadastro
 
         unset($opcoes);
         if (!is_null(value: $this->ref_cod_serie)) {
-            $anoEscolar = new ComponenteCurricular_Model_AnoEscolarDataMapper();
+            $anoEscolar = new ComponenteCurricular_Model_AnoEscolarDataMapper;
             $opcaoPadrao = [null => 'Selecione'];
             $listaComponentes = $anoEscolar->findComponentePorSerie(serieId: $this->ref_cod_serie);
             if (!empty($listaComponentes)) {
@@ -464,7 +505,7 @@ return new class extends clsCadastro
         $registros = [];
 
         if (is_numeric(value: $this->cod_turma)) {
-            $objTurma = new clsPmieducarTurmaModulo();
+            $objTurma = new clsPmieducarTurmaModulo;
             $objTurma->setOrderBy(strNomeCampo: 'sequencial ASC');
 
             $registros = $objTurma->lista(int_ref_cod_turma: $this->cod_turma);
@@ -642,6 +683,94 @@ return new class extends clsCadastro
             'label_hint' => 'Caso marcado, esta turma e suas matrículas, não serão informadas no arquivo da 1° e 2° etapa do Censo escolar'];
         $this->inputsHelper()->checkbox(attrName: 'nao_informar_educacenso', inputOptions: $options);
 
+        $this->campoOculto(
+            nome: 'turno_parcial',
+            valor: $this->hasStudentsPartials ? 'S' : 'N'
+        );
+
+        $this->campoRotulo(
+            nome: 'horario_funcionamento_turno_matutino',
+            campo: '<b>Horário de funcionamento da turma - PERÍODO MATUTINO</b>'
+        );
+
+        $this->inputsHelper()->integer(
+            attrName: 'codigo_inep_matutino',
+            inputOptions: [
+                'label' => 'Código INEP - Turno Matutino',
+                'label_hint' => 'Somente números',
+                'placeholder' => 'INEP',
+                'required' => false,
+                'max_length' => 14,
+                'value' => $this->codigo_inep_matutino,
+            ]
+        );
+
+        $this->campoHora(
+            nome: 'hora_inicial_matutino',
+            campo: 'Hora inicial do turno MATUTINO',
+            valor: $this->hora_inicial_matutino,
+        );
+
+        $this->campoHora(
+            nome: 'hora_inicio_intervalo_matutino',
+            campo: 'Hora inicial do intervalo do turno MATUTINO',
+            valor: $this->hora_inicio_intervalo_matutino,
+        );
+
+        $this->campoHora(
+            nome: 'hora_fim_intervalo_matutino',
+            campo: 'Hora final do intervalo do turno MATUTINO',
+            valor: $this->hora_fim_intervalo_matutino,
+        );
+
+        $this->campoHora(
+            nome: 'hora_final_matutino',
+            campo: 'Hora Final do turno MATUTINO',
+            valor: $this->hora_final_matutino,
+        );
+
+        $this->campoQuebra2();
+        $this->campoRotulo(
+            nome: 'horario_funcionamento_turma_vespertino',
+            campo: '<b>Horário de funcionamento da turma - PERÍODO VESPERTINO</b>'
+        );
+
+        $this->inputsHelper()->integer(
+            attrName: 'codigo_inep_vespertino',
+            inputOptions: [
+                'label' => 'Código INEP - Turno Vespertino',
+                'label_hint' => 'Somente números',
+                'placeholder' => 'INEP',
+                'required' => false,
+                'max_length' => 14,
+                'value' => $this->codigo_inep_vespertino,
+            ]
+        );
+
+        $this->campoHora(
+            nome: 'hora_inicial_vespertino',
+            campo: 'Hora inicial do turno VESPERTINO',
+            valor: $this->hora_inicial_vespertino,
+        );
+
+        $this->campoHora(
+            nome: 'hora_inicio_intervalo_vespertino',
+            campo: 'Hora inicial do intervalo do turno VESPERTINO',
+            valor: $this->hora_inicio_intervalo_vespertino,
+        );
+
+        $this->campoHora(
+            nome: 'hora_fim_intervalo_vespertino',
+            campo: 'Hora final do intervalo do turno VESPERTINO',
+            valor: $this->hora_fim_intervalo_vespertino,
+        );
+
+        $this->campoHora(
+            nome: 'hora_final_vespertino',
+            campo: 'Hora Final do turno VESPERTINO',
+            valor: $this->hora_final_vespertino,
+        );
+
         $scripts = [
             '/vendor/legacy/Cadastro/Assets/Javascripts/Turma.js',
             '/intranet/scripts/etapas.js',
@@ -691,7 +820,7 @@ return new class extends clsCadastro
             }
 
             // Instancia o mapper de turma
-            $componenteTurmaMapper = new ComponenteCurricular_Model_TurmaDataMapper();
+            $componenteTurmaMapper = new ComponenteCurricular_Model_TurmaDataMapper;
             $componentesTurma = [];
 
             if (isset($this->cod_turma) && is_numeric(value: $this->cod_turma)) {
@@ -820,7 +949,7 @@ return new class extends clsCadastro
 
     protected function getEscolaSerie($escolaId, $serieId)
     {
-        $escolaSerie = new clsPmieducarEscolaSerie();
+        $escolaSerie = new clsPmieducarEscolaSerie;
         $escolaSerie->ref_cod_escola = $escolaId;
         $escolaSerie->ref_cod_serie = $serieId;
 

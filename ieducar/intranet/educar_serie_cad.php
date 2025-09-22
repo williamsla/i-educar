@@ -68,13 +68,15 @@ return new class extends clsCadastro
 
     public $descricao;
 
+    public $etapa_educacenso;
+
     public function Inicializar()
     {
         $retorno = 'Novo';
 
         $this->cod_serie = $_GET['cod_serie'];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(
             583,
             $this->pessoa_logada,
@@ -111,7 +113,7 @@ return new class extends clsCadastro
                 $retorno = 'Editar';
             }
 
-            $serieAnoMapper = new RegraAvaliacao_Model_SerieAnoDataMapper();
+            $serieAnoMapper = new RegraAvaliacao_Model_SerieAnoDataMapper;
             $regrasSerieAno = [];
 
             if (!is_null($this->ref_cod_instituicao)) {
@@ -173,56 +175,9 @@ return new class extends clsCadastro
         include 'include/pmieducar/educar_campo_lista.php';
 
         $this->campoTexto('nm_serie', 'Série', $this->nm_serie, 30, 255, true);
-        $this->campoTexto('descricao', 'Descrição', $this->descricao, 30, 50, false, false, '', 'Caso o campo seja preenchido, a descrição será apresentada nas listagens e filtros de busca');
-
-        $opcoes = ['' => 'Selecione'];
-
-        if ($this->ref_cod_curso) {
-            $objTemp = new clsPmieducarCurso();
-            $lista = $objTemp->lista(
-                int_cod_curso: $this->ref_cod_curso,
-                int_ativo: 1
-            );
-
-            if (is_array($lista) && count($lista)) {
-                foreach ($lista as $registro) {
-                    $opcoes_["{$registro['cod_curso']}"] = "{$registro['qtd_etapas']}";
-                }
-            }
-
-            for ($i = 1; $i <= $opcoes_["{$registro['cod_curso']}"]; $i++) {
-                $opcoes[$i] = "Etapa {$i}";
-            }
-        }
-
-        $this->campoLista('etapa_curso', 'Etapa Curso', $opcoes, $this->etapa_curso);
-
-        // Regra de avaliação
-        $mapper = new RegraAvaliacao_Model_RegraDataMapper();
-
-        // @TODO entender como funciona a tabela para poder popular os campos de regra
-        // baseado na instituição escolhida
-        $regras = $mapper->findAll([], []);
-        $regras = CoreExt_Entity::entityFilterAttr($regras, 'id', 'nome');
-
-        $regras = ['' => 'Selecione'] + $regras;
-
-        $this->campoTabelaInicio('regras', 'Regras de avaliação', ['Regra de avaliação (padrão)', 'Regra de avaliação (alternativa)<br><font size=-1; color=gray>O campo deve ser preenchido se existirem escolas avaliadas de forma alternativa (ex.: escola rural, indígena, etc)</font>', 'Ano escolar'], $this->regras_ano_letivo);
-        $this->campoLista('regras_avaliacao_id', 'Regra de avaliação (padrão)', $regras, $this->regras_avaliacao_id);
-        $this->campoLista('regras_avaliacao_diferenciada_id', 'Regra de avaliação (alternativa)', $regras, $this->regras_avaliacao_diferenciada_id, '', false, 'Será utilizada quando campo <b>Utilizar regra de avaliação diferenciada</b> estiver marcado no cadastro da escola', '', false, false);
-        $this->campoNumero('anos_letivos', 'Ano letivo', $this->anos_letivos, 4, 4, true);
-        $this->campoTabelaFim();
-
-        $opcoes = ['' => 'Selecione', 1 => 'não', 2 => 'sim'];
-
-        $this->campoLista('concluinte', 'Concluinte', $opcoes, $this->concluinte);
-
         $this->campoMonetario('carga_horaria', 'Carga Horária', $this->carga_horaria, 7, 7, true);
-
         $this->campoNumero('dias_letivos', 'Dias letivos', $this->dias_letivos, 10, 10, true);
-
         $this->campoNumero('idade_ideal', 'Idade padrão', $this->idade_ideal, 2, 2, false);
-
         $this->campoNumero(
             'idade_inicial',
             'Faixa etária',
@@ -238,6 +193,50 @@ return new class extends clsCadastro
         );
 
         $this->campoNumero('idade_final', '&nbsp;até', $this->idade_final, 2, 2, false);
+        $opcoes = ['' => 'Selecione'];
+
+        if ($this->ref_cod_curso) {
+            $objTemp = new clsPmieducarCurso;
+            $lista = $objTemp->lista(
+                int_cod_curso: $this->ref_cod_curso,
+                int_ativo: 1
+            );
+
+            if (is_array($lista) && count($lista)) {
+                foreach ($lista as $registro) {
+                    $opcoes_["{$registro['cod_curso']}"] = "{$registro['qtd_etapas']}";
+                }
+            }
+
+            for ($i = 1; $i <= $opcoes_["{$registro['cod_curso']}"]; $i++) {
+                $opcoes[$i] = "Etapa {$i}";
+            }
+        }
+        $this->campoLista('etapa_curso', 'Etapa Curso', $opcoes, $this->etapa_curso);
+        $opcoes = ['' => 'Selecione', 1 => 'não', 2 => 'sim'];
+        $this->campoLista('concluinte', 'Concluinte', $opcoes, $this->concluinte);
+        $this->campoTexto('descricao', 'Descrição', $this->descricao, 30, 50, false, false, '', 'Caso o campo seja preenchido, a descrição será apresentada nas listagens e filtros de busca');
+
+        // Regra de avaliação
+        $mapper = new RegraAvaliacao_Model_RegraDataMapper;
+
+        // @TODO entender como funciona a tabela para poder popular os campos de regra
+        // baseado na instituição escolhida
+        $regras = $mapper->findAll([], []);
+        $regras = CoreExt_Entity::entityFilterAttr($regras, 'id', 'nome');
+
+        $regras = ['' => 'Selecione'] + $regras;
+
+        $this->campoTabelaInicio('regras', 'Regras de avaliação', ['Regra de avaliação (padrão)', 'Regra de avaliação (alternativa)<br><font size=-1; color=gray>O campo deve ser preenchido se existirem escolas avaliadas de forma alternativa (ex.: escola rural, indígena, etc)</font>', 'Ano escolar'], $this->regras_ano_letivo);
+        $this->campoLista('regras_avaliacao_id', 'Regra de avaliação (padrão)', $regras, $this->regras_avaliacao_id);
+        $this->campoLista('regras_avaliacao_diferenciada_id', 'Regra de avaliação (alternativa)', $regras, $this->regras_avaliacao_diferenciada_id, '', false, 'Será utilizada quando campo <b>Utilizar regra de avaliação diferenciada</b> estiver marcado no cadastro da escola', '', false, false);
+        $this->campoNumero('anos_letivos', 'Ano letivo', $this->anos_letivos, 4, 4, true);
+        $this->campoTabelaFim();
+
+        $this->campoRotulo(
+            nome: 'autenticador_documentos_digitais',
+            campo: '<b>Autenticador de documentos digitais</b>'
+        );
 
         $this->campoMemo('observacao_historico', 'Observação histórico', $this->observacao_historico, 60, 5, false);
 
@@ -246,6 +245,12 @@ return new class extends clsCadastro
 
         $this->campoCheck('exigir_inep', 'Exigir INEP para a matrícula?', $this->exigir_inep);
         $this->campoCheck('importar_serie_pre_matricula', 'Importar os dados da série para o recurso de pré-matrícula online?', $this->importar_serie_pre_matricula);
+
+        $etapas_educacenso = loadJson(file: 'educacenso_json/etapas_ensino.json');
+        $etapas_educacenso = array_replace([null => 'Selecione'], $etapas_educacenso);
+
+        $options = ['label' => 'Etapa de ensino', 'resources' => $etapas_educacenso, 'value' => $this->etapa_educacenso, 'required' => false, 'size' => 70];
+        $this->inputsHelper()->select(attrName: 'etapa_educacenso', inputOptions: $options);
     }
 
     public function Novo()
@@ -282,7 +287,8 @@ return new class extends clsCadastro
             $this->idade_ideal,
             !is_null($this->exigir_inep),
             !is_null($this->importar_serie_pre_matricula),
-            $this->descricao
+            $this->descricao,
+            $this->etapa_educacenso
         );
 
         $this->cod_serie = $cadastrou = $obj->cadastra();
@@ -333,7 +339,8 @@ return new class extends clsCadastro
             $this->idade_ideal,
             !is_null($this->exigir_inep),
             !is_null($this->importar_serie_pre_matricula),
-            $this->descricao
+            $this->descricao,
+            $this->etapa_educacenso
         );
 
         $editou = $obj->edita();
@@ -378,7 +385,7 @@ return new class extends clsCadastro
 
     protected function persisteRegraSerieAno()
     {
-        $serieAnoMapper = new RegraAvaliacao_Model_SerieAnoDataMapper();
+        $serieAnoMapper = new RegraAvaliacao_Model_SerieAnoDataMapper;
         $anosParaManter = [];
 
         foreach ($this->regras_avaliacao_id as $key => $regraAvaliacao) {
@@ -399,7 +406,7 @@ return new class extends clsCadastro
     protected function deletaRegraSerieAnoNaoEnviada(array $anosParaManter)
     {
         $anosParaManter = implode(',', $anosParaManter);
-        $serieAnoMapper = new RegraAvaliacao_Model_SerieAnoDataMapper();
+        $serieAnoMapper = new RegraAvaliacao_Model_SerieAnoDataMapper;
         $regrasSerieAnoDeletar = $serieAnoMapper->findAll([
             'regraAvaliacao',
             'regraAvaliacaoDiferenciada',

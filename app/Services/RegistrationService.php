@@ -9,6 +9,7 @@ use App\Models\LegacySchoolClassGrade;
 use App\Models\LegacyTransferRequest;
 use App\User;
 use App_Model_MatriculaSituacao;
+use Avaliacao_Model_NotaComponenteMediaDataMapper;
 use DateTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -95,29 +96,42 @@ class RegistrationService
     {
         $newStatus = $data['nova_situacao'];
 
-        if ($newStatus == App_Model_MatriculaSituacao::TRANSFERIDO) {
-            $this->markEnrollmentsAsTransferred($registration);
-            $this->createTransferRequest(
-                $data['transferencia_data'],
-                $data['transferencia_tipo'],
-                $data['transferencia_observacoes'],
-                $registration
-            );
+        switch ($newStatus) {
+            case App_Model_MatriculaSituacao::TRANSFERIDO:
+                $this->markEnrollmentsAsTransferred($registration);
+                $this->createTransferRequest(
+                    $data['transferencia_data'],
+                    $data['transferencia_tipo'],
+                    $data['transferencia_observacoes'],
+                    $registration
+                );
+                $registration->data_cancel = DateTime::createFromFormat('d/m/Y', $data['transferencia_data']);
+                $registration->saveOrFail();
+                $this->processDisciplineScoreSituation($registration, $newStatus);
+                break;
 
-            $registration->data_cancel = DateTime::createFromFormat('d/m/Y', $data['transferencia_data']);
-            $registration->saveOrFail();
+            case App_Model_MatriculaSituacao::RECLASSIFICADO:
+                $this->markEnrollmentsAsReclassified($registration);
+                break;
+
+            case App_Model_MatriculaSituacao::ABANDONO:
+                $this->markEnrollmentsAsAbandoned($registration);
+                $this->processDisciplineScoreSituation($registration, $newStatus);
+                break;
+
+            case App_Model_MatriculaSituacao::FALECIDO:
+                $this->markEnrollmentsAsDeceased($registration);
+                $this->processDisciplineScoreSituation($registration, $newStatus);
+                break;
         }
+    }
 
-        if ($newStatus == App_Model_MatriculaSituacao::RECLASSIFICADO) {
-            $this->markEnrollmentsAsReclassified($registration);
-        }
+    private function processDisciplineScoreSituation(LegacyRegistration $registration, $newStatus)
+    {
+        $registrationScoreId = $registration->registrationStores()->value('id');
 
-        if ($newStatus == App_Model_MatriculaSituacao::ABANDONO) {
-            $this->markEnrollmentsAsAbandoned($registration);
-        }
-
-        if ($newStatus == App_Model_MatriculaSituacao::FALECIDO) {
-            $this->markEnrollmentsAsDeceased($registration);
+        if ($registrationScoreId) {
+            (new Avaliacao_Model_NotaComponenteMediaDataMapper)->updateSituation($registrationScoreId, $newStatus);
         }
     }
 

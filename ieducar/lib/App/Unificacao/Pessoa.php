@@ -159,10 +159,6 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'coluna' => 'idpes_rev',
         ],
         [
-            'tabela' => 'pmieducar.candidato_reserva_vaga',
-            'coluna' => 'ref_cod_pessoa_cad',
-        ],
-        [
             'tabela' => 'portal.acesso',
             'coluna' => 'cod_pessoa',
         ],

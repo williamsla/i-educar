@@ -1,4 +1,5 @@
 function getNotifications() {
+  $j('.notification-balloon').hide();
   $j.get("/notificacoes/retorna-notificacoes-usuario", function (data) {
     $j.each(data, function( index, value ) {
       let unread = value.read_at == null;
@@ -35,7 +36,13 @@ $j(document).click(function() {
   }
 });
 
+var openNotifications = false;
+$j('.notification-balloon').show();
 function openBoxNotification() {
+  if(!openNotifications) {
+    openNotifications = true;
+    getNotifications();
+  }
   $j('.dropdown-content-notifications').css('display','block');
 }
 

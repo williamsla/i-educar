@@ -14,7 +14,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
     {
         $pessoa_logada = $this->pessoa_logada;
 
-        $obj_permissao = new clsPermissoes();
+        $obj_permissao = new clsPermissoes;
         $obj_permissao->permissao_cadastra(999613, $pessoa_logada, 7, '/intranet/educar_index.php');
 
         parent::_preRender();
@@ -119,7 +119,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
                         <option value='reprovado'>Reprovado</option>
                         <option value='transferido'>Transferido</option>
                         <option value='reclassificado'>Reclassificado</option>
-                        <option value='abandono'>Abandono</option>
+                        <option value='abandono'>Deixou de Frequentar</option>
                     </select>
                 </td>
             </tr>
@@ -250,7 +250,7 @@ class ProcessamentoController extends Portabilis_Controller_Page_ListController
 
     public function getSelectGradeCurso()
     {
-        $db = new clsBanco();
+        $db = new clsBanco;
         $sql = 'select * from pmieducar.historico_grade_curso where ativo = 1';
         $db->Consulta($sql);
 

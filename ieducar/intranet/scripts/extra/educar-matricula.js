@@ -46,3 +46,21 @@ function showConfirmationMessage(redirect) {
     }]
   });
 }
+
+function showAlertTurnoDeixouFrequentar() {
+  makeDialog({
+    content: 'Para modificar o turno do aluno, cancele o status através do botão "Desfazer deixou de frequentar", realize a alteração de turno e recadastre a situação "Deixou de frequentar" novamente.',
+    title: 'Atenção!',
+    maxWidth: 600,
+    width: 600,
+    close: function () {
+      $j('#dialog-container').dialog('destroy');
+    },
+    buttons: [{
+      text: 'OK!',
+      click: function () {
+        $j('#dialog-container').dialog('destroy');
+      }
+    }]
+  });
+}

@@ -26,7 +26,15 @@ select
         else 'Não informado'::varchar
     end as nationality,
     COALESCE(ci."name" || '/' || st.abbreviation, 'Não informado') as birthplace,
-    re.name AS religion
+    re.name AS religion,
+    case f.localizacao_diferenciada
+        when 1 then 'Área de assentamento'
+        when 2 then 'Terra indígena'
+        when 3 then 'Comunidade quilombola'
+        when 8 then 'Área onde se localizam povos e comunidades tradicionais'
+        when 7 then 'Não está em área de localização diferenciada'
+        else 'Não informado'
+    end as localization_type
 from cadastro.pessoa p
 inner join cadastro.fisica f on f.idpes = p.idpes
 left join cadastro.fisica_raca fr on fr.ref_idpes = f.idpes

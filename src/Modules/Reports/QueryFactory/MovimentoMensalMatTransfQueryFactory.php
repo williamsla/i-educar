@@ -6,6 +6,6 @@ class MovimentoMensalMatTransfQueryFactory extends MovimentoMensalDetalheQueryFa
 {
     public function where()
     {
-        return 'transferido and saiu_durante';
+        return 'transferido and enturmacao_transferida and saiu_durante';
     }
 }

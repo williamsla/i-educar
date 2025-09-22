@@ -9,17 +9,28 @@
     <form action="{{ Asset::get('login') }}" method="post" id="form-login">
 
         <label for="login">Matrícula:</label>
-        <input type="text" name="login" id="login">
+        <input type="text" name="login" id="login" value="{{ old('login') }}">
 
         <label for="password">Senha:</label>
         <input type="password" name="password" id="password">
-        <i class="fa fa-eye-slash" id="eye" onclick="return showPassword();" aria-hidden="true"></i>
+        <i class="fa fa-eye-slash" id="eye" onclick="showPassword()" onkeyup="showPassword()" aria-hidden="true"></i>
 
         <button id="form-login-submit" type="submit" class="submit">Entrar</button>
 
         <div class="remember">
             <a href="{{ route('password.request') }}">Esqueceu sua senha?</a>
         </div>
+
+        @if(config('services.passport.client_id') && config('services.passport.client_secret'))
+        <div id="portabilis-id" style="display: block;">
+            <div style="border-top: 1px solid #DDDDDD; margin-top: 1.5rem; padding: 1.5rem 0 0; position: relative">
+                <span style="position: absolute; top: -.75rem; width: 50px; background: white; left: calc(50% - 25px); text-align: center; color: #999999">OU</span>
+                <a href="{{ route('socialite.redirect') }}?intended={{ session()->get('url.intended') }}" style="padding: .75rem 1.25rem; background: #0052f5; text-align: center; color: white; display: block; border-radius: 3px">
+                    {{ config('services.passport.label') }}
+                </a>
+            </div>
+        </div>
+        @endif
 
     </form>
 
@@ -40,25 +51,9 @@
         }
     </script>
 
-    <style>
-        #eye {
-            cursor: pointer;
-            position: absolute;
-            margin-top: -37px;
-            margin-left: 335px;
-            color: #188ad1;
-        }
-        @-moz-document url-prefix() {
-            #eye {
-                margin-top: 17px !important;
-                margin-left: -25px !important;
-            }
-        }
-    </style>
-
     @if (config('legacy.app.recaptcha_v3.public_key') && config('legacy.app.recaptcha_v3.private_key'))
         <script src="https://www.google.com/recaptcha/api.js?render={{config('legacy.app.recaptcha_v3.public_key')}}"></script>
-        <script type="text/javascript" src="{{ Asset::get("/intranet/scripts/jquery/jquery-1.8.3.min.js") }} "></script>
+        <script src="{{ Asset::get("/intranet/scripts/jquery/jquery-1.8.3.min.js") }} "></script>
 
         <script>
             let grecaptchaKey = "{{config('legacy.app.recaptcha_v3.public_key')}}";

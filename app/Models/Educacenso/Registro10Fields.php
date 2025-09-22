@@ -52,6 +52,11 @@ class Registro10Fields implements RegistroEducacenso
     /**
      * @var string
      */
+    public $aguaCarroPipa;
+
+    /**
+     * @var string
+     */
     public $aguaInexistente;
 
     /**
@@ -148,6 +153,11 @@ class Registro10Fields implements RegistroEducacenso
      * @var string
      */
     public $dependenciaSalaEstudioGravacaoEdicao;
+
+    /**
+     * @var string
+     */
+    public $dependenciaAreaHorta;
 
     /**
      * @var string
@@ -562,6 +572,11 @@ class Registro10Fields implements RegistroEducacenso
     /**
      * @var int
      */
+    public $qtdAgronomosHorticultores;
+
+    /**
+     * @var int
+     */
     public $qtdApoioPedagogico;
 
     /**
@@ -628,6 +643,11 @@ class Registro10Fields implements RegistroEducacenso
      * @var int
      */
     public $qtdTradutorInterpreteLibrasOutroAmbiente;
+
+    /**
+     * @var int
+     */
+    public $qtdRevisorBraile;
 
     /**
      * @var array
@@ -744,6 +764,8 @@ class Registro10Fields implements RegistroEducacenso
 
     public $recursoSinalizacaoSonora;
 
+    public $recursoSinalizacaoLuminosa;
+
     public $recursoSinalizacaoTatil;
 
     public $recursoSinalizacaoVisual;
@@ -796,6 +818,8 @@ class Registro10Fields implements RegistroEducacenso
 
     public $instrumentosPedagogicosEquipamentosSom;
 
+    public $instrumentosPedagogicosAreaHorta;
+
     public $instrumentosPedagogicosInstrumentos;
 
     public $instrumentosPedagogicosJogos;
@@ -813,6 +837,10 @@ class Registro10Fields implements RegistroEducacenso
     public $instrumentosPedagogicosEducacaoEtnicoRacial;
 
     public $instrumentosPedagogicosEducacaoCampo;
+
+    public $instrumentosPedagogicosEducacaoQuilombola;
+
+    public $instrumentosPedagogicosEducacaoEspecial;
 
     public $instrumentosPedagogicosNenhum;
 
@@ -848,5 +876,19 @@ class Registro10Fields implements RegistroEducacenso
 
     public $orgaoColegiadoOutros;
 
+    public $acaoAreaAmbiental;
+
     public $orgaoColegiadoNaoExiste;
+
+    public $acaoAmbientalNenhuma;
+
+    public $acaoConteudoComponente;
+
+    public $acaoConteudoCurricular;
+
+    public $acaoEixoCurriculo;
+
+    public $acaoEventos;
+
+    public $acaoProjetoInterdisciplinares;
 }

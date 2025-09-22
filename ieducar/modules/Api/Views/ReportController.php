@@ -85,7 +85,7 @@ class ReportController extends ApiCoreController
             return '';
         }
 
-        $boletimReport = new BoletimReport();
+        $boletimReport = new BoletimReport;
 
         $boletimReport->addArg('matricula', (int) $dadosMatricula['id']);
         $boletimReport->addArg('ano', (int) $dadosMatricula['ano']);
@@ -124,8 +124,9 @@ class ReportController extends ApiCoreController
             $boletimProfessorReport->addArg('disciplina', (int) $this->getRequest()->componente_curricular_id);
             $boletimProfessorReport->addArg('orientacao', 2);
             $boletimProfessorReport->addArg('situacao', (int) $this->getRequest()->situacao ?? 0);
+            $boletimProfessorReport->addArg('situacao_matricula', (bool) $this->getRequest()->situacao_matricula);
 
-            $configuracoes = new clsPmieducarConfiguracoesGerais();
+            $configuracoes = new clsPmieducarConfiguracoesGerais;
             $configuracoes = $configuracoes->detalhe();
 
             $modelo = $configuracoes['modelo_boletim_professor'];

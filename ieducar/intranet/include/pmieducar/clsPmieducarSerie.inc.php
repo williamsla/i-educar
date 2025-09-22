@@ -46,6 +46,8 @@ class clsPmieducarSerie extends Model
 
     public $descricao;
 
+    public $etapa_educacenso;
+
     public function __construct(
         $cod_serie = null,
         $ref_usuario_exc = null,
@@ -69,12 +71,13 @@ class clsPmieducarSerie extends Model
         $idade_ideal = null,
         $exigir_inep = false,
         $importar_serie_pre_matricula = false,
-        $descricao = null
+        $descricao = null,
+        $etapa_educacenso = null
     ) {
 
         $this->_schema = 'pmieducar.';
         $this->_tabela = "{$this->_schema}serie";
-        $this->_campos_lista = $this->_todos_campos = 's.cod_serie, s.ref_usuario_exc, s.ref_usuario_cad, s.ref_cod_curso, s.nm_serie, s.etapa_curso, s.concluinte, s.carga_horaria, s.data_cadastro, s.data_exclusao, s.ativo, s.idade_inicial, s.idade_final, s.regra_avaliacao_id, s.observacao_historico, s.dias_letivos, s.regra_avaliacao_diferenciada_id, s.alerta_faixa_etaria, s.bloquear_matricula_faixa_etaria, s.idade_ideal, s.exigir_inep, s.importar_serie_pre_matricula, s.descricao';
+        $this->_campos_lista = $this->_todos_campos = 's.cod_serie, s.ref_usuario_exc, s.ref_usuario_cad, s.ref_cod_curso, s.nm_serie, s.etapa_curso, s.concluinte, s.carga_horaria, s.data_cadastro, s.data_exclusao, s.ativo, s.idade_inicial, s.idade_final, s.regra_avaliacao_id, s.observacao_historico, s.dias_letivos, s.regra_avaliacao_diferenciada_id, s.alerta_faixa_etaria, s.bloquear_matricula_faixa_etaria, s.idade_ideal, s.exigir_inep, s.importar_serie_pre_matricula, s.descricao, s.etapa_educacenso';
 
         if (is_numeric($ref_cod_curso)) {
             $this->ref_cod_curso = $ref_cod_curso;
@@ -90,7 +93,7 @@ class clsPmieducarSerie extends Model
 
         // Atribuibui a identificação de regra de avaliação
         if (!is_null($regra_avaliacao_id) && is_numeric($regra_avaliacao_id)) {
-            $mapper = new RegraAvaliacao_Model_RegraDataMapper();
+            $mapper = new RegraAvaliacao_Model_RegraDataMapper;
 
             if (isset($curso)) {
                 $regras = $mapper->findAll(
@@ -112,7 +115,7 @@ class clsPmieducarSerie extends Model
         }
 
         if (!is_null($regra_avaliacao_diferenciada_id) && is_numeric($regra_avaliacao_diferenciada_id)) {
-            $mapper = new RegraAvaliacao_Model_RegraDataMapper();
+            $mapper = new RegraAvaliacao_Model_RegraDataMapper;
 
             if (isset($curso)) {
                 $regras = $mapper->findAll(
@@ -197,6 +200,10 @@ class clsPmieducarSerie extends Model
             $this->importar_serie_pre_matricula = $importar_serie_pre_matricula;
         }
 
+        if (is_numeric($etapa_educacenso)) {
+            $this->etapa_educacenso = $etapa_educacenso;
+        }
+
         $this->observacao_historico = $observacao_historico;
         $this->dias_letivos = $dias_letivos;
     }
@@ -214,7 +221,7 @@ class clsPmieducarSerie extends Model
             is_numeric($this->concluinte) && is_numeric($this->carga_horaria) &&
             is_numeric($this->dias_letivos)
         ) {
-            $db = new clsBanco();
+            $db = new clsBanco;
 
             $campos = [];
             $valores = [];
@@ -330,6 +337,11 @@ class clsPmieducarSerie extends Model
                 $valores[] = ' false ';
             }
 
+            if (is_numeric($this->etapa_educacenso)) {
+                $campos[] = 'etapa_educacenso';
+                $valores[] = "'{$this->etapa_educacenso}'";
+            }
+
             $campos = implode(', ', $campos);
             $valores = implode(', ', $valores);
 
@@ -349,7 +361,7 @@ class clsPmieducarSerie extends Model
     public function edita()
     {
         if (is_numeric($this->cod_serie) && is_numeric($this->ref_usuario_exc)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $set = [];
 
             if (is_numeric($this->ref_usuario_exc)) {
@@ -457,6 +469,12 @@ class clsPmieducarSerie extends Model
                 $set[] = 'importar_serie_pre_matricula = false ';
             }
 
+            if (is_numeric($this->etapa_educacenso)) {
+                $set[] = "etapa_educacenso = '{$this->etapa_educacenso}'";
+            } else {
+                $set[] = 'etapa_educacenso = NULL';
+            }
+
             $set = implode(', ', $set);
 
             if ($set) {
@@ -496,7 +514,7 @@ class clsPmieducarSerie extends Model
         $int_idade_ideal = null,
         $ano = null
     ) {
-        $db = new clsBanco();
+        $db = new clsBanco;
         $sql = "SELECT {$this->_campos_lista}, c.ref_cod_instituicao FROM {$this->_tabela} s, {$this->_schema}curso c";
 
         $filtros = [' WHERE s.ref_cod_curso = c.cod_curso'];
@@ -658,7 +676,7 @@ class clsPmieducarSerie extends Model
 
         $filtros[] = 's.cod_serie IN (SELECT DISTINCT ano_escolar_id FROM modules.componente_curricular_ano_escolar)';
 
-        $db = new clsBanco();
+        $db = new clsBanco;
         $countCampos = count(explode(',', $this->_campos_lista));
         $resultado = [];
         $filtros = implode(' AND ', $filtros);
@@ -698,13 +716,13 @@ class clsPmieducarSerie extends Model
     public function detalhe()
     {
         if (is_numeric($this->cod_serie) && is_numeric($this->ref_cod_curso)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT {$this->_todos_campos} FROM {$this->_tabela} s WHERE s.cod_serie = '{$this->cod_serie}' AND s.ref_cod_curso = '{$this->ref_cod_curso}'");
             $db->ProximoRegistro();
 
             return $db->Tupla();
         } elseif (is_numeric($this->cod_serie)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT {$this->_todos_campos} FROM {$this->_tabela} s WHERE s.cod_serie = '{$this->cod_serie}'");
             $db->ProximoRegistro();
 
@@ -722,7 +740,7 @@ class clsPmieducarSerie extends Model
     public function existe()
     {
         if (is_numeric($this->cod_serie)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT 1 FROM {$this->_tabela} WHERE cod_serie = '{$this->cod_serie}'");
             $db->ProximoRegistro();
 
@@ -765,7 +783,7 @@ class clsPmieducarSerie extends Model
         $detInstituicao = $objInstituicao->detalhe();
         $dataBaseMatricula = $detInstituicao['data_base_matricula'];
 
-        //Caso não tenha data base na matricula, não verifica se está dentro do periodo
+        // Caso não tenha data base na matricula, não verifica se está dentro do periodo
         if (!is_string($dataBaseMatricula)) {
             return true;
         }

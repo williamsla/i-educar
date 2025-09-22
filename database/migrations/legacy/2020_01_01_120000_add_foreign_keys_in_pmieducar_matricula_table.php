@@ -26,12 +26,6 @@ class AddForeignKeysInPmieducarMatriculaTable extends Migration
                 ->onUpdate('restrict')
                 ->onDelete('restrict');
 
-            $table->foreign('ref_cod_reserva_vaga')
-                ->references('cod_reserva_vaga')
-                ->on('pmieducar.reserva_vaga')
-                ->onUpdate('restrict')
-                ->onDelete('restrict');
-
             $table->foreign('ref_cod_curso')
                 ->references('cod_curso')
                 ->on('pmieducar.curso')
@@ -60,7 +54,6 @@ class AddForeignKeysInPmieducarMatriculaTable extends Migration
         Schema::table('pmieducar.matricula', function (Blueprint $table) {
             $table->dropForeign(['ref_ref_cod_serie']);
             $table->dropForeign(['ref_ref_cod_escola']);
-            $table->dropForeign(['ref_cod_reserva_vaga']);
             $table->dropForeign(['ref_cod_curso']);
             $table->dropForeign(['ref_cod_aluno']);
             $table->dropForeign(['ref_cod_abandono_tipo']);

@@ -53,4 +53,32 @@ class ViewController extends Core_Controller_Page_ViewController
 
         $this->addBotao('Copiar regra', "/module/RegraAvaliacao/edit?id={$this->getRequest()->id}&copy=true");
     }
+
+    public function gerar()
+    {
+        parent::Gerar();
+        foreach ($this->detalhe as $key => $detalhe) {
+            if ($detalhe[0] === 'Tabela de arredondamento') {
+                $link = sprintf(
+                    '<a href="%s" target="_blank">%s</a>',
+                    '/module/TabelaArredondamento/view?id=' . (int) $detalhe[1]->id,
+                    $detalhe[1]->nome
+                );
+
+                $detalhe[1] = $link;
+                $this->detalhe[$key] = $detalhe;
+            }
+
+            if ($detalhe[0] === 'Fórmula de cálculo de média final' || $detalhe[0] === 'Fórmula de cálculo de recuperação') {
+                $link = sprintf(
+                    '<a href="%s" target="_blank">%s</a>',
+                    '/module/FormulaMedia/view?id=' . (int) $detalhe[1]->id,
+                    $detalhe[1]->nome
+                );
+
+                $detalhe[1] = $link;
+                $this->detalhe[$key] = $detalhe;
+            }
+        }
+    }
 }

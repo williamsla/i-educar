@@ -118,7 +118,7 @@ class Portabilis_Report_ReportsRenderServerFactory extends Portabilis_Report_Rep
         if ($report->useHtml()) {
             $data = $report->getHtmlData();
             $payload = [
-                'view' => 'reports::' . $templateName,
+                'view' => str_contains($templateName, '::') ? $templateName : 'reports::' . $templateName,
                 'parameters' => $data['main'],
                 'orientation' => $data['orientation'] ?? null,
                 'driver' => $data['driver'] ?? null,
@@ -142,7 +142,7 @@ class Portabilis_Report_ReportsRenderServerFactory extends Portabilis_Report_Rep
             $event = new ReportIssued('html', $templateName, $success, $report->authenticate());
 
             if ($success) {
-                $event->replace(base64_encode($content));
+                $event->replace(base64_encode($content->content()));
             }
 
             event($event);

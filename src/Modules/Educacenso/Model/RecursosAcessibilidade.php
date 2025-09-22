@@ -24,6 +24,8 @@ class RecursosAcessibilidade
 
     public const ALARME_LUMINOSO = 10;
 
+    public const SINALIZACAO_LUMINOSA = 11;
+
     public static function getDescriptiveValues()
     {
         return [
@@ -33,6 +35,7 @@ class RecursosAcessibilidade
             self::PORTAS_VAO_LIVRE => 'Portas com vão livre de no mínimo 80cm',
             self::RAMPAS => 'Rampas',
             self::SINALIZACAO_SONORA => 'Sinalização sonora',
+            self::SINALIZACAO_LUMINOSA => 'Sinalização luminoso',
             self::SINALIZACAO_TATIL => 'Sinalização tátil (piso/paredes)',
             self::SINALIZACAO_VISUAL => 'Sinalização visual (piso/paredes)',
             self::ALARME_LUMINOSO => 'Sinalização / alarme luminoso',

@@ -54,6 +54,8 @@ class QueryAllCommand extends Command
                 $data = (array) DB::connection($connection)->selectOne($file);
             } catch (Exception $exception) {
                 continue;
+            } finally {
+                DB::purge($connection);
             }
 
             if (isset($data)) {

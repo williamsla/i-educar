@@ -611,8 +611,8 @@ function htmlComponentesAreaConhecimento(id, componente_id, componente_nome, fir
                 </td>
                 <td>
                     <input type="text"
-                           size="5"
-                           maxlength="5"
+                           size="7"
+                           maxlength="7"
                            name="componentes[` + id + componente_id + `][carga_horaria]"
                            class="carga_horaria"
                            id="carga_horaria_` + componente_id + `"

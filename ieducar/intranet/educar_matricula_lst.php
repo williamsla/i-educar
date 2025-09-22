@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\RegistrationStatus;
+
 return new class extends clsListagem
 {
     /**
@@ -24,8 +26,6 @@ return new class extends clsListagem
     public $offset;
 
     public $cod_matricula;
-
-    public $ref_cod_reserva_vaga;
 
     public $ref_ref_cod_escola;
 
@@ -78,7 +78,7 @@ return new class extends clsListagem
             'Curso',
         ];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $nivel_usuario = $obj_permissoes->nivel_acesso(int_idpes_usuario: $this->pessoa_logada);
 
         if ($nivel_usuario == 1) {
@@ -103,7 +103,7 @@ return new class extends clsListagem
         $this->limite = 20;
         $this->offset = ($_GET["pagina_{$this->nome}"]) ? $_GET["pagina_{$this->nome}"] * $this->limite - $this->limite : 0;
 
-        $obj_matricula = new clsPmieducarMatricula();
+        $obj_matricula = new clsPmieducarMatricula;
         $obj_matricula->setOrderby(strNomeCampo: 'ano DESC, ref_ref_cod_serie DESC, aprovado, cod_matricula');
         $obj_matricula->setLimite(intLimiteQtd: $this->limite, intLimiteOffset: $this->offset);
 
@@ -139,7 +139,7 @@ return new class extends clsListagem
                 $det_ref_cod_escola = $obj_ref_cod_escola->detalhe();
                 $registro['ref_ref_cod_escola'] = $det_ref_cod_escola['nome'];
 
-                $enturmacoes = new clsPmieducarMatriculaTurma();
+                $enturmacoes = new clsPmieducarMatriculaTurma;
                 $enturmacoes = $enturmacoes->lista(
                     int_ref_cod_matricula: $registro['cod_matricula'],
                     int_ativo: 1
@@ -155,21 +155,7 @@ return new class extends clsListagem
 
                 $nomesTurmas = implode(separator: '<br />', array: $nomesTurmas);
 
-                $situacao = $registro['aprovado'];
-
-                if ($situacao == 1) {
-                    $situacao = 'Aprovado';
-                } elseif ($situacao == 2) {
-                    $situacao = 'Reprovado';
-                } elseif ($situacao == 3) {
-                    $situacao = 'Cursando';
-                } elseif ($situacao == 4) {
-                    $situacao = 'Transferido';
-                } elseif ($situacao == 5) {
-                    $situacao = 'Reclassificado';
-                } elseif ($situacao == 6) {
-                    $situacao = 'Abandono';
-                }
+                $situacao = RegistrationStatus::getRegistrationStatus()[$registro['aprovado']];
 
                 $lista_busca = [];
 

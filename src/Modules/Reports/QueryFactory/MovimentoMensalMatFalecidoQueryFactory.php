@@ -6,6 +6,6 @@ class MovimentoMensalMatFalecidoQueryFactory extends MovimentoMensalDetalheQuery
 {
     public function where()
     {
-        return 'falecido and saiu_durante';
+        return 'falecido and enturmacao_falecido and saiu_durante';
     }
 }

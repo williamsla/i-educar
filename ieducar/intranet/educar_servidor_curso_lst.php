@@ -36,7 +36,7 @@ return new class extends clsCadastro
         $this->ref_cod_instituicao = $_GET['ref_cod_instituicao'];
         $this->ref_cod_servidor_funcao = $_GET['ref_cod_servidor_funcao'] ?: 0;
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
 
         $obj_permissoes->permissao_cadastra(635, $this->pessoa_logada, 7, 'educar_servidor_lst.php');
 
@@ -75,7 +75,7 @@ return new class extends clsCadastro
         $this->campoOculto('ref_cod_instituicao', $this->ref_cod_instituicao);
         $this->campoOculto('ref_cod_servidor_funcao', $this->ref_cod_servidor_funcao);
 
-        $obj_cursos = new clsPmieducarCurso();
+        $obj_cursos = new clsPmieducarCurso;
         $obj_cursos->setOrderby('nm_curso');
 
         $lst_cursos = $obj_cursos->lista(
@@ -83,7 +83,7 @@ return new class extends clsCadastro
             int_ref_cod_instituicao: $this->ref_cod_instituicao
         );
 
-        $opcoes_curso = [];
+        $opcoes_curso = ['' => 'Selecione'];
         if ($lst_cursos) {
             foreach ($lst_cursos as $curso) {
                 $opcoes_curso[$curso['cod_curso']] = $curso['nm_curso'];

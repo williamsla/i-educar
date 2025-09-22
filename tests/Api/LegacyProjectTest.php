@@ -12,7 +12,7 @@ class LegacyProjectTest extends TestCase
     use DatabaseTransactions;
     use LoginFirstUser;
 
-    public function testSaveSuccess(): void
+    public function test_save_success(): void
     {
         $this->loginWithFirstUser();
 
@@ -31,13 +31,13 @@ class LegacyProjectTest extends TestCase
         $this->post('/intranet/educar_projeto_cad.php', $payload)
             ->assertRedirectContains('educar_projeto_lst.php');
 
-        $this->assertDatabaseHas($project, [
+        $this->assertDatabaseHas($project->getTable(), [
             'nome' => $project->nome,
             'observacao' => $project->observacao,
         ]);
     }
 
-    public function testEditSuccess(): void
+    public function test_edit_success(): void
     {
         $this->loginWithFirstUser();
 

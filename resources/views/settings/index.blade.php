@@ -3,12 +3,18 @@
 
 @push('styles')
     <link rel="stylesheet" type="text/css" href="{{ Asset::get('css/ieducar.css') }}"/>
+    <style>
+        .table-default tbody tr td {
+            padding: 8px;
+            font-size: 14px;
+        }
+    </style>
 @endpush
 
 @section('content')
 
     <form id="formcadastro" action="" method="post">
-        <table class="table-default" width="100%" border="0" cellpadding="2" cellspacing="0">
+        <table class="table-default" width="100%" border="0" cellpadding="2" cellspacing="0" role="presentation">
             <tbody>
             <tr>
                 <td class="titulo-tabela-listagem" colspan="2" height="24"><b>Configurações iniciais</b></td>

@@ -17,8 +17,7 @@ class ExportService
     public function __construct(
         private Export $export,
         private ?string $disk = null
-    ) {
-    }
+    ) {}
 
     /**
      * @param null $disk
@@ -32,7 +31,7 @@ class ExportService
         if ($success) {
             $url = $this->getUrl();
             $this->export->update(['url' => $url]);
-            (new NotificationService())->createByUser(
+            (new NotificationService)->createByUser(
                 $this->export->user_id,
                 $this->getMessage(),
                 $url,

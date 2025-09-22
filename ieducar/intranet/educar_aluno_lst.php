@@ -65,7 +65,7 @@ return new class extends clsListagem
     {
         $this->titulo = 'Aluno - Listagem';
 
-        $configuracoes = new clsPmieducarConfiguracoesGerais();
+        $configuracoes = new clsPmieducarConfiguracoesGerais;
         $configuracoes = $configuracoes->detalhe();
 
         foreach ($_GET as $var => $val) { // passa todos os valores obtidos no GET para atributos do objeto
@@ -101,7 +101,7 @@ return new class extends clsListagem
         $this->inputsHelper()->dynamic(helperNames: 'curso', inputOptions: ['required' => false, 'label_hint' => 'Retorna alunos com matrículas no curso selecionado']);
         $this->inputsHelper()->dynamic(helperNames: 'serie', inputOptions: ['required' => false, 'label_hint' => 'Retorna alunos com matrículas na série selecionada']);
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $cod_escola = $obj_permissoes->getEscola(int_idpes_usuario: $this->pessoa_logada);
 
         if ($cod_escola) {
@@ -171,7 +171,7 @@ return new class extends clsListagem
 
             $linhas = array_filter(array: [
                 "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$student->cod_aluno</a>",
-                $configuracoes['mostrar_codigo_inep_aluno'] === 1 ? "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$student->inepNumber</a>" : null,
+                $configuracoes['mostrar_codigo_inep_aluno'] === 1 ? "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">" . ($student->inepNumber ?? '-'). '</a>' : null,
                 "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$nomeAluno</a>",
                 "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$nomeMae</a>",
                 "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$nomeResponsavel</a>",

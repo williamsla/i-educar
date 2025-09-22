@@ -22,7 +22,7 @@ class ActiveLooking
     {
         return [
             self::ACTIVE_LOOKING_IN_PROGRESS_RESULT => 'Em andamento',
-            self::ACTIVE_LOOKING_ABANDONMENT_RESULT => 'Abandono',
+            self::ACTIVE_LOOKING_ABANDONMENT_RESULT => 'Deixou de Frequentar',
             self::ACTIVE_LOOKING_TRANSFER_RESULT => 'Transferência',
             self::ACTIVE_LOOKING_WITH_ABSENCE_RESULT => 'Retorno com ausência justificada',
             self::ACTIVE_LOOKING_WITHOUT_ABSENCE_RESULT => 'Retorno sem ausência justificada',
@@ -33,7 +33,7 @@ class ActiveLooking
     {
         return [
             self::ACTIVE_LOOKING_IN_PROGRESS_RESULT => 'Em andamento',
-            self::ACTIVE_LOOKING_ABANDONMENT_RESULT => 'Abandono',
+            self::ACTIVE_LOOKING_ABANDONMENT_RESULT => 'Deixou de Frequentar',
             self::ACTIVE_LOOKING_TRANSFER_RESULT => 'Transferência',
             self::ACTIVE_LOOKING_WITH_ABSENCE_RESULT => 'Retorno c/ AJ',
             self::ACTIVE_LOOKING_WITHOUT_ABSENCE_RESULT => 'Retorno s/ AJ',

@@ -21,7 +21,7 @@ return new class extends clsCadastro
 
         $this->idesco = $_GET['idesco'];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(632, $this->pessoa_logada, 4, 'educar_escolaridade_lst.php');
 
         if (is_numeric($this->idesco)) {
@@ -83,13 +83,9 @@ return new class extends clsCadastro
         return false;
     }
 
-    public function Editar()
-    {
-    }
+    public function Editar() {}
 
-    public function Excluir()
-    {
-    }
+    public function Excluir() {}
 
     public function Formular()
     {

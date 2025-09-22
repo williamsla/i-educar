@@ -124,6 +124,14 @@ class LegacyRegistrationBuilder extends LegacyBuilder
     }
 
     /**
+     * Filtra por Raca
+     */
+    public function whereRaceId(int $race): self
+    {
+        return $this->whereHas('student.individual', fn ($q) => $q->whereRace($race));
+    }
+
+    /**
      * Filtra por Situacao
      */
     public function whereSituation(int $situation): self
@@ -251,5 +259,43 @@ class LegacyRegistrationBuilder extends LegacyBuilder
     public function whereDifferentiatedLocalizationArea(int $differentiatedLocalizationArea): self
     {
         return $this->whereHas('school', fn ($q) => $q->whereDifferentiatedLocalizationArea($differentiatedLocalizationArea));
+    }
+
+    /**
+     * Filtra por alunos do sexo masculino
+     */
+    public function male(): self
+    {
+        return $this->join('pmieducar.aluno', 'aluno.cod_aluno', '=', 'matricula.ref_cod_aluno')
+            ->join('cadastro.fisica', 'aluno.ref_idpes', '=', 'fisica.idpes')
+            ->where('aluno.ativo', 1)
+            ->where('sexo', 'M');
+    }
+
+    /**
+     * Filtra por alunos do sexo feminino
+     */
+    public function female(): self
+    {
+        return $this->join('pmieducar.aluno', 'aluno.cod_aluno', '=', 'matricula.ref_cod_aluno')
+            ->join('cadastro.fisica', 'aluno.ref_idpes', '=', 'fisica.idpes')
+            ->where('aluno.ativo', 1)
+            ->where('sexo', 'F');
+    }
+
+    /**
+     * Filtra por registros do ano anterior
+     */
+    public function lastYear(): self
+    {
+        return $this->where('matricula.ano', date('Y') - 1);
+    }
+
+    /**
+     * Filtra por registros do ano corrente
+     */
+    public function currentYear(): self
+    {
+        return $this->where('matricula.ano', date('Y'));
     }
 }

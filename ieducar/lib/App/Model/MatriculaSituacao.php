@@ -36,7 +36,7 @@ class App_Model_MatriculaSituacao extends CoreExt_Enum
         self::EM_ANDAMENTO => 'Cursando',
         self::TRANSFERIDO => 'Transferido',
         self::RECLASSIFICADO => 'Reclassificado',
-        self::ABANDONO => 'Abandono',
+        self::ABANDONO => 'Deixou de Frequentar',
         self::EM_EXAME => 'Em exame',
         self::APROVADO_APOS_EXAME => 'Aprovado após exame',
         self::PRE_MATRICULA => 'Pré-matrícula',

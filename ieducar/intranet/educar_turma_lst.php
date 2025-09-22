@@ -133,7 +133,7 @@ return new class extends clsListagem
         $this->limite = 20;
         $this->offset = ($_GET["pagina_{$this->nome}"]) ? $_GET["pagina_{$this->nome}"] * $this->limite - $this->limite : 0;
 
-        $obj_turma = new clsPmieducarTurma();
+        $obj_turma = new clsPmieducarTurma;
         $obj_turma->setOrderby(strNomeCampo: 'nm_turma ASC');
         $obj_turma->setLimite(intLimiteQtd: $this->limite, intLimiteOffset: $this->offset);
 
@@ -162,7 +162,10 @@ return new class extends clsListagem
                 'year_eq' => $this->ano,
             ])
             ->with(relations: [
-                'school' => fn ($q) => $q->select('cod_escola', 'ref_idpes')->with('organization:idpes,fantasia'),
+                'school' => fn ($q) => $q->select('cod_escola', 'ref_idpes')->with([
+                    'person',
+                    'organization:idpes,fantasia',
+                ]),
                 'course:cod_curso,nm_curso',
                 'grades' => fn ($q) => $q->select('cod_serie', 'nm_serie', 'ref_cod_curso')->with('course:cod_curso,nm_curso')->orderBy('nm_serie'),
                 'grade:cod_serie,nm_serie',
@@ -214,7 +217,7 @@ return new class extends clsListagem
         }
 
         $this->addPaginador2(strUrl: 'educar_turma_lst.php', intTotalRegistros: $lista->total(), mixVariaveisMantidas: $_GET, nome: $this->nome, intResultadosPorPagina: $this->limite);
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         if ($obj_permissoes->permissao_cadastra(int_processo_ap: 586, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7)) {
             $this->acao = 'go("educar_turma_cad.php")';
             $this->nome_acao = 'Novo';

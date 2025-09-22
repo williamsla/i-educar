@@ -115,11 +115,11 @@ class clsPmieducarMatricula extends Model
         $observacoes = false,
         $modalidadeEnsino = self::MODELO_PRESENCIAL
     ) {
-        $this->db = new clsBanco();
+        $this->db = new clsBanco;
         $this->_schema = 'pmieducar.';
         $this->_tabela = $this->_schema . 'matricula';
 
-        $this->_campos_lista = $this->_todos_campos = 'm.cod_matricula, m.ref_cod_reserva_vaga, m.ref_ref_cod_escola, m.ref_ref_cod_serie, m.ref_usuario_exc, m.ref_usuario_cad, m.ref_cod_aluno, m.aprovado, m.data_cadastro, m.data_exclusao, m.ativo, m.ano, m.ultima_matricula, m.modulo,formando,descricao_reclassificacao,matricula_reclassificacao, m.ref_cod_curso,m.matricula_transferencia,m.semestre, m.data_matricula, m.data_cancel, m.ref_cod_abandono_tipo, m.turno_pre_matricula, m.dependencia, data_saida_escola, m.modalidade_ensino';
+        $this->_campos_lista = $this->_todos_campos = 'm.cod_matricula, m.ref_ref_cod_escola, m.ref_ref_cod_serie, m.ref_usuario_exc, m.ref_usuario_cad, m.ref_cod_aluno, m.aprovado, m.data_cadastro, m.data_exclusao, m.ativo, m.ano, m.ultima_matricula, m.modulo,formando,descricao_reclassificacao,matricula_reclassificacao, m.ref_cod_curso,m.matricula_transferencia,m.semestre, m.data_matricula, m.data_cancel, m.ref_cod_abandono_tipo, m.turno_pre_matricula, m.dependencia, data_saida_escola, m.modalidade_ensino';
 
         if (is_numeric($ref_usuario_exc)) {
             $this->ref_usuario_exc = $ref_usuario_exc;
@@ -127,10 +127,6 @@ class clsPmieducarMatricula extends Model
 
         if (is_numeric($ref_usuario_cad)) {
             $this->ref_usuario_cad = $ref_usuario_cad;
-        }
-
-        if (is_numeric($ref_cod_reserva_vaga)) {
-            $this->ref_cod_reserva_vaga = $ref_cod_reserva_vaga;
         }
 
         if (is_numeric($ref_cod_aluno)) {
@@ -225,16 +221,10 @@ class clsPmieducarMatricula extends Model
             && is_numeric($this->aprovado) && is_numeric($this->ano)
             && is_numeric($this->ultima_matricula) && is_numeric($this->ref_cod_curso)
         ) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $campos = '';
             $valores = '';
             $gruda = '';
-
-            if (is_numeric($this->ref_cod_reserva_vaga)) {
-                $campos .= "{$gruda}ref_cod_reserva_vaga";
-                $valores .= "{$gruda}'{$this->ref_cod_reserva_vaga}'";
-                $gruda = ', ';
-            }
 
             if (is_numeric($this->ref_ref_cod_escola)) {
                 $campos .= "{$gruda}ref_ref_cod_escola";
@@ -385,7 +375,7 @@ class clsPmieducarMatricula extends Model
     public function avancaModulo()
     {
         if (is_numeric($this->cod_matricula) && is_numeric($this->ref_usuario_exc)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("UPDATE {$this->_tabela} SET modulo = modulo + 1, data_exclusao = NOW(), ref_usuario_exc = '{$this->ref_usuario_exc}' WHERE cod_matricula = '{$this->cod_matricula}'");
 
             return true;
@@ -402,14 +392,9 @@ class clsPmieducarMatricula extends Model
     public function edita()
     {
         if (is_numeric($this->cod_matricula)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $gruda = '';
             $set = '';
-
-            if (is_numeric($this->ref_cod_reserva_vaga)) {
-                $set .= "{$gruda}ref_cod_reserva_vaga = '{$this->ref_cod_reserva_vaga}'";
-                $gruda = ', ';
-            }
 
             if (is_numeric($this->ref_ref_cod_escola)) {
                 $set .= "{$gruda}ref_ref_cod_escola = '{$this->ref_ref_cod_escola}'";
@@ -600,17 +585,12 @@ class clsPmieducarMatricula extends Model
             $condicao_sequencial_fechamento = 'AND ativo = 1';
         }
 
-        $sql = "SELECT {$this->_campos_lista}, c.ref_cod_instituicao, p.nome, a.cod_aluno, a.ref_idpes, c.cod_curso, m.observacao, s.nm_serie, (SELECT sequencial_fechamento FROM pmieducar.matricula_turma WHERE ref_cod_matricula = cod_matricula {$condicao_sequencial_fechamento} LIMIT 1) as sequencial_fechamento FROM {$this->_tabela} m, {$this->_schema}curso c, {$this->_schema}aluno a,  {$this->_schema}serie s, cadastro.pessoa p ";
+        $sql = "SELECT {$this->_campos_lista}, c.ref_cod_instituicao, p.nome, a.cod_aluno, a.ref_idpes, c.cod_curso, m.observacao, m.observacoes, s.nm_serie, (SELECT sequencial_fechamento FROM pmieducar.matricula_turma WHERE ref_cod_matricula = cod_matricula {$condicao_sequencial_fechamento} LIMIT 1) as sequencial_fechamento FROM {$this->_tabela} m, {$this->_schema}curso c, {$this->_schema}aluno a,  {$this->_schema}serie s, cadastro.pessoa p ";
         $whereAnd = ' AND ';
         $filtros = ' WHERE m.ref_cod_aluno = a.cod_aluno AND m.ref_cod_curso = c.cod_curso AND p.idpes = a.ref_idpes AND m.ref_ref_cod_serie = s.cod_serie ';
 
         if (is_numeric($int_cod_matricula)) {
             $filtros .= "{$whereAnd} m.cod_matricula = '{$int_cod_matricula}'";
-            $whereAnd = ' AND ';
-        }
-
-        if (is_numeric($int_ref_cod_reserva_vaga)) {
-            $filtros .= "{$whereAnd} m.ref_cod_reserva_vaga = '{$int_ref_cod_reserva_vaga}'";
             $whereAnd = ' AND ';
         }
 
@@ -784,7 +764,7 @@ class clsPmieducarMatricula extends Model
             $whereAnd = ' AND ';
         }
 
-        $db = new clsBanco();
+        $db = new clsBanco;
         $countCampos = count(explode(',', $this->_campos_lista));
         $resultado = [];
         $sql .= $filtros . $this->getOrderby() . $this->getLimite();
@@ -866,11 +846,6 @@ class clsPmieducarMatricula extends Model
 
         if (is_numeric($int_cod_matricula)) {
             $filtros .= "{$whereAnd} m.cod_matricula = '{$int_cod_matricula}'";
-            $whereAnd = ' AND ';
-        }
-
-        if (is_numeric($int_ref_cod_reserva_vaga)) {
-            $filtros .= "{$whereAnd} m.ref_cod_reserva_vaga = '{$int_ref_cod_reserva_vaga}'";
             $whereAnd = ' AND ';
         }
 
@@ -1045,7 +1020,7 @@ class clsPmieducarMatricula extends Model
             $whereAnd = ' AND ';
         }
 
-        $db = new clsBanco();
+        $db = new clsBanco;
         $countCampos = count(explode(',', $this->_campos_lista));
         $resultado = [];
         $sql .= $filtros . $this->getOrderby() . $this->getLimite();
@@ -1090,7 +1065,7 @@ class clsPmieducarMatricula extends Model
                 $sql .= " AND m.ultima_matricula = {$this->ultima_matricula}";
             }
 
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta($sql);
             $db->ProximoRegistro();
 
@@ -1099,7 +1074,7 @@ class clsPmieducarMatricula extends Model
 
         if (!$this->cod_matricula && is_numeric($this->ref_ref_cod_escola)) {
             $sql = "SELECT {$this->_todos_campos}, p.nome,(p.nome) as nome_upper FROM {$this->_tabela} m, {$this->_schema}aluno a, cadastro.pessoa p WHERE m.ref_ref_cod_escola = '{$this->ref_ref_cod_escola}'";
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta($sql);
             $db->ProximoRegistro();
 
@@ -1117,7 +1092,7 @@ class clsPmieducarMatricula extends Model
     public function existe()
     {
         if (is_numeric($this->cod_matricula)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT 1 FROM {$this->_tabela} WHERE cod_matricula = '{$this->cod_matricula}'");
             $db->ProximoRegistro();
 
@@ -1140,7 +1115,7 @@ class clsPmieducarMatricula extends Model
             $this->ativo = 0;
             $this->ultima_matricula = 0;
 
-            $db = new clsBanco();
+            $db = new clsBanco;
 
             $existeTransfereciaSolicitacao = $db->CampoUnico("SELECT max(transferencia_solicitacao.cod_transferencia_solicitacao)
                                                                 FROM pmieducar.matricula
@@ -1166,7 +1141,7 @@ class clsPmieducarMatricula extends Model
 
     public function verificaMatriculaUltimoAno($codAluno, $codMatricula)
     {
-        $db = new clsBanco();
+        $db = new clsBanco;
 
         $ultimoAnoMatricula = $db->CampoUnico("SELECT MAX(matricula.ano)
                                                  FROM pmieducar.matricula
@@ -1187,7 +1162,7 @@ class clsPmieducarMatricula extends Model
 
     public function getDadosUltimaMatricula($codAluno)
     {
-        $db = new clsBanco();
+        $db = new clsBanco;
 
         $ultimaMatricula = $db->CampoUnico("SELECT MAX(matricula.cod_matricula)
                                               FROM pmieducar.matricula
@@ -1213,7 +1188,7 @@ class clsPmieducarMatricula extends Model
 
     public function getEndMatricula($codAluno)
     {
-        $db = new clsBanco();
+        $db = new clsBanco;
 
         return $db->CampoUnico("SELECT matricula.aprovado
                                                       FROM pmieducar.matricula
@@ -1227,7 +1202,7 @@ class clsPmieducarMatricula extends Model
 
     public function getInicioSequencia()
     {
-        $db = new clsBanco();
+        $db = new clsBanco;
         $sql = 'SELECT o.ref_serie_origem
                   FROM pmieducar.sequencia_serie o
                  WHERE NOT EXISTS (SELECT 1
@@ -1251,7 +1226,7 @@ class clsPmieducarMatricula extends Model
      *
      * @author lucassch
      */
-    public function cadastraObs($obs, $tipoAbandono)
+    public function cadastraObs($obs, $tipoAbandono, $deixouDeFrequentarIdadeObrigatoria)
     {
         if (is_numeric($this->cod_matricula)) {
             if (trim($obs) == '') {
@@ -1260,11 +1235,12 @@ class clsPmieducarMatricula extends Model
                 $obs = pg_escape_string($obs);
             }
 
-            $db = new clsBanco();
+            $db = new clsBanco;
             $consulta = "UPDATE {$this->_tabela}
                             SET aprovado = 6,
                                 observacao = '$obs',
-                                ref_cod_abandono_tipo = '$tipoAbandono'
+                                ref_cod_abandono_tipo = '$tipoAbandono',
+                                deixou_de_frequentar_idade_obrigatoria = '$deixouDeFrequentarIdadeObrigatoria'
                           WHERE cod_matricula = $this->cod_matricula";
 
             $db->Consulta($consulta);
@@ -1284,7 +1260,7 @@ class clsPmieducarMatricula extends Model
                 $observacao = pg_escape_string($observacao);
             }
 
-            $db = new clsBanco();
+            $db = new clsBanco;
             $sql = "UPDATE {$this->_tabela}
                        SET aprovado = 15,
                            observacao = '$observacao'
@@ -1319,7 +1295,7 @@ class clsPmieducarMatricula extends Model
     public function existeSaidaEscola($codMatricula)
     {
         if (is_numeric($codMatricula)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $sql = "SELECT saida_escola
                       FROM {$this->_tabela}
                      WHERE cod_matricula = $codMatricula";
@@ -1337,7 +1313,7 @@ class clsPmieducarMatricula extends Model
                 $observacao = 'Não informado';
             }
 
-            $db = new clsBanco();
+            $db = new clsBanco;
             $sql = "UPDATE {$this->_tabela}
                        SET saida_escola = true,
                            observacao = '$observacao',

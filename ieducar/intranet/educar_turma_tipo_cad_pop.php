@@ -32,7 +32,7 @@ return new class extends clsCadastro
 
         $this->cod_turma_tipo = $_GET['cod_turma_tipo'];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(int_processo_ap: 570, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, str_pagina_redirecionar: 'educar_turma_tipo_lst.php');
 
         if (is_numeric($this->cod_turma_tipo)) {
@@ -72,7 +72,7 @@ return new class extends clsCadastro
 
     public function Novo()
     {
-        $classType = new LegacySchoolClassType();
+        $classType = new LegacySchoolClassType;
         $classType->ref_usuario_cad = $this->pessoa_logada;
         $classType->nm_tipo = $this->nm_tipo;
         $classType->sgl_tipo = $this->sgl_tipo;
@@ -86,8 +86,8 @@ return new class extends clsCadastro
             echo "<script>
                         if (parent.document.getElementById('ref_cod_turma_tipo').disabled)
                             parent.document.getElementById('ref_cod_turma_tipo').options[0] = new Option('Selectione um tipo de turma', '', false, false);
-                        parent.document.getElementById('ref_cod_turma_tipo').options[parent.document.getElementById('ref_cod_turma_tipo').options.length] = new Option('$this->nm_tipo', '$cadastrou', false, false);
-                        parent.document.getElementById('ref_cod_turma_tipo').value = '$cadastrou';
+                        parent.document.getElementById('ref_cod_turma_tipo').options[parent.document.getElementById('ref_cod_turma_tipo').options.length] = new Option('$this->nm_tipo', '', false, false);
+                        parent.document.getElementById('ref_cod_turma_tipo').value = '';
                         parent.document.getElementById('ref_cod_turma_tipo').disabled = false;
                         window.parent.fechaExpansivel('div_dinamico_'+(parent.DOM_divs.length-1));
                     </script>";
@@ -99,22 +99,9 @@ return new class extends clsCadastro
         return false;
     }
 
-    public function Editar()
-    {
-    }
+    public function Editar() {}
 
-    public function Excluir()
-    {
-    }
-
-    public function makeExtra()
-    {
-        if (!$_GET['precisa_lista']) {
-            return file_get_contents(__DIR__ . '/scripts/extra/educar-habilitacao-cad-pop.js');
-        }
-
-        return '';
-    }
+    public function Excluir() {}
 
     public function Formular()
     {

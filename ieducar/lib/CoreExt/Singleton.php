@@ -12,9 +12,7 @@ abstract class CoreExt_Singleton
     /**
      * Construtor.
      */
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     /**
      * Sobrescreva esse método para garantir que a subclasse possa criar um
@@ -51,7 +49,7 @@ abstract class CoreExt_Singleton
     protected static function _getInstance($self)
     {
         if (!isset(self::$_instance[$self])) {
-            self::$_instance[$self] = new $self();
+            self::$_instance[$self] = new $self;
         }
 
         return self::$_instance[$self];

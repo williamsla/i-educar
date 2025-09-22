@@ -26,19 +26,15 @@ class Util
 
     public static function formatWorkload(?float $workload): string
     {
-        if ($workload) {
-            $hour = (int) $workload;
-            $workload -= $hour;
-            $minutes = round($workload * 60);
-            if ($minutes < 10) {
-                $minutes = '0' . $minutes;
+        if ($workload !== null) {
+            $hours = (int) $workload;
+            $minutes = (int) round(($workload - $hours) * 60);
+            if ($minutes === 60) {
+                $hours++;
+                $minutes = 0;
             }
 
-            if ($hour < 10) {
-                $hour = '0' . $hour;
-            }
-
-            return $hour . ':' . $minutes;
+            return sprintf('%02d:%02d', $hours, $minutes);
         }
 
         return '00:00';
@@ -46,7 +42,13 @@ class Util
 
     public static function format(mixed $value, ?int $decimalPlaces = null): string
     {
-        return number_format($value, $decimalPlaces ?? 1, ',', '.');
+        $processedValue = str_replace(',', '.', trim($value));
+        if (!empty($processedValue) && !is_numeric($processedValue)) {
+            return $value;
+        }
+        $processedValue = bcdiv($processedValue, '1', $decimalPlaces ?? 1);
+
+        return number_format($processedValue, $decimalPlaces ?? 1, ',', '.');
     }
 
     public static function float(mixed $value): float
@@ -116,5 +118,25 @@ class Util
         }
 
         return $postcode;
+    }
+
+    public static function disciplineSituation($disciplineSituation, $registrationSituation): ?string
+    {
+        $final = [
+            'Transferido',
+            'Reclassificado',
+            'Deixou de Frequentar',
+            'Remanejado',
+        ];
+
+        if (in_array($registrationSituation, $final)) {
+            return $registrationSituation;
+        }
+
+        if (in_array($disciplineSituation, $final)) {
+            return $disciplineSituation;
+        }
+
+        return $disciplineSituation;
     }
 }

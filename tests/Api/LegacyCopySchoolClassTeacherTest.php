@@ -14,7 +14,7 @@ class LegacyCopySchoolClassTeacherTest extends TestCase
     use DatabaseTransactions;
     use LoginFirstUser;
 
-    public function testCopySchoolClassTeacher(): void
+    public function test_copy_school_class_teacher(): void
     {
         $this->loginWithFirstUser();
 
@@ -46,7 +46,7 @@ class LegacyCopySchoolClassTeacherTest extends TestCase
         $this->post('/intranet/copia_vinculos_servidores_cad.php', $payload)
             ->assertRedirectContains('educar_turma_det.php?cod_turma=' . $turmaAtual->getKey());
 
-        $this->assertDatabaseHas($vinculo, [
+        $this->assertDatabaseHas($vinculo->getTable(), [
             'ano' => now()->year,
             'turma_id' => $turmaAtual->getKey(),
             'instituicao_id' => $instituicao->getKey(),

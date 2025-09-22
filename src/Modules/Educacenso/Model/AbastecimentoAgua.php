@@ -14,6 +14,8 @@ class AbastecimentoAgua
 
     public const INEXISTENTE = 5;
 
+    public const CARRO_PIPA = 6;
+
     public static function getDescriptiveValues()
     {
         return [
@@ -21,6 +23,7 @@ class AbastecimentoAgua
             self::POCO_ARTESIANO => 'Poço artesiano',
             self::CACIMBA_CISTERNA_POCO => 'Cacimba/cisterna/poço',
             self::FONTE => 'Fonte/rio/igarapé/riacho/córrego',
+            self::CARRO_PIPA => 'Carro-Pipa',
             self::INEXISTENTE => 'Não há abastecimento de água',
         ];
     }

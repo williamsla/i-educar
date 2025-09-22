@@ -6,7 +6,7 @@ function fixupTabelaMatriculas() {
 
   $j('<p>').addClass('title-table-matricula').html(stringUtils.toUtf8('<strong>Matrículas:</strong>')).appendTo($parentTd);
 
-  var $table = $j('<table>').attr('id', 'matriculas').addClass('styled horizontal-expand').hide();
+  var $table = $j('<table class="tablelistagem">').attr('id', 'matriculas').addClass('styled horizontal-expand').hide();
   var $tr    = $j('<tr>');
 
   $j('<th>').html('').appendTo($tr);
@@ -68,7 +68,7 @@ var handleGetMatriculas = function(dataResponse) {
               {val: 3, text: 'Cursando'},
               {val: 4, text: 'Transferido'},
               {val: 5, text: 'Reclassificado'},
-              {val: 6, text: 'Abandono'},
+              {val: 6, text: 'Deixou de Frequentar'},
               {val: 12, text: 'Aprovado com dependência'},
               {val: 13, text: 'Aprovado pelo conselho'},
               {val: 14, text: 'Reprovado por faltas'},
@@ -91,11 +91,11 @@ var handleGetMatriculas = function(dataResponse) {
       }
 
 
-      $j('<td>').html(matricula.turma_nome).appendTo($tr);
-      $j('<td>').html(matricula.ultima_enturmacao).appendTo($tr);
-      $j('<td>').html(matricula.serie_nome).appendTo($tr);
-      $j('<td>').html(matricula.curso_nome).appendTo($tr);
-      $j('<td>').html(matricula.escola_nome).appendTo($tr);
+      $j('<td nowrap>').html(`<a style="color:#47728f; padding: 0 8px;" target="_blank" href="/intranet/educar_turma_det.php?cod_turma=${matricula.turma_id}">${matricula.turma_nome ?? ''}</a>`).appendTo($tr);
+      $j('<td>').html(`<a style="color:#47728f; padding: 0 8px;" target="_blank" href="/intranet/educar_turma_det.php?cod_turma=${matricula.ultima_enturmacao_turma_id}">${matricula.ultima_enturmacao}</a>`).appendTo($tr);
+      $j('<td nowrap>').html(`<a style="color:#47728f; padding: 0 8px;" target="_blank" href="/intranet/educar_serie_det.php?cod_serie=${matricula.serie_id}">${matricula.serie_nome}</a>`).appendTo($tr);
+      $j('<td>').html(`<a style="color:#47728f; padding: 0 8px;" target="_blank" href="/intranet/educar_curso_det.php?cod_curso=${matricula.curso_id}">${matricula.curso_nome}</a>`).appendTo($tr);
+      $j('<td>').html(`<a style="color:#47728f; padding: 0 8px;" target="_blank" href="/intranet/educar_escola_det.php?cod_escola=${matricula.escola_id}">${matricula.escola_nome}</a>`).appendTo($tr);
 
       if(matricula.data_entrada != ""){
         if(matricula.user_can_access && matricula.user_can_change_date){
@@ -316,6 +316,7 @@ if(possui_ficha_medica){
 
   // Pega o número dessa linha
   linha_inicial_fmedica = $j('#tfmedica').index() + 1;
+  linha_final_fmedica = $j('#ffmedica').closest('tr').index() + 1;
 
   // hide nos campos das outras abas (deixando só os campos da primeira aba)
   $j('.tableDetalhe >tbody  > tr').each(function(index, row) {
@@ -353,6 +354,7 @@ if(possui_moradia){
 
   // Pega o número dessa linha
   linha_inicial_fmoradia = $j('#tfmoradia').index() + 1;
+  linha_final_fmoradia = $j('#ffmoradia').closest('tr').index() + 1;
 
   // hide nos campos das outras abas (deixando só os campos da primeira aba)
   $j('.tableDetalhe >tbody  > tr').each(function(index, row) {
@@ -370,7 +372,7 @@ if(participa_projetos){
   $j('#fprojeto').closest('tr').attr('id','tfprojeto');
 
   // Pega o número dessa linha
-  linha_inicial_fprojeto = $j('#tfprojeto').index() + 1;
+  linha_inicial_fprojeto = $j('#tfprojeto').index();
 
   // hide nos campos das outras abas (deixando só os campos da primeira aba)
   $j('.tableDetalhe >tbody  > tr').each(function(index, row) {
@@ -428,7 +430,7 @@ $j(document).ready(function() {
           $j('#tab2').toggleClass('alunoTab2 alunoTab-active2')
           $j('.tableDetalhe >tbody  > tr').each(function(index, row) {
             if (row.id!='stop'){
-              if (index>=linha_inicial_fmedica && index<linha_inicial_funiforme){
+              if (index>=linha_inicial_fmedica && index<linha_final_fmedica){
                 row.show();
               }else if (index>1){
                 row.hide();
@@ -466,10 +468,10 @@ $j(document).ready(function() {
         function(){
           if (possui_moradia){
             $j('.alunoTab-active2').toggleClass('alunoTab-active2 alunoTab2');
-            $j('#tab4').toggleClass('alunoTab2 alunoTab-active2')
+            $j('#tab4').toggleClass('alunoTab2 alunoTab-active2');
             $j('.tableDetalhe >tbody  > tr').each(function(index, row) {
               if (row.id!='stop'){
-                if (index>=linha_inicial_fmoradia){
+                if (index>=linha_inicial_fmoradia && index<linha_final_fmoradia){
                   row.show();
                 }else if (index>1){
                   row.hide();

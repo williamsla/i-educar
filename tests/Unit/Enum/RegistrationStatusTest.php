@@ -20,7 +20,7 @@ class RegistrationStatusTest extends EnumTestCase
             3 => 'Cursando',
             4 => 'Transferido',
             5 => 'Reclassificado',
-            6 => 'Abandono',
+            6 => 'Deixou de Frequentar',
             7 => 'Em exame',
             8 => 'Aprovado após exame',
             10 => 'Aprovado sem exame',
