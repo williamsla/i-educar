@@ -45,6 +45,7 @@ services:
     working_dir: /var/www/ieducar
     volumes:
       - ./:/var/www/ieducar
+      - ../i-educar-reports-package:/var/www/ieducar/packages/portabilis/i-educar-reports-package
     entrypoint: ["sh", "/usr/local/bin/entrypoint.sh"]
 
   nginx:

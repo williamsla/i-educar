@@ -28,9 +28,10 @@ class ForceUserChangePasswordService
 
         $daysGone = $user->getDaysSinceLastPasswordUpdated();
 
-        if ($daysGone >= $expirationPeriod) {
-            $user->employee->force_reset_password = true;
-            $user->employee->save();
+        if ($daysGone >= $expirationPeriod) {            
+            // Temporarily disabled force reset password        
+            // $user->employee->force_reset_password = true;
+            // $user->employee->save();
         }
     }
 }

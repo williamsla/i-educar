@@ -204,11 +204,22 @@ class PromocaoApiController extends ApiCoreController
         $ano = $this->boletimService()->getOption('matriculaData')['ano'];
         $escolaId = $this->boletimService()->getOption('matriculaData')['ref_ref_cod_escola'];
         $turmaId = $this->boletimService()->getOption('matriculaData')['ref_cod_turma'];
-
-        $stages = LegacySchoolClassStage::query(['sequencial'])
-            ->where(['ref_cod_turma' => $turmaId])
-            ->where('data_fim', '<', now())
+       
+        $stagesQuery = LegacySchoolClassStage::query(['sequencial'])
+            ->where('ref_cod_turma', $turmaId)
             ->orderBy('sequencial');
+
+        // Conta quantas etapas existem para a turma
+        $totalStages = (clone $stagesQuery)->count();
+
+        if ($totalStages === 1) {
+            // Só tem uma etapa → ignora filtro por data
+            $stages = $stagesQuery;
+        } else {
+            // Mais de uma → considera apenas as encerradas
+            $stages = $stagesQuery->where('data_fim', '<', now());
+        }
+
 
         if (!$stages->exists()) {
             $stages = LegacyAcademicYearStage::query(['sequencial'])

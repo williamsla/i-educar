@@ -109,9 +109,9 @@ function prepareUpload(event) {
 function uploadFiles(files) {
     if (files && files.length > 0) {
         const fileSize = files[0].size;
-        if (fileSize > 2 * 1024 * 1024) {
+        if (fileSize > 20 * 1024 * 1024) {
             $j('#file').val("").addClass('error');
-            messageUtils.error('Não são permitidos arquivos com mais de 2MB.');
+            messageUtils.error('Não são permitidos arquivos com mais de 20MB.');
             return;
         }
 

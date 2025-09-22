@@ -317,10 +317,14 @@ function formularioValido() {
 let camposTransporte = function() {
   let tipoTransporte = $j("#tipo_transporte");
 
+  let veiculo = document.getElementById("veiculo_transporte_escolar");
+  let rural = document.getElementById("utiliza_transporte_rural");
+
   $j("#veiculo_transporte_escolar").makeUnrequired();
   if (tipoTransporte.val() == "nenhum") {
-    document.getElementById("veiculo_transporte_escolar").disabled = true;
-    document.getElementById("utiliza_transporte_rural").disabled = true;
+    if (veiculo) veiculo.disabled = true;
+    if (rural) rural.disabled = true;
+
     $j('#tr_rota_transporte').hide();
   } else if (
     tipoTransporte.val() == "municipal" ||
@@ -329,12 +333,14 @@ let camposTransporte = function() {
     if (obrigarCamposCenso) {
       $j("#veiculo_transporte_escolar").makeRequired();
     }
-    document.getElementById("veiculo_transporte_escolar").disabled = false;
-    document.getElementById("utiliza_transporte_rural").disabled = false;
+    if (veiculo) veiculo.disabled = false;
+    if (rural) rural.disabled = false;
+
     $j('#tr_rota_transporte').show();
   } else {
-    document.getElementById("veiculo_transporte_escolar").disabled = true;
-    document.getElementById("utiliza_transporte_rural").disabled = true;
+    if (veiculo) veiculo.disabled = true;
+    if (rural) rural.disabled = true;
+
     $j('#tr_rota_transporte').hide();
   }
   $j("#veiculo_transporte_escolar").trigger("chosen:updated");
@@ -638,7 +644,10 @@ resourceOptions.handleGet = function (dataResponse) {
   $j("#utiliza_transporte_rural").val(dataResponse.utiliza_transporte_rural);
   $j("#rota_transporte").val(dataResponse.rota_transporte);
   $j("#alfabetizado").attr("checked", dataResponse.alfabetizado);
-  document.getElementById("emancipado").checked = dataResponse.emancipado;
+  let inputEmancipado = document.getElementById("emancipado");
+  if (inputEmancipado) {
+    inputEmancipado.checked = dataResponse.emancipado;
+  }
   $j("#autorizado_um").val(dataResponse.autorizado_um);
   $j("#parentesco_um").val(dataResponse.parentesco_um);
   $j("#autorizado_dois").val(dataResponse.autorizado_dois);
