@@ -23,7 +23,7 @@ class FileControllerPdf
         if ($maxSize != null) {
             $this->maxSize = $maxSize;
         } else {
-            $this->maxSize = 2048 * 1024;
+            $this->maxSize = 20 * 1024 * 1024; // 20MB
         }
 
         if ($suportedExtensions != null) {

@@ -2,6 +2,7 @@
   $(document).ready(function(){
 
     var $anoField                  = getElementFor('ano');
+    var $cursoField                = getElementFor('curso');
     var $serieField                = getElementFor('serie');
     var $turmaField                = getElementFor('turma');
     var $componenteCurricularField = getElementFor('componente_curricular');
@@ -14,11 +15,12 @@
     var updateComponentesCurriculares = function(){
       resetSelect($componenteCurricularField);
 
-      if ($anoField.val() && $turmaField.val() && $turmaField.is(':enabled')) {
+      if ($anoField.val() && $cursoField.val()) {
         $componenteCurricularField.children().first().html('Aguarde carregando...');
 
         var data = {
           ano      : $anoField.attr('value'),
+          curso_id : $cursoField.attr('value'),
           serie_id : $serieField.attr('value'),
           turma_id : $turmaField.attr('value')
         };
