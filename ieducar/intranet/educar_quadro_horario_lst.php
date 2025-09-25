@@ -46,18 +46,19 @@ return new class
         $retorno = '';
 
         $obj_permissoes = new clsPermissoes();
+        $nivel_acesso_num = $obj_permissoes->nivel_acesso(int_idpes_usuario: $this->pessoa_logada);
 
-        if ($obj_permissoes->nivel_acesso(int_idpes_usuario: $this->pessoa_logada) > 7) {
+        if ($nivel_acesso_num > 7) {
             return $retorno . '
-        <table width="100%" height="40%" cellspacing="1" cellpadding="2" border="0" class="tablelistagem">
-          <tbody>
-            <tr>
-              <td colspan="2" valig="center" height="50">
-                <center class="formdktd">Usuário sem permissão para acessar esta página</center>
-              </td>
-            </tr>
-          </tbody>
-        </table>';
+                                <table width="100%" height="40%" cellspacing="1" cellpadding="2" border="0" class="tablelistagem">
+                                <tbody>
+                                    <tr>
+                                    <td colspan="2" valig="center" height="50">
+                                        <center class="formdktd">Usuário sem permissão para acessar esta página</center>
+                                    </td>
+                                    </tr>
+                                </tbody>
+                                </table>';
         }
 
         app(abstract: Breadcrumb::class)->current(currentPage: 'Quadros de horários', pages: [
@@ -85,13 +86,11 @@ return new class
             }
         }
 
-        $nivel_usuario = $obj_permissoes->nivel_acesso(int_idpes_usuario: $this->pessoa_logada);
-
         if (!$this->ref_cod_escola) {
             $this->ref_cod_escola = $obj_permissoes->getEscola(int_idpes_usuario: $this->pessoa_logada);
         }
 
-        if (!is_numeric(value: $this->ref_cod_instituicao)) {
+        if (!is_numeric(value: $this->ref_cod_instituicao) && $nivel_acesso_num > 1) {
             $this->ref_cod_instituicao = $obj_permissoes->getInstituicao(int_idpes_usuario: $this->pessoa_logada);
         }
 
