@@ -413,7 +413,15 @@ class ExportacaoXmlController extends Controller
                 'matricula.cod_matricula',
                 'matricula.ref_cod_aluno',
                 DB::raw('matricula.data_matricula::date AS data_matricula'),
-                DB::raw('matricula_turma.data_exclusao::date AS data_cancelamento'),
+                DB::raw("
+                    CASE 
+                        WHEN matricula_turma.data_exclusao <= (
+                            make_date({$ano}, {$mes}, 1) + interval '1 month - 1 day'
+                        )
+                        THEN matricula_turma.data_exclusao::date
+                        ELSE NULL
+                    END AS data_cancelamento
+                "),
                 DB::raw("(relatorio.get_total_faltas(matricula.cod_matricula)/{$mes})::int as faltas"),
                 'matricula.aprovado',
                 'pessoa.nome',
