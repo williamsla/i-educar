@@ -135,6 +135,9 @@ class ExportacaoXmlController extends Controller
                         $xmlMatricula = $xmlSerie->addChild('edu:matricula', null, $xml->getNamespaces()['edu']);
                         $xmlMatricula->addChild('edu:numero', $matricula->cod_matricula, $xml->getNamespaces()['edu']);
                         $xmlMatricula->addChild('edu:data_matricula', $matricula->data_matricula, $xml->getNamespaces()['edu']);
+                        if (!empty($matricula->data_cancelamento)) {
+                            $xmlMatricula->addChild('edu:data_cancelamento', $matricula->data_cancelamento, $xml->getNamespaces()['edu']);
+                        }
                         $xmlMatricula->addChild('edu:numero_faltas', $matricula->faltas ?? 0, $xml->getNamespaces()['edu']);
                         $xmlMatricula->addChild('edu:aprovado', in_array($matricula->aprovado, self::SITUACOES_APROVADO) ? 'true' : 'false', $xml->getNamespaces()['edu']);
                         
@@ -193,7 +196,7 @@ class ExportacaoXmlController extends Controller
 
             $diretor = $this->getDiretor($escola->inep_escola);
             if ($diretor === null || !isset($diretor->cpf)) {
-                $this->alerts[] = 'Diretor da escola INEP ' . $escola->inep_escola . ' não possui CPF cadastrado.';
+                $this->alerts[] = '     Diretor da escola INEP ' . $escola->inep_escola . ' não possui CPF cadastrado.';
             } else {
                 $xmlDiretor = $xmlEscola->addChild('edu:diretor', null, $xml->getNamespaces()['edu']);
                 $xmlDiretor->addChild('edu:cpfDiretor', $this->getCpfNumbers($diretor->cpf), $xml->getNamespaces()['edu']);
@@ -410,7 +413,8 @@ class ExportacaoXmlController extends Controller
                 'matricula.cod_matricula',
                 'matricula.ref_cod_aluno',
                 DB::raw('matricula.data_matricula::date AS data_matricula'),
-                DB::raw('relatorio.get_total_faltas(matricula.cod_matricula) as faltas'),
+                DB::raw('matricula_turma.data_exclusao::date AS data_cancelamento'),
+                DB::raw("(relatorio.get_total_faltas(matricula.cod_matricula)/{$mes})::int as faltas"),
                 'matricula.aprovado',
                 'pessoa.nome',
                 DB::raw('public.formata_cpf(fisica.cpf) AS cpf'),
@@ -430,7 +434,6 @@ class ExportacaoXmlController extends Controller
                     [$ano, $mes]
             )
             ->where('matricula.ativo', '=', 1)
-            ->where('matricula_turma.ativo', '=', 1)
             ->where('aluno.ativo', '=', 1)
             ->where('fisica.ativo', '=', 1);
     }
