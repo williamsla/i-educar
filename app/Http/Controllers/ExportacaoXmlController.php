@@ -441,9 +441,23 @@ class ExportacaoXmlController extends Controller
                     "matricula.data_matricula <= (DATE_TRUNC('month', make_date(?, ?, 1)) + INTERVAL '1 month - 1 day')::date",
                     [$ano, $mes]
             )
+            ->whereRaw(
+                    "matricula_turma.data_enturmacao <= (DATE_TRUNC('month', make_date(?, ?, 1)) + INTERVAL '1 month - 1 day')::date",
+                    [$ano, $mes]
+            )
             ->where('matricula.ativo', '=', 1)
             ->where('aluno.ativo', '=', 1)
-            ->where('fisica.ativo', '=', 1);
+            ->where('fisica.ativo', '=', 1)
+            ->where(function ($q) {
+                $q->where('matricula_turma.ativo', 1)
+                ->orWhere(function ($q2) {                    
+                    $q2->where('matricula_turma.transferido', true)
+                        ->orWhere('matricula_turma.remanejado', true)
+                        ->orWhere('matricula_turma.reclassificado', true)
+                        ->orWhere('matricula_turma.abandono', true)
+                        ->orWhere('matricula_turma.falecido', true);
+                });                
+            });
     }
 
     private function existeMatriculasPorTurmaESerie($cod_turma, $cod_serie, $ano, $mes)
