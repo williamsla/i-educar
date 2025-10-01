@@ -26,11 +26,7 @@ RUN apk add --update \
     libzip-dev  \
     linux-headers \
     openjdk8  \
-<<<<<<< HEAD
-    postgresql-client \
-=======
     postgresql16-client \
->>>>>>> 171fb67c815bc826a7d06e06fe185634e5d8f405
     postgresql-dev \
     ttf-dejavu \
     unzip \
@@ -72,11 +68,8 @@ RUN docker-php-ext-enable  \
 RUN apk del .phpize_deps
 
 RUN ln -s /var/www/ieducar/artisan /usr/local/bin/artisan
-<<<<<<< HEAD
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-=======
->>>>>>> 171fb67c815bc826a7d06e06fe185634e5d8f405
