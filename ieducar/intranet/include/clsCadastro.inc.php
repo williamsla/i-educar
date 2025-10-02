@@ -95,9 +95,7 @@ class clsCadastro extends clsCampos
         $this->tipoacao = @$_POST['tipoacao'];
     }
 
-    public function PreCadastrar()
-    {
-    }
+    public function PreCadastrar() {}
 
     public function Processar()
     {
@@ -127,7 +125,7 @@ class clsCadastro extends clsCampos
             if ($this->tipoacao == 'Novo') {
                 $this->sucesso = $this->Novo();
                 if ($this->sucesso && !empty($this->script_sucesso)) {
-                    $this->script = "<script type=\"text/javascript\">
+                    $this->script = "<script>
               window.opener.AdicionaItem($this->chave, '$this->item_campo_pai', '$this->nome_pai', $this->submete );
               window.close();
             </script>";
@@ -165,11 +163,10 @@ class clsCadastro extends clsCampos
 
     public function Inicializar()
     {
+        return '';
     }
 
-    public function Formular()
-    {
-    }
+    public function Formular() {}
 
     public function Novo()
     {
@@ -284,7 +281,7 @@ class clsCadastro extends clsCampos
         $retorno .=
             '<tr><td class=\'tableDetalheLinhaSeparador\' colspan=\'2\'></td></tr>
     <tr class=\'linhaBotoes\'><td colspan=\'2\' align=\'center\'>
-    <script type="text/javascript">
+    <script>
     var goodIE = (document.all) ? 1:0;
     var netscape6 = (document.getElementById && !document.all) ? 1:0;
     var aux = \'\';
@@ -452,10 +449,10 @@ class clsCadastro extends clsCampos
                         $retorno .= "else { if(! DvCnpjOk( document.getElementById('$nome')) ) return false; }  }";
                         $retorno .= "else{ if(! DvCpfOk( document.getElementById('$nome')) ) return false; }";
                     } elseif ($nome != 'html') {
-                        //substituito referencia a elementos por padrï¿½o W3C document.getElementById()
-                        //quando se referenciava um nome de elemento como um array ex: cadastro[aluno]
-                        //nao funcionava na referencia por nome
-                        //16-08-2006
+                        // substituito referencia a elementos por padrï¿½o W3C document.getElementById()
+                        // quando se referenciava um nome de elemento como um array ex: cadastro[aluno]
+                        // nao funcionava na referencia por nome
+                        // 16-08-2006
                         $retornoNaFalha = "  mudaClassName( 'formdestaque', 'obrigatorio' );\n";
                         $retornoNaFalha .= "  document.getElementById(\"{$nome}\").className = \"formdestaque\";\n";
                         $retornoNaFalha .= "  alert( 'Preencha o campo \'" . extendChars($componente[1], true) . "\' corretamente!' ); \n";
@@ -569,7 +566,7 @@ class clsCadastro extends clsCampos
         $retorno .= "</form>\n";
 
         if (!empty($this->executa_script)) {
-            $retorno .= "<script type=\"text/javascript\">{$this->executa_script}</script>";
+            $retorno .= "<script>{$this->executa_script}</script>";
         }
 
         Portabilis_View_Helper_Application::embedJavascriptToFixupFieldsWidth($this);
@@ -680,7 +677,7 @@ class clsCadastro extends clsCampos
 
     protected function nivelAcessoPessoaLogada()
     {
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
 
         return $obj_permissoes->nivel_acesso($this->currentUserId());
     }

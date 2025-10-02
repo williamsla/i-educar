@@ -2,37 +2,48 @@
 
 namespace App\Models;
 
+use App\Models\Builders\LegacyIndividualBuilder;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\HasBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property LegacyPerson $mother
+ * @property LegacyPerson $father
+ * @property LegacyPerson $person
+ * @property LegacyPerson $responsible
+ * @property Carbon $data_nasc
+ * @property string $sexo
+ * @property string $social_name
+ * @property int $nacionalidade
+ */
 class LegacyIndividual extends Model
 {
+    /** @use HasBuilder<LegacyIndividualBuilder> */
+    use HasBuilder;
+
     use HasFiles;
 
     public const CREATED_AT = 'data_cad';
 
     public const UPDATED_AT = null;
 
-    /**
-     * @var string
-     */
+    protected static string $builder = LegacyIndividualBuilder::class;
+
     protected $table = 'cadastro.fisica';
 
-    /**
-     * @var string
-     */
     protected $primaryKey = 'idpes';
 
     protected $casts = [
         'data_nasc' => 'date',
+        'data_admissao' => 'date',
     ];
 
-    /**
-     * @var array
-     */
     protected $fillable = [
         'idpes',
         'data_nascimento',
@@ -93,9 +104,9 @@ class LegacyIndividual extends Model
     ];
 
     /**
-     * @return BelongsToMany
+     * @return BelongsToMany<LegacyRace, $this>
      */
-    public function race()
+    public function race(): BelongsToMany
     {
         return $this->belongsToMany(
             LegacyRace::class,
@@ -106,9 +117,24 @@ class LegacyIndividual extends Model
     }
 
     /**
-     * @return BelongsToMany
+     * @return BelongsToMany<LegacyRace, $this>
      */
-    public function deficiency()
+    public function races(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            LegacyRace::class,
+            'cadastro.fisica_raca',
+            'ref_idpes',
+            'ref_cod_raca',
+            'idpes',
+            'cod_raca'
+        );
+    }
+
+    /**
+     * @return BelongsToMany<LegacyDeficiency, $this>
+     */
+    public function deficiency(): BelongsToMany
     {
         return $this->belongsToMany(
             LegacyDeficiency::class,
@@ -119,57 +145,113 @@ class LegacyIndividual extends Model
     }
 
     /**
-     * @return HasOne
+     * @return BelongsTo<LegacyPerson, $this>
      */
-    public function person()
+    public function person(): BelongsTo
     {
         return $this->belongsTo(LegacyPerson::class, 'idpes', 'idpes');
     }
 
     /**
-     * @return HasOne
+     * @return HasMany<LegacyPhone, $this>
      */
-    public function student()
+    public function phones(): HasMany
+    {
+        return $this->hasMany(LegacyPhone::class, 'idpes', 'idpes');
+    }
+
+    /**
+     * @return HasOne<LegacyPhone, $this>
+     */
+    public function phone(): HasOne
+    {
+        // @phpstan-ignore-next-line
+        return $this->hasOne(LegacyPhone::class, 'idpes', 'idpes')->where('fone', '<>', 0)->orderBy('tipo');
+    }
+
+    /**
+     * @return HasOne<LegacyStudent, $this>
+     */
+    public function student(): HasOne
     {
         return $this->hasOne(LegacyStudent::class, 'ref_idpes', 'idpes');
     }
 
-    public function mother()
+    /**
+     * @return BelongsTo<LegacyMaritalStatus, $this>
+     */
+    public function maritalStatus(): BelongsTo
+    {
+        return $this->belongsTo(LegacyMaritalStatus::class, 'ideciv');
+    }
+
+    /**
+     * @return BelongsTo<Religion, $this>
+     */
+    public function religion(): BelongsTo
+    {
+        return $this->belongsTo(Religion::class, 'ref_cod_religiao');
+    }
+
+    /**
+     * @return BelongsTo<Country, $this>
+     */
+    public function foreignCountry(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'idpais_estrangeiro');
+    }
+
+    /**
+     * @return BelongsTo<LegacyPerson, $this>
+     */
+    public function mother(): BelongsTo
     {
         return $this->belongsTo(LegacyPerson::class, 'idpes_mae', 'idpes');
     }
 
-    public function father()
+    /**
+     * @return BelongsTo<LegacyPerson, $this>
+     */
+    public function father(): BelongsTo
     {
         return $this->belongsTo(LegacyPerson::class, 'idpes_pai', 'idpes');
     }
 
+    /**
+     * @return BelongsTo<LegacyPerson, $this>
+     */
     public function responsible()
     {
         return $this->belongsTo(LegacyPerson::class, 'idpes_responsavel', 'idpes');
     }
 
     /**
-     * @return HasOne
+     * @return HasOne<LegacyDocument, $this>
      */
-    public function document()
+    public function document(): HasOne
     {
         return $this->hasOne(LegacyDocument::class, 'idpes');
     }
 
     /**
-     * @return HasOne
+     * @return HasOne<LegacyIndividualPicture, $this>
      */
-    public function picture()
+    public function picture(): HasOne
     {
         return $this->hasOne(LegacyIndividualPicture::class, 'idpes');
     }
 
+    /**
+     * @return BelongsTo<LegacyCity, $this>
+     */
     public function city(): BelongsTo
     {
         return $this->belongsTo(LegacyCity::class, 'idmun_nascimento', 'idmun');
     }
 
+    /**
+     * @return BelongsTo<City, $this>
+     */
     public function cityBirth(): BelongsTo
     {
         return $this->belongsTo(City::class, 'idmun_nascimento');
@@ -192,7 +274,7 @@ class LegacyIndividual extends Model
 
     public static function findByCpf(string|int $cpf): ?Model
     {
-        $cpf = preg_replace('/\D/', '', $cpf);
+        $cpf = preg_replace('/\D/', '', (string) $cpf);
 
         if ($cpf === null) {
             return null;
@@ -204,7 +286,7 @@ class LegacyIndividual extends Model
     protected function cpf(): Attribute
     {
         return Attribute::make(
-            get: fn ($value) => int2CPF($value),
+            get: fn ($value) => $value ? int2CPF($value) : null,
         );
     }
 
@@ -218,7 +300,7 @@ class LegacyIndividual extends Model
     protected function nationalityName(): Attribute
     {
         return Attribute::make(
-            get: fn () => (new Nationality())->getDescriptiveValues()[$this->nacionalidade]
+            get: fn () => (new Nationality)->getDescriptiveValues()[$this->nacionalidade]
         );
     }
 

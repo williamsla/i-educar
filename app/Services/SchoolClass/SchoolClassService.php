@@ -11,6 +11,9 @@ use App\Rules\CanDeleteTurma;
 use App\Rules\CheckAlternativeReportCardExists;
 use App\Rules\CheckMandatoryCensoFields;
 use App\Rules\CheckSchoolClassExistsByName;
+use Carbon\Carbon;
+use iEducar\Modules\SchoolClass\Period;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -86,8 +89,8 @@ class SchoolClassService
     {
         return LegacySchoolClassStage::query()
             ->select([
-                DB::raw('(SELECT min(data_inicio) FROM turma_modulo tm WHERE tm.ref_cod_turma = turma_modulo.ref_cod_turma) as start_date'),
-                DB::raw('(SELECT max(data_fim) FROM turma_modulo tm WHERE tm.ref_cod_turma = turma_modulo.ref_cod_turma) as end_date'),
+                DB::raw('(SELECT min(data_inicio) FROM pmieducar.turma_modulo tm WHERE tm.ref_cod_turma = turma_modulo.ref_cod_turma) as start_date'),
+                DB::raw('(SELECT max(data_fim) FROM pmieducar.turma_modulo tm WHERE tm.ref_cod_turma = turma_modulo.ref_cod_turma) as end_date'),
             ])
             ->distinct()
             ->whereIn('ref_cod_turma', $schoolClassId)
@@ -114,7 +117,7 @@ class SchoolClassService
             ['schoolClass' => $schoolClass],
             [
                 'schoolClass' => [
-                    new CanDeleteTurma(),
+                    new CanDeleteTurma,
                 ],
             ]
         )->validate();
@@ -134,13 +137,45 @@ class SchoolClassService
             ['schoolClass' => $schoolClass],
             [
                 'schoolClass' => [
-                    new CanCreateSchoolClass(),
-                    new CanAlterSchoolClassGrade(),
-                    new CheckMandatoryCensoFields(),
-                    new CheckSchoolClassExistsByName(),
-                    new CheckAlternativeReportCardExists(),
+                    new CanCreateSchoolClass,
+                    new CanAlterSchoolClassGrade,
+                    new CheckMandatoryCensoFields,
+                    new CheckSchoolClassExistsByName,
+                    new CheckAlternativeReportCardExists,
                 ],
             ]
         )->validate();
+    }
+
+    public function hasStudentsPartials(int $schoolClassId)
+    {
+        return Cache::remember('hasStudentsPartials_' . $schoolClassId, Carbon::now()->addMinutes(5), function () use ($schoolClassId) {
+            $studentPeriods = $this->getStudentsPeriods($schoolClassId);
+
+            return $studentPeriods->isNotEmpty() && ($studentPeriods->count() > 1 || !$studentPeriods->contains(Period::FULLTIME));
+        });
+    }
+
+    /**
+     * Retorna os períodos que os alunos estão matriculados em uma turma
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function getStudentsPeriods(int $schoolClassId)
+    {
+        return DB::table('public.educacenso_record60')
+            ->where('codigoTurma', $schoolClassId)
+            ->get()
+            ->pluck('turnoId')
+            ->map(fn ($periodId) => $periodId ?? Period::FULLTIME)
+            ->unique()
+            ->sortBy(function ($periodId) {
+                return match ($periodId) {
+                    4 => 1,
+                    1 => 2,
+                    2 => 3,
+                    3 => 4
+                };
+            });
     }
 }

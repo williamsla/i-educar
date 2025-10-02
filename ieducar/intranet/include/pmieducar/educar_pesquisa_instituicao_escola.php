@@ -1,21 +1,5 @@
 <?php
-
-?>
-<?php /*
-            caso o campo seja de busca criar uma variavel
-              ***  $obrigatorio = false;  *** antes de dar o include do arquivo
-
-            //- Adicionado por Adriano Erik Weiguert Nagasava
-            $escola_obrigatorio = true //- Indica se o campo escola vai ser obrigatório ou não
-
-            $obrigatorio = true;
-            include("include/pmieducar/educar_pesquisa_instituicao_escola.php");
-
-
-        */
-
-//** 4 - Escola 2 - institucional 1 - poli-institucional
-$obj_permissao = new clsPermissoes();
+$obj_permissao = new clsPermissoes;
 $nivel_usuario = $obj_permissao->nivel_acesso($this->pessoa_logada);
 
 $obj_usuario = new clsPmieducarUsuario($this->pessoa_logada);
@@ -27,7 +11,7 @@ $instituicao_usuario = $det_obj_usuario['ref_cod_instituicao'];
 if ($nivel_usuario == 1) {
     $opcoes_instituicao = ['' => 'Selecione'];
 
-    $objTemp = new clsPmieducarInstituicao();
+    $objTemp = new clsPmieducarInstituicao;
     $objTemp->setCamposLista('cod_instituicao,nm_instituicao');
 
     $lista_instituicao23 = $objTemp->lista();
@@ -37,23 +21,13 @@ if ($nivel_usuario == 1) {
         }
     }
 
-    /*      if(isset($_GET["ref_cod_instituicao"]) &&  !empty($_GET["ref_cod_instituicao"]) && is_array($opcoes_instituicao) && array_key_exists($_GET["ref_cod_instituicao"],$opcoes_instituicao) )
-            {
-                $this->ref_cod_instituicao = $_GET["ref_cod_instituicao"];
-            }
-            else
-            {
-                $this->ref_cod_instituicao = null;
-            }*/
-
-    //**** javascript  Array dinamico das instituicoes - escolas
-    $obj_instituicao = new clsPmieducarInstituicao();
+    $obj_instituicao = new clsPmieducarInstituicao;
     $lista_instituicao23 = $obj_instituicao->lista();
 
     $instituicoes = '';
     if ($lista_instituicao23) {
         foreach ($lista_instituicao23 as $instituicao) {
-            $obj_escola = new clsPmieducarEscola();
+            $obj_escola = new clsPmieducarEscola;
             $lista_escola23 = $obj_escola->lista(null, null, null, $instituicao['cod_instituicao'], null, null, null, null, null, null, 1);
 
             $escolas = " instituicao['_{$instituicao['cod_instituicao']}'] = new Array();\n";
@@ -74,9 +48,9 @@ if ($nivel_usuario == 1) {
 }
 
 if ($nivel_usuario == 1 || $nivel_usuario == 2) {
-    $selecione = $nivel_usuario == 2 ? 'Selecione uma escola' : 'Selecione uma escola';
+    $selecione = 'Selecione uma escola';
     $opcoes = ['' => $selecione];
-    $objTemp = new clsPmieducarEscola();
+    $objTemp = new clsPmieducarEscola;
     if ((!empty($this->ref_cod_instituicao) && $nivel_usuario == 1) || $nivel_usuario == 2) {
         if ($nivel_usuario == 2) {
             $this->ref_cod_instituicao = $instituicao_usuario;

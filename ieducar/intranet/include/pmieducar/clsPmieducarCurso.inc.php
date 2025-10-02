@@ -54,7 +54,7 @@ class clsPmieducarCurso extends Model
         $ref_cod_tipo_regime = null,
         $ref_cod_nivel_ensino = null,
         $ref_cod_tipo_ensino = null,
-        $ref_cod_tipo_avaliacao = null,
+        $ref_cod_tipo_avaliacao = null, // TODO: remover no futuro
         $nm_curso = null,
         $sgl_curso = null,
         $qtd_etapas = null,
@@ -180,7 +180,7 @@ class clsPmieducarCurso extends Model
             is_numeric($this->ref_cod_tipo_ensino) && is_string($this->nm_curso) &&
             is_string($this->sgl_curso) && is_numeric($this->qtd_etapas) &&
             is_numeric($this->carga_horaria) && is_numeric($this->ref_cod_instituicao)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
 
             $campos = '';
             $valores = '';
@@ -325,7 +325,7 @@ class clsPmieducarCurso extends Model
     {
         $gruda = '';
         if (is_numeric($this->cod_curso) && is_numeric($this->ref_usuario_exc)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $gruda = '';
             $set = '';
 
@@ -467,7 +467,7 @@ class clsPmieducarCurso extends Model
         $int_ref_cod_tipo_regime = null,
         $int_ref_cod_nivel_ensino = null,
         $int_ref_cod_tipo_ensino = null,
-        $int_ref_cod_tipo_avaliacao = null,
+        $int_ref_cod_tipo_avaliacao = null, // TODO: remover no futuro
         $str_nm_curso = null,
         $str_sgl_curso = null,
         $int_qtd_etapas = null,
@@ -491,7 +491,7 @@ class clsPmieducarCurso extends Model
         $int_hora_falta = null,
         $bool_avaliacao_globalizada = null
     ) {
-        $db = new clsBanco();
+        $db = new clsBanco;
 
         $sql = "SELECT {$this->_campos_lista} FROM {$this->_tabela}";
         $filtros = '';
@@ -645,7 +645,7 @@ class clsPmieducarCurso extends Model
     public function detalhe()
     {
         if (is_numeric($this->cod_curso)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT {$this->_todos_campos},fcn_upper(nm_curso) as nm_curso_upper FROM {$this->_tabela} WHERE cod_curso = '{$this->cod_curso}'");
             $db->ProximoRegistro();
 
@@ -663,7 +663,7 @@ class clsPmieducarCurso extends Model
     public function existe()
     {
         if (is_numeric($this->cod_curso)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT 1 FROM {$this->_tabela} WHERE cod_curso = '{$this->cod_curso}'");
             $db->ProximoRegistro();
 
@@ -676,7 +676,7 @@ class clsPmieducarCurso extends Model
     public function cursoDeAtividadeComplementar()
     {
         if (is_numeric($this->cod_curso)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
 
             $sql = "SELECT 1
                 FROM {$this->_tabela}

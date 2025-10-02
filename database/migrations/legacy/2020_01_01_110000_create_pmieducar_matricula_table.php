@@ -24,7 +24,6 @@ class CreatePmieducarMatriculaTable extends Migration
 
                 CREATE TABLE pmieducar.matricula (
                     cod_matricula integer DEFAULT nextval(\'pmieducar.matricula_cod_matricula_seq\'::regclass) NOT NULL,
-                    ref_cod_reserva_vaga integer,
                     ref_ref_cod_escola integer,
                     ref_ref_cod_serie integer,
                     ref_usuario_exc integer,

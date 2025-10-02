@@ -48,17 +48,17 @@ return new class extends clsListagem
 
     public function Gerar()
     {
-        $this->titulo = 'Motivo Abandono - Listagem';
+        $this->titulo = 'Motivo da situação deixou de frequentar - Listagem';
 
         foreach ($_GET as $var => $val) { // passa todos os valores obtidos no GET para atributos do objeto
             $this->$var = ($val === '') ? null : $val;
         }
 
         $lista_busca = [
-            'Abandono',
+            'Deixou de Frequentar',
         ];
 
-        $obj_permissao = new clsPermissoes();
+        $obj_permissao = new clsPermissoes;
         $nivel_usuario = $obj_permissao->nivel_acesso(int_idpes_usuario: $this->pessoa_logada);
         if ($nivel_usuario == 1) {
             $lista_busca[] = 'Instituição';
@@ -70,7 +70,7 @@ return new class extends clsListagem
         include 'include/pmieducar/educar_campo_lista.php';
 
         // outros Filtros
-        $this->campoTexto(nome: 'nome', campo: 'Abandono', valor: $this->nome, tamanhovisivel: 30, tamanhomaximo: 255, obrigatorio: false);
+        $this->campoTexto(nome: 'nome', campo: 'Deixou de Frequentar', valor: $this->nome, tamanhovisivel: 30, tamanhomaximo: 255, obrigatorio: false);
 
         // Paginador
         $this->limite = 20;
@@ -117,14 +117,14 @@ return new class extends clsListagem
         }
         $this->largura = '100%';
 
-        $this->breadcrumb(currentPage: 'Listagem de tipos de abandono', breadcrumbs: [
+        $this->breadcrumb(currentPage: 'Listagem dos tipos da situação deixou de frequentar', breadcrumbs: [
             url(path: 'intranet/educar_index.php') => 'Escola',
         ]);
     }
 
     public function Formular()
     {
-        $this->title = 'Motivo Abandono';
+        $this->title = 'Motivo - Deixou de Frequentar';
         $this->processoAp = '950';
     }
 };

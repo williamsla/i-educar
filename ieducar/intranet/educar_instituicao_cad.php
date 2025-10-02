@@ -113,7 +113,7 @@ return new class extends clsCadastro
     {
         $retorno = 'Novo';
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
 
         $obj_permissoes->permissao_cadastra(int_processo_ap: 559, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 3, str_pagina_redirecionar: 'educar_instituicao_lst.php');
 
@@ -199,7 +199,7 @@ return new class extends clsCadastro
 
         if (!empty($this->ref_sigla_uf)) {
             $opcoes = [null => 'Selecione'];
-            $orgaoRegional = new Educacenso_Model_OrgaoRegionalDataMapper();
+            $orgaoRegional = new Educacenso_Model_OrgaoRegionalDataMapper;
             $orgaosRegionais = $orgaoRegional->findAll(
                 columns: ['sigla_uf', 'codigo'],
                 where: ['sigla_uf' => $this->ref_sigla_uf],
@@ -306,7 +306,7 @@ return new class extends clsCadastro
         $this->campoCheck(nome: 'exigir_dados_socioeconomicos', campo: 'Exigir dados socioeconômicos na reserva de vaga para turno integral', valor: $this->exigir_dados_socioeconomicos);
 
         $this->campoRotulo(nome: 'relatorios', campo: '<b>Relatórios</b>');
-        $this->campoCheck(nome: 'permissao_filtro_abandono_transferencia', campo: 'Não permitir a apresentação de alunos com matrícula em abandono ou transferida na emissão do relatório de frequência', valor: $this->permissao_filtro_abandono_transferencia);
+        $this->campoCheck(nome: 'permissao_filtro_abandono_transferencia', campo: 'Não permitir a apresentação de alunos que deixaram de frequentar ou que foram transferidos na emissão do relatório de frequência', valor: $this->permissao_filtro_abandono_transferencia);
         $this->campoCheck(nome: 'altera_atestado_para_declaracao', campo: 'Alterar nome do título do menu e relatórios de Atestado para Declaração', valor: $this->altera_atestado_para_declaracao);
         $this->campoCheck(nome: 'exibir_apenas_professores_alocados', campo: 'Exibir apenas professores alocados nos filtros de emissão do Diário de classe', valor: $this->exibir_apenas_professores_alocados);
         $this->campoCheck(

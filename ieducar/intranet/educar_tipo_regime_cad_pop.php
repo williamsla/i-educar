@@ -28,7 +28,7 @@ return new class extends clsCadastro
 
         $this->cod_tipo_regime = $_GET['cod_tipo_regime'];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(568, $this->pessoa_logada, 3, 'educar_tipo_regime_lst.php');
 
         if (is_numeric($this->cod_tipo_regime)) {
@@ -64,7 +64,7 @@ return new class extends clsCadastro
 
     public function Novo()
     {
-        $type = new LegacyRegimeType();
+        $type = new LegacyRegimeType;
         $type->ref_usuario_exc = $this->pessoa_logada;
         $type->ref_usuario_cad = $this->pessoa_logada;
         $type->nm_tipo = $this->nm_tipo;
@@ -87,22 +87,9 @@ return new class extends clsCadastro
         return false;
     }
 
-    public function Editar()
-    {
-    }
+    public function Editar() {}
 
-    public function Excluir()
-    {
-    }
-
-    public function makeExtra()
-    {
-        if (!$_GET['precisa_lista']) {
-            return file_get_contents(__DIR__ . '/scripts/extra/educar-habilitacao-cad-pop.js');
-        }
-
-        return '';
-    }
+    public function Excluir() {}
 
     public function Formular()
     {

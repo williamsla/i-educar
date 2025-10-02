@@ -80,7 +80,7 @@ class LegacyUserProvider implements UserProvider
     {
         if ($user->isInactive()) {
             throw ValidationException::withMessages([
-                $user->login => __('auth.inactive'),
+                $user->login => $user->employee->motivo ?: __('auth.inactive'),
             ]);
         }
 
@@ -125,5 +125,15 @@ class LegacyUserProvider implements UserProvider
     {
         $user->employee->password = $this->hasher->make($password);
         $user->employee->save();
+    }
+
+    public function rehashPasswordIfRequired(
+        Authenticatable $user,
+        array $credentials,
+        bool $force = false
+    ) {
+        if ($force) {
+            $this->rehashPassword($user, $credentials['password']);
+        }
     }
 }

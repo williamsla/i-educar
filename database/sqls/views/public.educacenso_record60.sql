@@ -54,6 +54,7 @@ SELECT
     (ARRAY[3::smallint] <@ matricula_turma.composicao_itinerario)::INT "composicaoItinerarioCienciasNatureza",
     (ARRAY[4::smallint] <@ matricula_turma.composicao_itinerario)::INT "composicaoItinerarioCienciasHumanas",
     (ARRAY[5::smallint] <@ matricula_turma.composicao_itinerario)::INT "composicaoItinerarioFormacaoTecnica",
+    matricula_turma.cod_curso_profissional "codCursoProfissional",
     matricula_turma.curso_itinerario "cursoItinerario",
     matricula_turma.itinerario_concomitante "itinerarioConcomitante",
     matricula_turma.id "enturmacaoId",
@@ -63,7 +64,9 @@ SELECT
     turma.local_funcionamento_diferenciado AS "localFuncionamentoDiferenciadoTurma",
     fisica.pais_residencia AS "paisResidenciaAluno",
     matricula.ano AS "anoTurma",
-    escola.cod_escola AS "codEscola"
+    escola.cod_escola AS "codEscola",
+    turma.turma_turno_id AS "turmaTurnoId",
+    COALESCE(matricula_turma.turno_id, turma.turma_turno_id) AS "turnoId"
 FROM pmieducar.aluno
          JOIN pmieducar.matricula ON matricula.ref_cod_aluno = aluno.cod_aluno
          JOIN pmieducar.escola ON escola.cod_escola = matricula.ref_ref_cod_escola

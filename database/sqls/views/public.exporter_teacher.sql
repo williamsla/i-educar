@@ -23,6 +23,7 @@ select
 		ELSE ''
 END AS high_school_type,
 	form.continuing_education_course,
+	form_complementacao_pedagogica.complementacao_pedagogica,
     sf.matricula AS matricula
 from modules.professor_turma pt
 inner join public.exporter_person p
@@ -68,6 +69,41 @@ on escolaridade.idesco = servidor.ref_idesco,
 		AND curso_formacao_continuada != '{}'
 		and scfc.cod_servidor = servidor.cod_servidor
     ) form,
+     LATERAL (
+         SELECT CONCAT_WS(', ',
+                          CASE WHEN (ARRAY[1] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Química'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[2] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Física'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[3] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Matemática'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[4] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Biologia'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[5] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Ciências'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[6] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Língua / Literatura Portuguesa'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[7] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Língua / Literatura Estrangeira - Inglês'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[8] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Língua / Literatura Estrangeira - Espanhol'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[30] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Língua / Literatura Estrangeira - Francês'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[9] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Língua / Literatura Estrangeira - Outra'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[10] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Arte (Educação Artística, Teatro, Dança, Música, Artes Plásticas e outras)'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[11] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Educação Física'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[12] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'História'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[13] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Geografia'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[14] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Filosofia'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[28] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Estudos Sociais'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[29] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Sociologia'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[16] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Informática / Computação'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[17] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Áreas do conhecimento profissionalizantes'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[23] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Libras'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[25] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Áreas do conhecimento pedagógicas'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[26] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Ensino religioso'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[27] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Língua indígena'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[31] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Língua Portuguesa como Segunda Língua'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[32] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Estágio Curricular Supervisionado'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[33] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Projeto de vida'::VARCHAR ELSE NULL::VARCHAR END,
+                          CASE WHEN (ARRAY[99] <@ scfc.complementacao_pedagogica::integer[])::bool THEN 'Outras áreas do conhecimento'::VARCHAR ELSE NULL::VARCHAR END
+                    ) AS complementacao_pedagogica
+         FROM pmieducar.servidor as scfc
+         WHERE scfc.complementacao_pedagogica IS NOT NULL
+           AND scfc.complementacao_pedagogica != '{}'
+           AND scfc.cod_servidor = servidor.cod_servidor
+         ) form_complementacao_pedagogica,
     LATERAL (
          SELECT STRING_AGG(
                     ('['||CONCAT_WS(', ',educacenso_curso_superior.nome,completion_year,educacenso_ies.nome,employee_graduation_disciplines.name)||']')::varchar, ';') as complete

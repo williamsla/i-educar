@@ -36,10 +36,13 @@ class RegraAvaliacao_Model_RegraDataMapper extends CoreExt_DataMapper
         'definirComponentePorEtapa' => 'definir_componente_etapa',
         'qtdDisciplinasDependencia' => 'qtd_disciplinas_dependencia',
         'disciplinasAglutinadas' => 'disciplinas_aglutinadas',
+        'pontos' => 'pontos',
         'qtdMatriculasDependencia' => 'qtd_matriculas_dependencia',
         'aprovaMediaDisciplina' => 'aprova_media_disciplina',
         'reprovacaoAutomatica' => 'reprovacao_automatica',
         'regraDiferenciada' => 'regra_diferenciada_id',
+        'aprovarPelaFrequenciaAposExame' => 'aprovar_pela_frequencia_apos_exame',
+        'reprovarAutomaticamenteAposDependencias' => 'reprovar_automaticamente_apos_dependencias',
     ];
 
     protected $_primaryKey = [
@@ -78,7 +81,7 @@ class RegraAvaliacao_Model_RegraDataMapper extends CoreExt_DataMapper
     public function getFormulaDataMapper()
     {
         if (is_null($this->_formulaDataMapper)) {
-            $this->setFormulaDataMapper(new FormulaMedia_Model_FormulaDataMapper());
+            $this->setFormulaDataMapper(new FormulaMedia_Model_FormulaDataMapper);
         }
 
         return $this->_formulaDataMapper;
@@ -106,7 +109,7 @@ class RegraAvaliacao_Model_RegraDataMapper extends CoreExt_DataMapper
     {
         if (is_null($this->_tabelaDataMapper)) {
             $this->setTabelaDataMapper(
-                new TabelaArredondamento_Model_TabelaDataMapper()
+                new TabelaArredondamento_Model_TabelaDataMapper
             );
         }
 
@@ -191,7 +194,7 @@ class RegraAvaliacao_Model_RegraDataMapper extends CoreExt_DataMapper
     {
         if (is_null($this->_regraRecuperacaoDataMapper)) {
             $this->setRegraRecuperacaoDataMapper(
-                new RegraAvaliacao_Model_RegraRecuperacaoDataMapper()
+                new RegraAvaliacao_Model_RegraRecuperacaoDataMapper
             );
         }
 

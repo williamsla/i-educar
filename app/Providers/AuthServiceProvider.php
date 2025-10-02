@@ -8,7 +8,10 @@ use App\User;
 use Illuminate\Contracts\Hashing\Hasher;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use SocialiteProviders\LaravelPassport\Provider;
+use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -53,6 +56,13 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('remove', ProcessPolicy::class . '@remove');
     }
 
+    private function registerSocialite(): void
+    {
+        Event::listen(function (SocialiteWasCalled $event) {
+            $event->extendSocialite('passport', Provider::class);
+        });
+    }
+
     /**
      * Register any authentication / authorization services.
      *
@@ -62,6 +72,7 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerGates();
         $this->registerUserProviders();
+        $this->registerSocialite();
     }
 
     /**

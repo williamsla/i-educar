@@ -2,11 +2,15 @@
 
 namespace App\Models\Exporter\Builders;
 
+use App\Models\Exporter\Enrollment;
 use App\Support\Database\JoinableBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @extends Builder<Enrollment>
+ */
 class EnrollmentEloquentBuilder extends Builder
 {
     use JoinableBuilder;
@@ -107,28 +111,31 @@ class EnrollmentEloquentBuilder extends Builder
 
     /**
      * @param array $columns
+     * @return $this
+     *
+     * @phpstan-return EnrollmentEloquentBuilder
      */
     public function mother($columns)
     {
-        //pessoa
+        // pessoa
         if ($only = $this->model->getLegacyExportedColumns('mother.person', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.pessoa as m', 'exporter_student.mother_id', 'm.idpes');
         }
 
-        //fisica
+        // fisica
         if ($only = $this->model->getLegacyExportedColumns('mother.individual', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.fisica as mf', 'exporter_student.mother_id', 'mf.idpes');
         }
 
-        //documento
+        // documento
         if ($only = $this->model->getLegacyExportedColumns('mother.document', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.documento as md', 'exporter_student.mother_id', 'md.idpes');
         }
 
-        //telefone
+        // telefone
         if ($only = $this->model->getLegacyExportedColumns('mother.phone', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('exporter_phones as mep', 'exporter_student.mother_id', 'mep.person_id');
@@ -139,29 +146,31 @@ class EnrollmentEloquentBuilder extends Builder
 
     /**
      * @param array $columns
-     * @return void
+     * @return $this
+     *
+     * @phpstan-return EnrollmentEloquentBuilder
      */
     public function father($columns)
     {
-        //pessoa
+        // pessoa
         if ($only = $this->model->getLegacyExportedColumns('father.person', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.pessoa as f', 'exporter_student.father_id', 'f.idpes');
         }
 
-        //fisica
+        // fisica
         if ($only = $this->model->getLegacyExportedColumns('father.individual', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.fisica as ff', 'exporter_student.father_id', 'ff.idpes');
         }
 
-        //documento
+        // documento
         if ($only = $this->model->getLegacyExportedColumns('father.document', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.documento as fd', 'exporter_student.father_id', 'fd.idpes');
         }
 
-        //telefone
+        // telefone
         if ($only = $this->model->getLegacyExportedColumns('father.phone', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('exporter_phones as fep', 'exporter_student.father_id', 'fep.person_id');
@@ -176,25 +185,25 @@ class EnrollmentEloquentBuilder extends Builder
      */
     public function guardian($columns)
     {
-        //pessoa
+        // pessoa
         if ($only = $this->model->getLegacyExportedColumns('guardian.person', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.pessoa as g', 'exporter_student.guardian_id', 'g.idpes');
         }
 
-        //fisica
+        // fisica
         if ($only = $this->model->getLegacyExportedColumns('guardian.individual', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.fisica as gf', 'exporter_student.guardian_id', 'gf.idpes');
         }
 
-        //documento
+        // documento
         if ($only = $this->model->getLegacyExportedColumns('guardian.document', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.documento as gd', 'exporter_student.guardian_id', 'gd.idpes');
         }
 
-        //telefone
+        // telefone
         if ($only = $this->model->getLegacyExportedColumns('guardian.phone', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('exporter_phones as gep', 'exporter_student.guardian_id', 'gep.person_id');
@@ -205,6 +214,8 @@ class EnrollmentEloquentBuilder extends Builder
 
     /**
      * @return EnrollmentEloquentBuilder
+     *
+     * @phpstan-return \Illuminate\Database\Query\Builder
      */
     public function benefits()
     {
@@ -219,6 +230,8 @@ class EnrollmentEloquentBuilder extends Builder
 
     /**
      * @return EnrollmentEloquentBuilder
+     *
+     * @phpstan-return \Illuminate\Database\Query\Builder
      */
     public function disabilities()
     {
@@ -233,6 +246,8 @@ class EnrollmentEloquentBuilder extends Builder
 
     /**
      * @return EnrollmentEloquentBuilder
+     *
+     * @phpstan-return \Illuminate\Database\Query\Builder
      */
     public function phones()
     {
@@ -245,6 +260,12 @@ class EnrollmentEloquentBuilder extends Builder
         });
     }
 
+    /**
+     * @param array $columns
+     * @return $this
+     *
+     * @phpstan-return EnrollmentEloquentBuilder
+     */
     public function place($columns)
     {
         $this->leftJoin('person_has_place', static function (JoinClause $join) {
@@ -254,7 +275,7 @@ class EnrollmentEloquentBuilder extends Builder
         if ($only = $this->model->getLegacyExportedColumns('place', $columns)) {
             $this->addSelect($only);
 
-            $this->leftJoin('places as p', 'p.id', 'person_has_place.id')
+            $this->leftJoin('places as p', 'p.id', 'person_has_place.place_id')
                 ->leftJoin('cities as c', 'c.id', 'p.city_id')
                 ->leftJoin('states as s', 's.id', 'c.state_id')
                 ->leftJoin('countries as cn', 'cn.id', 's.country_id');
@@ -263,6 +284,12 @@ class EnrollmentEloquentBuilder extends Builder
         return $this;
     }
 
+    /**
+     * @param array $columns
+     * @return EnrollmentEloquentBuilder
+     *
+     * @phpstan-return \Illuminate\Database\Query\Builder
+     */
     public function transport($columns)
     {
         if (in_array('tipo_transporte', $columns)) {

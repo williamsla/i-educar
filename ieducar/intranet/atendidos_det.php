@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Employee;
 use App\Models\LegacyIndividual;
 use App\Models\LegacyRace;
+use App\Models\LegacyStudent;
 use App\Services\FileService;
 use App\Services\UrlPresigner;
 
@@ -49,7 +51,7 @@ return new class extends clsDetalhe
         $caminhoFoto = $objFoto->detalhe();
         if ($caminhoFoto != false) {
             $this->addDetalhe(detalhe: ['Nome', $detalhe['nome'].'
-                <p><img height="117" src="' . (new UrlPresigner())->getPresignedUrl(url: $caminhoFoto['caminho']) . '"/></p>']);
+                <p><img height="117" src="' . (new UrlPresigner)->getPresignedUrl(url: $caminhoFoto['caminho']) . '"/></p>']);
         } else {
             $this->addDetalhe(detalhe: ['Nome', $detalhe['nome']]);
         }
@@ -144,6 +146,27 @@ return new class extends clsDetalhe
             $this->addDetalhe(detalhe: ['Sexo', $detalhe['sexo'] == 'M' ? 'Masculino' : 'Feminino']);
         }
 
+        $vinculos = collect();
+        if ($aluno = LegacyStudent::active()->where('ref_idpes', $cod_pessoa)->first(['cod_aluno'])) {
+            $vinculos->push(sprintf(
+                '<a target="_blank" href="/intranet/educar_aluno_det.php?cod_aluno=%s">Aluno</a>',
+                $aluno->getKey()
+            ));
+        }
+
+        if ($servidor = Employee::active()->find($cod_pessoa, ['cod_servidor', 'ref_cod_instituicao'])) {
+            $vinculos->push(sprintf(
+                '<a target="_blank" href="/intranet/educar_servidor_det.php?cod_servidor=%s&ref_cod_instituicao=%s">Servidor</a>',
+                $servidor->getKey(),
+                $servidor->ref_cod_instituicao
+            ));
+        }
+
+        if ($vinculos->isEmpty()) {
+            $vinculos->push('Pessoa física não possui vínculos');
+        }
+        $this->addHtml('<tr><td class="formlttd" width="20%">Vínculos:</td><td class="formlttd">' . $vinculos->implode('<br>') . '</td></tr>');
+
         $fileService = new FileService(urlPresigner: new UrlPresigner);
         $files = $fileService->getFiles(relation: LegacyIndividual::find($cod_pessoa));
 
@@ -151,7 +174,7 @@ return new class extends clsDetalhe
             $this->addHtml(html: view(view: 'uploads.upload-details', data: ['files' => $files])->render());
         }
 
-        $obj_permissao = new clsPermissoes();
+        $obj_permissao = new clsPermissoes;
 
         if ($obj_permissao->permissao_cadastra(int_processo_ap: 43, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, super_usuario: true)) {
             $this->url_novo = 'atendidos_cad.php';

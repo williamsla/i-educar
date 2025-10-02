@@ -66,7 +66,7 @@ return new class extends clsDetalhe
         Session::forget(keys: ['reload_faixa_etaria', 'reload_reserva_vaga']);
 
         // Verificação de permissão para cadastro.
-        $this->obj_permissao = new clsPermissoes();
+        $this->obj_permissao = new clsPermissoes;
 
         $this->nivel_usuario = $this->obj_permissao->nivel_acesso(int_idpes_usuario: $this->pessoa_logada);
         $this->titulo = 'Aluno - Detalhe';
@@ -93,7 +93,7 @@ return new class extends clsDetalhe
             $obj_fisica = new clsFisica(idpes: $this->ref_idpes);
             $det_fisica = $obj_fisica->detalhe();
 
-            $obj_fisica_raca = new clsCadastroFisicaRaca();
+            $obj_fisica_raca = new clsCadastroFisicaRaca;
             $lst_fisica_raca = $obj_fisica_raca->lista(int_ref_idpes: $this->ref_idpes);
 
             $nameRace = null;
@@ -120,7 +120,7 @@ return new class extends clsDetalhe
 
             $registro['sexo'] = $det_fisica['sexo'] ? $opcoes[$det_fisica['sexo']] : '';
 
-            $obj_estado_civil = new clsEstadoCivil();
+            $obj_estado_civil = new clsEstadoCivil;
             $obj_estado_civil_lista = $obj_estado_civil->lista();
 
             $lista_estado_civil = [];
@@ -199,7 +199,7 @@ return new class extends clsDetalhe
             $registro['ddd_mov'] = $det_pessoa_fj['ddd_mov'] ?? null;
             $registro['fone_mov'] = $det_pessoa_fj['fone_mov'] ?? null;
 
-            $obj_deficiencia_pessoa = new clsCadastroFisicaDeficiencia();
+            $obj_deficiencia_pessoa = new clsCadastroFisicaDeficiencia;
             $obj_deficiencia_pessoa_lista = $obj_deficiencia_pessoa->lista(int_ref_idpes: $this->ref_idpes);
 
             $obj_beneficios_lista = LegacyBenefit::query()
@@ -271,13 +271,13 @@ return new class extends clsDetalhe
         }
 
         // código inep
-        $alunoMapper = new Educacenso_Model_AlunoDataMapper();
+        $alunoMapper = new Educacenso_Model_AlunoDataMapper;
         $alunoInep = null;
 
         try {
             $alunoInep = $alunoMapper->find(pkey: ['aluno' => $this->cod_aluno]);
 
-            $configuracoes = new clsPmieducarConfiguracoesGerais();
+            $configuracoes = new clsPmieducarConfiguracoesGerais;
             $configuracoes = $configuracoes->detalhe();
 
             if ($configuracoes['mostrar_codigo_inep_aluno']) {
@@ -290,17 +290,23 @@ return new class extends clsDetalhe
         $this->addDetalhe(detalhe: [_cl(key: 'aluno.detalhe.codigo_estado'), $registro['aluno_estado_id']]);
 
         if ($registro['nome_aluno']) {
+            $urlAluno = sprintf(
+                '<a target="_blank" href="/intranet/atendidos_det.php?cod_pessoa=%s">%s</a>',
+                $registro['ref_idpes'],
+                $registro['nome_aluno']
+            );
+
             if ($caminhoFoto != null and $caminhoFoto != '') {
                 $url = $this->urlPresigner()->getPresignedUrl(url: $caminhoFoto);
 
                 $this->addDetalhe(detalhe: [
                     'Nome Aluno',
-                    $registro['nome_aluno'] . '<p><img id="student-picture" height="117" src="' . $url . '"/></p>'
+                    $urlAluno . '<p><img id="student-picture" height="117" src="' . $url . '"/></p>'
                     . '<div><a class="rotate-picture" data-angle="90" href="javascript:void(0)"><i class="fa fa-rotate-left"></i> Girar para esquerda</a></div>'
                     . '<div><a class="rotate-picture" data-angle="-90" href="javascript:void(0)"><i class="fa fa-rotate-right"></i> Girar para direita</a></div>',
                 ]);
             } else {
-                $this->addDetalhe(detalhe: ['Nome Aluno', $registro['nome_aluno']]);
+                $this->addDetalhe(detalhe: ['Nome Aluno', $urlAluno]);
             }
         }
 
@@ -361,7 +367,7 @@ return new class extends clsDetalhe
             $this->addDetalhe(detalhe: ['País de Origem', $registro['pais_origem']]);
         }
 
-        $responsavel = $tmp_obj->getResponsavelAluno();
+        $responsavel = $tmp_obj->getResponsavelAluno(exibirUrl: true);
 
         if ($responsavel && is_null(value: $registro['ref_idpes_responsavel'])) {
             $this->addDetalhe(detalhe: ['Nome do Responsável', $responsavel['nome_responsavel']]);
@@ -372,7 +378,13 @@ return new class extends clsDetalhe
             $det_pessoa_resp = $obj_pessoa_resp->detalhe();
 
             if ($det_pessoa_resp) {
-                $registro['ref_idpes_responsavel'] = $det_pessoa_resp['nome'];
+                $urlResponsavel = sprintf(
+                    '<a target="_blank" href="/intranet/atendidos_det.php?cod_pessoa=%s">%s</a>',
+                    $registro['ref_idpes_responsavel'],
+                    $det_pessoa_resp['nome']
+                );
+
+                $registro['ref_idpes_responsavel'] = $urlResponsavel;
             }
 
             $this->addDetalhe(detalhe: ['Responsável', $registro['ref_idpes_responsavel']]);
@@ -586,7 +598,7 @@ return new class extends clsDetalhe
         $this->addDetalhe(detalhe: ['Transporte escolar', $registro['tipo_transporte'] === 0 ? 'Não utiliza' : 'Sim']);
 
         if ($registro['tipo_transporte'] !== 0) {
-            $tipoTransporte = ucfirst(string: (new TransportationProvider())->getValueDescription(value: $registro['tipo_transporte']));
+            $tipoTransporte = ucfirst(string: (new TransportationProvider)->getValueDescription(value: $registro['tipo_transporte']));
             $this->addDetalhe(detalhe: ['Responsável transporte', $tipoTransporte]);
         }
 
@@ -640,7 +652,7 @@ return new class extends clsDetalhe
         $reg = $objFichaMedica->detalhe();
 
         if ($reg) {
-            $this->addDetalhe(detalhe: ['<span id="fmedica"></span>', null]);
+            $this->addHtml('<span id="fmedica"></span>');
             if (trim(string: $reg['grupo_sanguineo']) != '') {
                 $this->addDetalhe(detalhe: ['Grupo sanguíneo', $reg['grupo_sanguineo']]);
             }
@@ -747,10 +759,10 @@ return new class extends clsDetalhe
             $this->addDetalhe(detalhe: ['<span id="tr_tit_dados_hospital">Em caso de emergência, autorizo levar meu(minha) filho(a) para o Hospital ou Clínica mais próximos:</span>']);
             $this->addDetalhe(detalhe: ['Responsável', $reg['desc_aceita_hospital_proximo']]);
             $this->addDetalhe(detalhe: ['<span id="tr_tit_dados_hospital">Em caso de emergência, se não for possível contatar os responsáveis, comunicar</span>']);
-            $this->addDetalhe(detalhe: ['Nome', $reg['responsavel_nome']]);
+            $this->addDetalhe(detalhe: ['Nome', $reg['responsavel']]);
             $this->addDetalhe(detalhe: ['Parentesco', $reg['responsavel_parentesco']]);
             $this->addDetalhe(detalhe: ['Telefone', $reg['responsavel_parentesco_telefone']]);
-            $this->addDetalhe(detalhe: ['Celular', $reg['responsavel_parentesco_celular']]);
+            $this->addDetalhe(detalhe: ['<span id="ffmedica"></span>Celular', $reg['responsavel_parentesco_celular']]);
         }
 
         $uniformDistribution = UniformDistribution::where('student_id', $this->cod_aluno)
@@ -873,7 +885,7 @@ return new class extends clsDetalhe
             $this->addDetalhe(detalhe: ['Possui energia elétrica', $reg['energia']]);
             $this->addDetalhe(detalhe: ['Possui tratamento de esgoto', $reg['esgoto']]);
             $this->addDetalhe(detalhe: ['Possui fossa', $reg['fossa']]);
-            $this->addDetalhe(detalhe: ['Possui coleta de lixo', $reg['lixo']]);
+            $this->addDetalhe(detalhe: ['<span id="ffmoradia"></span>Possui coleta de lixo', $reg['lixo']]);
         }
 
         $reg = LegacyProject::query()->where(column: 'pmieducar.projeto_aluno.ref_cod_aluno', operator: $this->cod_aluno)
@@ -881,7 +893,7 @@ return new class extends clsDetalhe
             ->orderBy(column: 'nome', direction: 'ASC')
             ->get();
 
-        if (!empty($reg)) {
+        if ($reg->isNotEmpty()) {
             $tabela_projetos = '
             <table>
               <tr align="center">
@@ -945,7 +957,7 @@ return new class extends clsDetalhe
         $scripts = [
             '/vendor/legacy/Portabilis/Assets/Javascripts/Utils.js',
             '/vendor/legacy/Portabilis/Assets/Javascripts/ClientApi.js',
-            '/vendor/legacy/Cadastro/Assets/Javascripts/AlunoShow.js?version=3',
+            '/vendor/legacy/Cadastro/Assets/Javascripts/AlunoShow.js?version=6',
         ];
 
         Portabilis_View_Helper_Application::loadJavascript(viewInstance: $this, files: $scripts);
@@ -969,7 +981,7 @@ return new class extends clsDetalhe
     private function urlPresigner()
     {
         if (!isset($this->urlPresigner)) {
-            $this->urlPresigner = new UrlPresigner();
+            $this->urlPresigner = new UrlPresigner;
         }
 
         return $this->urlPresigner;

@@ -15,7 +15,7 @@ var handleDesfazerSaidaEscola = function(dataResponse) {
 }
 
 function deleteAbandono(matriculaId) {
-  if (! confirm(stringUtils.toUtf8('Deseja desfazer o abandono?')))
+  if (! confirm(stringUtils.toUtf8('Deseja desfazer o registro da situação deixou de frequentar?')))
     return false;
 
   var options = {

@@ -17,8 +17,8 @@ trait LegacySoftDeletes
 
     public static function bootSoftDeletes(): void
     {
-        static::withoutGlobalScope(new SoftDeletingScope());
-        static::addGlobalScope(new LegacySoftDeletesScope());
+        static::withoutGlobalScope(new SoftDeletingScope);
+        static::addGlobalScope(new LegacySoftDeletesScope);
     }
 
     /**
@@ -95,7 +95,9 @@ trait LegacySoftDeletes
             return $this->setKeysForSaveQuery($this->newModelQuery())->forceDelete();
         }
 
-        return $this->runSoftDelete();
+        $this->runSoftDelete();
+
+        return null;
     }
 
     protected function runSoftDelete()

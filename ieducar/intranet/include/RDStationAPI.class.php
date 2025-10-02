@@ -1,4 +1,5 @@
 <?php
+
 /**
 Authors:
 JÃºlio Paulillo <julio@agendor.com.br>
@@ -17,7 +18,7 @@ http://ajuda.rdstation.com.br/hc/pt-br/articles/200310699-Alterar-estado-do-Lead
 
 Integrar formulÃ¡rio no site ou sistema prÃ³prio para CriaÃ§Ã£o de Lead (API)
 http://ajuda.rdstation.com.br/hc/pt-br/articles/200310589-Integrar-formulário-no-site-ou-sistema-pr&oacute;prio-para-Criação-de-Lead-API-
-**/
+ **/
 class RDStationAPI
 {
     public $token;
@@ -45,9 +46,9 @@ class RDStationAPI
      **/
     protected function getURL($type = 'generic')
     {
-        //(POST) https://www.rdstation.com.br/api/1.2/services/PRIVATE_TOKEN/generic //USED TO CHANGE A LEAD STATUS
-        //(PUT) https://www.rdstation.com.br/api/1.2/leads/:lead_email //USED TO UPDATE A LEAD
-        //(POST) https://www.rdstation.com.br/api/1.2/conversions //USED TO SEND A NEW LEAD
+        // (POST) https://www.rdstation.com.br/api/1.2/services/PRIVATE_TOKEN/generic //USED TO CHANGE A LEAD STATUS
+        // (PUT) https://www.rdstation.com.br/api/1.2/leads/:lead_email //USED TO UPDATE A LEAD
+        // (POST) https://www.rdstation.com.br/api/1.2/conversions //USED TO SEND A NEW LEAD
         switch ($type) {
             case 'generic':     return $this->baseURL.$this->apiVersion.'/services/'.$this->privateToken.'/generic';
             case 'leads':       return $this->baseURL.$this->apiVersion.'/leads/';

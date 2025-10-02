@@ -1,6 +1,7 @@
 <?php
 
 use iEducar\Legacy\Model;
+use Illuminate\Support\Facades\Cache;
 
 class clsPmieducarInstituicao extends Model
 {
@@ -334,7 +335,7 @@ class clsPmieducarInstituicao extends Model
     public function cadastra()
     {
         if ($this->canRegister()) {
-            $db = new clsBanco();
+            $db = new clsBanco;
 
             $campos = '';
             $valores = '';
@@ -754,7 +755,10 @@ class clsPmieducarInstituicao extends Model
     public function edita()
     {
         if (is_numeric($this->cod_instituicao)) {
-            $db = new clsBanco();
+
+            Cache::forget('instituicao_' . $this->cod_instituicao);
+
+            $db = new clsBanco;
             $gruda = '';
             $set = '';
 
@@ -1163,7 +1167,7 @@ class clsPmieducarInstituicao extends Model
         $int_ativo = null,
         $str_nm_instituicao = null
     ) {
-        $db = new clsBanco();
+        $db = new clsBanco;
         $sql = "SELECT {$this->_campos_lista} FROM {$this->_tabela}";
         $filtros = '';
 
@@ -1296,11 +1300,13 @@ class clsPmieducarInstituicao extends Model
     public function detalhe()
     {
         if (is_numeric($this->cod_instituicao)) {
-            $db = new clsBanco();
-            $db->Consulta("SELECT {$this->_todos_campos},fcn_upper_nrm(nm_instituicao) as nm_instituicao_upper FROM {$this->_tabela} WHERE cod_instituicao = '{$this->cod_instituicao}'");
-            $db->ProximoRegistro();
+            return Cache::remember('instituicao_' . $this->cod_instituicao, now()->addMinutes(180), function () {
+                $db = new clsBanco;
+                $db->Consulta("SELECT {$this->_todos_campos},fcn_upper_nrm(nm_instituicao) as nm_instituicao_upper FROM {$this->_tabela} WHERE cod_instituicao = '{$this->cod_instituicao}'");
+                $db->ProximoRegistro();
 
-            return $db->Tupla();
+                return $db->Tupla();
+            });
         }
 
         return false;
@@ -1314,7 +1320,7 @@ class clsPmieducarInstituicao extends Model
     public function existe()
     {
         if (is_numeric($this->cod_instituicao)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT 1 FROM {$this->_tabela} WHERE cod_instituicao = '{$this->cod_instituicao}'");
             $db->ProximoRegistro();
 

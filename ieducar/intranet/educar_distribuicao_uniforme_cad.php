@@ -2,7 +2,7 @@
 
 use App\Models\UniformDistribution;
 
-return new class() extends clsCadastro
+return new class extends clsCadastro
 {
     /**
      * Referencia pega da session para o idpes do usuario atual
@@ -11,13 +11,17 @@ return new class() extends clsCadastro
      */
     public $pessoa_logada;
 
+    public $ref_cod_instituicao;
+
+    public $ref_cod_escola;
+
     public UniformDistribution $uniformDistribution;
 
     public function Inicializar()
     {
         $retorno = 'Novo';
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(int_processo_ap: 578, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, str_pagina_redirecionar: 'educar_distribuicao_uniforme_lst.php?ref_cod_aluno='.request('ref_cod_aluno'));
 
         if (is_numeric(request('ref_cod_aluno')) && is_numeric(request('cod_distribuicao_uniforme'))) {
@@ -32,10 +36,10 @@ return new class() extends clsCadastro
                 }
                 $retorno = 'Editar';
             } else {
-                $this->uniformDistribution = new UniformDistribution();
+                $this->uniformDistribution = new UniformDistribution;
             }
         } else {
-            $this->uniformDistribution = new UniformDistribution();
+            $this->uniformDistribution = new UniformDistribution;
         }
 
         $this->url_cancelar = $retorno == 'Editar'
@@ -53,9 +57,10 @@ return new class() extends clsCadastro
 
     public function Gerar()
     {
-        $this->uniformDistribution ?? $this->uniformDistribution = new UniformDistribution();
+        $this->uniformDistribution ?? $this->uniformDistribution = new UniformDistribution;
+        $this->ref_cod_escola = $this->uniformDistribution->school_id;
 
-        $objEscola = new clsPmieducarEscola();
+        $objEscola = new clsPmieducarEscola;
         $lista = $objEscola->lista();
 
         $escolaOpcoes = ['' => 'Selecione'];
@@ -214,6 +219,44 @@ return new class() extends clsCadastro
             'placeholder' => 'Tamanho',
         ]);
 
+        $this->inputsHelper()->integer(attrName: 'pants_fem_qty', inputOptions: [
+            'required' => false,
+            'label' => 'Calça feminina (tecidos diversos)',
+            'value' => request(key: 'pants_fem_qty', default: $this->uniformDistribution->pants_fem_qty),
+            'max_length' => 2,
+            'size' => 15,
+            'inline' => true,
+            'placeholder' => 'Quantidade',
+        ]);
+
+        $this->inputsHelper()->text(attrNames: 'pants_fem_tm', inputOptions: [
+            'required' => false,
+            'label' => '',
+            'value' => request(key: 'pants_fem_tm', default: $this->uniformDistribution->pants_fem_tm),
+            'max_length' => 10,
+            'size' => 15,
+            'placeholder' => 'Tamanho',
+        ]);
+
+        $this->inputsHelper()->integer(attrName: 'pants_mas_qty', inputOptions: [
+            'required' => false,
+            'label' => 'Calça masculina (tecidos diversos)',
+            'value' => request(key: 'pants_mas_qty', default: $this->uniformDistribution->pants_mas_qty),
+            'max_length' => 2,
+            'size' => 15,
+            'inline' => true,
+            'placeholder' => 'Quantidade',
+        ]);
+
+        $this->inputsHelper()->text(attrNames: 'pants_mas_tm', inputOptions: [
+            'required' => false,
+            'label' => '',
+            'value' => request(key: 'pants_mas_tm', default: $this->uniformDistribution->pants_mas_tm),
+            'max_length' => 10,
+            'size' => 15,
+            'placeholder' => 'Tamanho',
+        ]);
+
         $this->inputsHelper()->integer(attrName: 'socks_qty', inputOptions: [
             'required' => false,
             'label' => 'Meias',
@@ -247,6 +290,25 @@ return new class() extends clsCadastro
             'required' => false,
             'label' => '',
             'value' => request(key: 'skirt_tm', default: $this->uniformDistribution->skirt_tm),
+            'max_length' => 10,
+            'size' => 15,
+            'placeholder' => 'Tamanho',
+        ]);
+
+        $this->inputsHelper()->integer(attrName: 'shorts_skirt_qty', inputOptions: [
+            'required' => false,
+            'label' => 'Shorts saia',
+            'value' => request(key: 'shorts_skirt_qty', default: $this->uniformDistribution->shorts_skirt_qty),
+            'max_length' => 2,
+            'size' => 15,
+            'inline' => true,
+            'placeholder' => 'Quantidade',
+        ]);
+
+        $this->inputsHelper()->text(attrNames: 'shorts_skirt_tm', inputOptions: [
+            'required' => false,
+            'label' => '',
+            'value' => request(key: 'shorts_skirt_tm', default: $this->uniformDistribution->shorts_skirt_tm),
             'max_length' => 10,
             'size' => 15,
             'placeholder' => 'Tamanho',
@@ -314,7 +376,7 @@ return new class() extends clsCadastro
     {
         $this->data = Portabilis_Date_Utils::brToPgSQL($this->data);
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(int_processo_ap: 578, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, str_pagina_redirecionar: 'educar_distribuicao_uniforme_lst.php?ref_cod_aluno='.request('ref_cod_aluno'));
 
         $exists = UniformDistribution::where('student_id', request('ref_cod_aluno'))
@@ -353,7 +415,7 @@ return new class() extends clsCadastro
     {
         $this->data = Portabilis_Date_Utils::brToPgSQL($this->data);
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(int_processo_ap: 578, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, str_pagina_redirecionar: 'educar_distribuicao_uniforme_lst.php?ref_cod_aluno='.request('ref_cod_aluno'));
 
         $uniformDistribution = UniformDistribution::where('student_id', request('ref_cod_aluno'))
@@ -371,7 +433,9 @@ return new class() extends clsCadastro
             'student_id' => request('ref_cod_aluno'),
         ]);
 
-        $uniformDistribution->update(request()->all());
+        $uniformDistribution->update(array_merge([
+            'complete_kit' => request()->boolean('complete_kit'),
+        ], request()->all()));
 
         if ($uniformDistribution->save()) {
             $this->redirectIf(condition: true, url: 'educar_distribuicao_uniforme_lst.php?ref_cod_aluno='.request('ref_cod_aluno'));
@@ -384,7 +448,7 @@ return new class() extends clsCadastro
 
     public function Excluir()
     {
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_excluir(int_processo_ap: 578, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, str_pagina_redirecionar: 'educar_distribuicao_uniforme_lst.php?ref_cod_aluno='.request('ref_cod_aluno'));
 
         $obj = UniformDistribution::find(request('id'));

@@ -8,6 +8,7 @@ select distinct
     ano_letivo_modulo.sequencial || 'º ' || modulo.nm_tipo as stage_number,
     ano_letivo_modulo.data_inicio as stage_start_date,
     ano_letivo_modulo.data_fim as stage_end_date,
+    ano_letivo_modulo.dias_letivos as stage_days,
     'Padrão' as stage_type,
     (select true from modules.nota_componente_curricular
                           join modules.nota_aluno on nota_aluno.id = nota_componente_curricular.nota_aluno_id

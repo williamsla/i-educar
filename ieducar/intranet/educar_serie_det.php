@@ -52,7 +52,7 @@ return new class extends clsDetalhe
         $obj_instituicao_det = $obj_instituicao->detalhe();
         $registro['ref_cod_instituicao'] = $obj_instituicao_det['nm_instituicao'];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
 
         $nivel_usuario = $obj_permissoes->nivel_acesso($this->pessoa_logada);
 
@@ -149,6 +149,7 @@ SQL;
             $regra['id'] = (int) $regra['id'];
             if (!isset($retorno[$regra['id']])) {
                 $retorno[$regra['id']] = [
+                    'id' => $regra['id'],
                     'nome' => $regra['nome'],
                     'anos' => [(int) $regra['ano_letivo']],
                 ];
@@ -160,7 +161,7 @@ SQL;
         $html = [];
 
         foreach ($retorno as $r) {
-            $html[] = sprintf('%s (%s)', $r['nome'], implode(', ', $r['anos']));
+            $html[] = sprintf('<a href="/module/RegraAvaliacao/view?id=%s" target="_blank">%s (%s) </a>', $r['id'], $r['nome'], implode(', ', $r['anos']));
         }
 
         return implode('<br>', $html);

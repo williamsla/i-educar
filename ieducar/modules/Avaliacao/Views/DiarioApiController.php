@@ -29,7 +29,7 @@ class DiarioApiController extends ApiCoreController
     public function __construct()
     {
         parent::__construct();
-        $this->removeHtmlTagsService = new RemoveHtmlTagsStringService();
+        $this->removeHtmlTagsService = new RemoveHtmlTagsStringService;
     }
 
     protected function validatesCanChangeDiarioForAno()
@@ -286,7 +286,7 @@ class DiarioApiController extends ApiCoreController
             return true;
         }
 
-        $service = new ReleasePeriodService();
+        $service = new ReleasePeriodService;
         if ($service->canPostNow(
             $this->getRequest()->escola_id,
             $this->getRequest()->turma_id,
@@ -401,8 +401,9 @@ class DiarioApiController extends ApiCoreController
             $nota = urldecode($this->getRequest()->att_value);
             $notaOriginal = urldecode($this->getRequest()->nota_original);
             $etapa = $this->getRequest()->etapa;
+            $notaAntiga = $this->serviceBoletim()->getNotaComponente($componenteCurricularId, $etapa);
 
-            $nota = $this->serviceBoletim()->calculateStageScore($etapa, $nota, null);
+            $nota = $this->serviceBoletim()->calculateStageScore($etapa, $nota, $notaAntiga?->notaRecuperacaoParalela);
 
             $array_nota = [
                 'componenteCurricular' => $componenteCurricularId,
@@ -411,7 +412,6 @@ class DiarioApiController extends ApiCoreController
                 'notaOriginal' => $notaOriginal,
             ];
 
-            $notaAntiga = $this->serviceBoletim()->getNotaComponente($componenteCurricularId, $etapa);
             if ($notaAntiga) {
                 $array_nota['notaRecuperacaoParalela'] = $notaAntiga->notaRecuperacaoParalela;
                 $array_nota['notaRecuperacaoEspecifica'] = $notaAntiga->notaRecuperacaoEspecifica;
@@ -891,7 +891,7 @@ class DiarioApiController extends ApiCoreController
             // suas tabelas de arredondamento (numérica e conceitual), valores
             // de arredondamento para as duas tabelas e regras de recuperação.
 
-            //no multisseriado deve-se escolher/obter a série filtrada na tela, pois a turma possui mais de uma regra de avaliação em cada série
+            // no multisseriado deve-se escolher/obter a série filtrada na tela, pois a turma possui mais de uma regra de avaliação em cada série
             $evaluationRule = $schoolClass->getEvaluationRule($this->getRequest()->ref_cod_serie);
 
             $evaluationRule->load('roundingTable.roundingValues');
@@ -945,7 +945,7 @@ class DiarioApiController extends ApiCoreController
                 } elseif ($enrollment->transferido) {
                     $matricula['situacao_deslocamento'] = 'Transferido';
                 } elseif ($enrollment->abandono) {
-                    $matricula['situacao_deslocamento'] = 'Abandono';
+                    $matricula['situacao_deslocamento'] = 'Deixou de Frequentar';
                 } elseif ($enrollment->reclassificado) {
                     $matricula['situacao_deslocamento'] = 'Reclassificado';
                 } elseif ($enrollment->falecido) {
@@ -1213,15 +1213,15 @@ class DiarioApiController extends ApiCoreController
                 $this->deleteNotaExame($matriculaId, $componente['id']);
             }
 
-            //buscando pela área do conhecimento
+            // buscando pela área do conhecimento
             $area = $this->getAreaConhecimento($componente['id']);
             $nomeArea = (($area->secao != '') ? $area->secao . ' - ' : '') . $area->nome;
             $componente['ordenamento_ac'] = $area->ordenamento_ac;
             $componente['area_id'] = $area->id;
             $componente['area_nome'] = mb_strtoupper($nomeArea, 'UTF-8');
 
-            //criando chave para ordenamento temporário
-            //área de conhecimento + componente curricular
+            // criando chave para ordenamento temporário
+            // área de conhecimento + componente curricular
 
             $componente['ordem_nome_area_conhecimento'] = Str::slug($nomeArea);
             $componente['ordem_componente_curricular'] = Str::slug($_componente->get('nome'));
@@ -1255,7 +1255,7 @@ class DiarioApiController extends ApiCoreController
             $componentesCurriculares
         );
 
-        //removendo chave temporária
+        // removendo chave temporária
         $len = count($componentesCurriculares);
         for ($i = 0; $i < $len; $i++) {
             unset($componentesCurriculares[$i]['my_order']);
@@ -1274,7 +1274,7 @@ class DiarioApiController extends ApiCoreController
             throw new Exception('Não foi possível obter a área de conhecimento pois não foi recebido o id do componente curricular.');
         }
 
-        $mapper = new ComponenteCurricular_Model_ComponenteDataMapper();
+        $mapper = new ComponenteCurricular_Model_ComponenteDataMapper;
 
         $where = ['id' => $componenteCurricularId];
 
@@ -1284,7 +1284,7 @@ class DiarioApiController extends ApiCoreController
             return $mapper->findAll(['area_conhecimento'], $where);
         });
 
-        $areaConhecimento = new stdClass();
+        $areaConhecimento = new stdClass;
         $areaConhecimento->id = $area[0]->area_conhecimento->id;
         $areaConhecimento->nome = $area[0]->area_conhecimento->nome;
         $areaConhecimento->secao = $area[0]->area_conhecimento->secao;
@@ -1519,7 +1519,7 @@ class DiarioApiController extends ApiCoreController
         $nota = urldecode($this->serviceBoletim()->getNotaComponente($componenteCurricularId, $etapa)->notaOriginal);
         $nota = str_replace(',', '.', $nota);
 
-        //validação para evitar a soma de valores da notaOriginal para string vazia
+        // validação para evitar a soma de valores da notaOriginal para string vazia
         if ($nota === '') {
             return null;
         }
@@ -1770,6 +1770,7 @@ class DiarioApiController extends ApiCoreController
         $rule['definir_componente_por_etapa'] = $evaluationRule->definir_componente_etapa == 1;
         $rule['formula_recuperacao_final'] = $evaluationRule->formula_recuperacao_id;
         $rule['desconsiderar_lancamento_frequencia'] = $evaluationRule->desconsiderar_lancamento_frequencia;
+        $rule['aprovar_pela_frequencia_apos_exame'] = $evaluationRule->aprovar_pela_frequencia_apos_exame;
 
         return $rule;
     }
@@ -1791,7 +1792,7 @@ class DiarioApiController extends ApiCoreController
     {
         $user = Auth::id();
         $processoAp = $this->_processoAp;
-        $obj_permissao = new clsPermissoes();
+        $obj_permissao = new clsPermissoes;
 
         return $obj_permissao->permissao_cadastra($processoAp, $user, 7);
     }
@@ -1846,7 +1847,7 @@ class DiarioApiController extends ApiCoreController
 
     public function canPostSituacaoAndNota()
     {
-        $acesso = new clsPermissoes();
+        $acesso = new clsPermissoes;
 
         return $acesso->permissao_cadastra(630, $this->pessoa_logada, 7, null, true);
     }

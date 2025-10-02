@@ -13,8 +13,6 @@ return new class extends clsDetalhe
 
     public $ref_cod_matricula;
 
-    public $ref_cod_reserva_vaga;
-
     public $ref_ref_cod_escola;
 
     public $ref_ref_cod_serie;
@@ -58,7 +56,7 @@ return new class extends clsDetalhe
         $this->titulo = 'Matrícula - Detalhe';
         $this->ref_cod_matricula = $_GET['cod_matricula'];
 
-        $obj_matricula = new clsPmieducarMatricula();
+        $obj_matricula = new clsPmieducarMatricula;
         $lst_matricula = $obj_matricula->lista(int_cod_matricula: $this->ref_cod_matricula);
 
         if ($lst_matricula) {
@@ -97,7 +95,7 @@ return new class extends clsDetalhe
         $registro['ref_ref_cod_escola'] = $det_ref_cod_escola['nome'];
 
         // Nome do aluno
-        $obj_aluno = new clsPmieducarAluno();
+        $obj_aluno = new clsPmieducarAluno;
         $lst_aluno = $obj_aluno->lista(
             int_cod_aluno: $registro['ref_cod_aluno'],
             int_ativo: 1
@@ -132,10 +130,16 @@ return new class extends clsDetalhe
             $this->addDetalhe(detalhe: ['Série', $registro['ref_ref_cod_serie']]);
         }
 
+        if ($registro['observacoes']) {
+            $this->addDetalhe(detalhe: ['Observações', $registro['observacoes']]);
+        }
+
         // Nome da turma
-        $enturmacoes = new clsPmieducarMatriculaTurma();
+        $enturmacoes = new clsPmieducarMatriculaTurma;
+
         $enturmacoes = $enturmacoes->lista(
-            int_ref_cod_matricula: $this->ref_cod_matricula
+            int_ref_cod_matricula: $this->ref_cod_matricula,
+            int_ativo: 3
         );
 
         $existeTurma = false;
@@ -148,6 +152,10 @@ return new class extends clsDetalhe
         $nomesTurnos = [];
 
         foreach ($enturmacoes as $enturmacao) {
+            if ($enturmacao['ativo'] == 0) {
+                continue;
+            }
+
             $turma = new clsPmieducarTurma(cod_turma: $enturmacao['ref_cod_turma']);
             $turma = $turma->detalhe() ?? [];
             $turma_id = $enturmacao['ref_cod_turma'];
@@ -166,10 +174,6 @@ return new class extends clsDetalhe
                 in_array($turma['etapa_educacenso'], $etapasItinerario)
             ) {
                 $existeTurmaItineraria = true;
-            }
-
-            if ($enturmacao['ativo'] == 0) {
-                continue;
             }
 
             $nomesTurmas[] = $turma['nm_turma'];
@@ -218,15 +222,11 @@ return new class extends clsDetalhe
             $this->addDetalhe(detalhe: ['Data Enturmação', '']);
         }
 
-        if ($registro['ref_cod_reserva_vaga']) {
-            $this->addDetalhe(detalhe: ['Número Reserva Vaga', $registro['ref_cod_reserva_vaga']]);
-        }
-
         $situacao = App_Model_MatriculaSituacao::getSituacao(id: $registro['aprovado']);
         $this->addDetalhe(detalhe: ['Situação', $situacao]);
 
         if ($registro['aprovado'] == App_Model_MatriculaSituacao::TRANSFERIDO) {
-            $obj_transferencia = new clsPmieducarTransferenciaSolicitacao();
+            $obj_transferencia = new clsPmieducarTransferenciaSolicitacao;
 
             $lst_transferencia = $obj_transferencia->lista(int_ref_cod_matricula_saida: $registro['cod_matricula'], int_ativo: 1, int_ref_cod_aluno: $registro['ref_cod_aluno']);
 
@@ -261,7 +261,7 @@ return new class extends clsDetalhe
 
             $observacaoAbandono = $registro['observacao'];
 
-            $this->addDetalhe(detalhe: ['Motivo do Abandono', $tipoAbandono ? $tipoAbandono['nome'] : '']);
+            $this->addDetalhe(detalhe: ['Motivo - Deixou de Frequentar', $tipoAbandono ? $tipoAbandono['nome'] : '']);
             $this->addDetalhe(detalhe: ['Observação', $observacaoAbandono]);
         }
 
@@ -271,12 +271,12 @@ return new class extends clsDetalhe
 
         $this->addDetalhe(detalhe: ['Formando', $registro['formando'] == 0 ? 'Não' : 'Sim']);
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
 
         if ($obj_permissoes->permissao_cadastra(int_processo_ap: 578, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7)) {
             // verifica se existe transferencia
             if ($registro['aprovado'] != 4 && $registro['aprovado'] != 6) {
-                $obj_transferencia = new clsPmieducarTransferenciaSolicitacao();
+                $obj_transferencia = new clsPmieducarTransferenciaSolicitacao;
 
                 $lst_transferencia = $obj_transferencia->lista(
                     int_ref_cod_matricula_saida: $registro['cod_matricula'],
@@ -336,7 +336,7 @@ return new class extends clsDetalhe
                 }
 
                 if ($this->permissaoAbandono()) {
-                    $this->array_botao[] = 'Abandono';
+                    $this->array_botao[] = 'Deixou de Frequentar';
                     $this->array_botao_url_script[] = "go(\"educar_abandono_cad.php?ref_cod_matricula={$registro['cod_matricula']}&ref_cod_aluno={$registro['ref_cod_aluno']}\");";
                 }
 
@@ -397,7 +397,7 @@ return new class extends clsDetalhe
             }
 
             $ultimaMatricula = $obj_matricula->getEndMatricula(codAluno: $registro['ref_cod_aluno']);
-            $permiteCancelarTransferencia = new clsPermissoes();
+            $permiteCancelarTransferencia = new clsPermissoes;
             $permiteCancelarTransferencia = $permiteCancelarTransferencia->permissao_excluir(int_processo_ap: 578, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7);
 
             if ($this->permissaoSolicitarTransferencia()) {
@@ -415,7 +415,10 @@ return new class extends clsDetalhe
             }
 
             if ($this->permissaoAbandono() && $registro['aprovado'] == App_Model_MatriculaSituacao::ABANDONO && $this->permissaoAbandono()) {
-                $this->array_botao[] = 'Desfazer abandono';
+                $this->array_botao[] = 'Turno';
+                $this->array_botao_url_script[] = 'showAlertTurnoDeixouFrequentar()';
+
+                $this->array_botao[] = 'Desfazer deixou de frequentar';
                 $this->array_botao_url_script[] = "deleteAbandono({$registro['cod_matricula']})";
             }
 
@@ -573,7 +576,7 @@ return new class extends clsDetalhe
              WHERE ref_cod_matricula_saida = $matriculaId
                AND ativo = 1";
 
-        $db = new clsBanco();
+        $db = new clsBanco;
 
         return $db->CampoUnico(consulta: $sql);
     }

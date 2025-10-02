@@ -11,7 +11,7 @@ class CursoAlunoController extends ApiCoreController
     {
         if ($this->canGetCursoDoAluno()) {
             $alunoId = $this->getRequest()->aluno_id;
-            $sql = 'SELECT \'\'\'\' || (nm_curso ) || \'\'\'\' AS id, (nm_curso ) AS nome FROM pmieducar.historico_escolar WHERE ref_cod_aluno = $1';
+            $sql = 'SELECT \'\'\'\' || (nm_curso ) || \'\'\'\' AS id, (nm_curso ) AS nome FROM pmieducar.historico_escolar WHERE ref_cod_aluno = $1 AND ativo = 1';
             $cursos = $this->fetchPreparedQuery($sql, [$alunoId]);
             $attrs = ['id', 'nome'];
             $cursos = Portabilis_Array_Utils::filterSet($cursos, $attrs);

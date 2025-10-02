@@ -50,8 +50,6 @@ class Process
 
     public const EXEMPTION_LIST = 2002;
 
-    public const ALLOW_VACANCY_RESERVATION_REPORT_WITHOUT_SCHOOL = 2003;
-
     public const EDUCACENSO_IMPORT_HISTORY = 2004;
 
     public const UPDATE_REGISTRATION_STATUS = 2005;
@@ -59,6 +57,8 @@ class Process
     public const NOTIFY_TRANSFER = 2006;
 
     public const EDUCACENSO_IMPORT_INEP = 2007;
+
+    public const EDUCACENSO_IMPORT_SITUATION = 2008;
 
     public const SETTINGS = 3000;
 
@@ -77,4 +77,10 @@ class Process
     public const CONSULTAS = 9998890;
 
     public const ACTIVE_LOOKING = 9998921;
+
+    public const ANNOUNCEMENT = 9999114;
+
+    public const BLOCK_ENROLLMENT = 9999115;
+
+    public const STAGE = 9999116;
 }

@@ -274,7 +274,7 @@ class PromocaoApiController extends ApiCoreController
                         $this->messenger->append("Lançado falta geral (valor $defaultValue) para etapa $etapa (matrícula $matriculaId)", 'notice');
                     }
                 }
-            }//for etapa
+            }// for etapa
         } elseif ($tpPresenca == RegraAvaliacao_Model_TipoPresenca::POR_COMPONENTE) {
             // FIXME #parameters
             foreach ($etapas as $etapa) {

@@ -39,12 +39,6 @@ Clone o repositório:
 git clone git@github.com:portabilis/i-educar.git && cd i-educar
 ```
 
-Copie o arquivo `docker-compose.example.yml` e faça as configurações para o seu ambiente:
-
-```bash 
-cp docker-compose.example.yml docker-compose.override.yml
-``` 
-
 Faça o build das imagens Docker utilizadas no projeto e inicie os containers da aplicação (pode levar alguns minutos):
 
 ```bash
@@ -55,12 +49,13 @@ Execute o comando para fazer uma nova instalação:
 
 ```bash
 docker-compose exec php composer new-install
+docker-compose exec php php artisan db:seed
 ```
 
 ### Personalizando a instalação
 
-No arquivo `docker-compose.override.yml` você pode personalizar sua instalação do i-Educar, mudando as portas dos
-serviços ou o mapeamento dos volumes da aplicação.
+Você pode criar o arquivo `docker-compose.override.yml` para personalizar sua instalação do i-Educar, mudando as portas
+dos serviços ou o mapeamento dos volumes.
 
 ### Xdebug
 
@@ -80,7 +75,7 @@ cp .env.example .env.testing
 Execute o comando:
 
 ```bash
-docker-compose exec php vendor/bin/phpunit
+docker-compose exec php vendor/bin/pest
 ```
 
 ## Instalação em servidor web
@@ -107,7 +102,7 @@ apt update
 Instale as dependências:
 
 ```bash
-apt install -y nginx redis postgresql postgresql-contrib openjdk-8-jdk openssl unzip php8.2-common php8.2-cli php8.2-fpm php8.2-bcmath php8.2-curl php8.2-mbstring php8.2-pgsql php8.2-xml php8.2-zip php8.2-gd
+apt install -y nginx redis postgresql postgresql-contrib openjdk-8-jdk openssl unzip php8.3-common php8.3-cli php8.3-fpm php8.3-bcmath php8.3-curl php8.3-mbstring php8.3-pgsql php8.3-xml php8.3-zip php8.3-gd
 ```
 
 Inicie o serviço de banco de dados:
@@ -152,17 +147,21 @@ Copie os arquivos de configuração do Nginx:
 ```bash 
 cp /var/www/ieducar/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 cp /var/www/ieducar/docker/nginx/upstream.conf /etc/nginx/conf.d/upstream.conf
-sed -i 's/php:9000/unix:\/run\/php\/php-fpm.sock/g' /etc/nginx/conf.d/upstream.conf
+sed -i 's/fpm:9000/unix:\/run\/php\/php-fpm.sock/g' /etc/nginx/conf.d/upstream.conf
 rm /etc/nginx/sites-enabled/default
 nginx -s reload
 ```
-
-Configure a variável de ambiente `APP_DEFAULT_HOST` do arquivo `.env` com o IP ou domínio do seu servidor.
 
 Faça a instalação do i-Educar:
 
 ```bash 
 composer new-install
+```
+
+Popule o banco de dados com os dados iniciais necessários para o funcionamento:
+
+```bash 
+php artisan db:seed
 ```
 
 Este passo é opcional, mas caso você desejar, você pode popular o banco de dados com alguns dados iniciais utilizando o 

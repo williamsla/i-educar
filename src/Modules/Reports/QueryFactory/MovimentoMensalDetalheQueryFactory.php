@@ -46,6 +46,8 @@ abstract class MovimentoMensalDetalheQueryFactory extends QueryFactory
                 ie.enrollment_active = false as enturmacao_inativa,
                 ie.enrollment_transferred as enturmacao_transferida,
                 ie.enrollment_abandoned as enturmacao_abandono,
+                ie.enrollment_relocated as enturmacao_remanejado,
+                ie.enrollment_deceased as enturmacao_falecido,
                 ie.dependence = false as sem_dependencia,
                 ie.start_date < date(:data_inicial) as entrou_antes_inicio,
                 ie.start_date <= date(:data_final) as entrou_antes_fim,

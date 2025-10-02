@@ -1,5 +1,7 @@
 <?php
 
+use iEducar\Modules\Enrollments\Model\EnrollmentStatusFilter;
+
 return new class extends clsDetalhe
 {
     public $titulo;
@@ -60,7 +62,7 @@ return new class extends clsDetalhe
             $this->simpleRedirect("educar_historico_escolar_lst.php?ref_cod_aluno={$this->ref_cod_aluno}");
         }
 
-        $obj_aluno = new clsPmieducarAluno();
+        $obj_aluno = new clsPmieducarAluno;
         $lst_aluno = $obj_aluno->lista(int_cod_aluno: $registro['ref_cod_aluno'], int_ativo: 1);
         if (is_array($lst_aluno)) {
             $det_aluno = array_shift($lst_aluno);
@@ -139,6 +141,7 @@ return new class extends clsDetalhe
         if ($registro['observacao']) {
             $this->addDetalhe(['Observação', "{$registro['observacao']}"]);
         }
+
         if ($registro['aprovado']) {
             if ($registro['aprovado'] == 1) {
                 $registro['aprovado'] = 'Aprovado';
@@ -162,6 +165,10 @@ return new class extends clsDetalhe
                 $registro['aprovado'] = 'Promovido';
             }
 
+        $situacoes = EnrollmentStatusFilter::getDescriptiveValues();
+
+        if (isset($registro['aprovado']) && array_key_exists($registro['aprovado'], $situacoes)) {
+            $registro['aprovado'] = $situacoes[$registro['aprovado']];
             $this->addDetalhe(['Situação', "{$registro['aprovado']}"]);
         }
 
@@ -177,7 +184,7 @@ return new class extends clsDetalhe
             $this->addDetalhe(['Folha', "{$registro['folha']}"]);
         }
 
-        $obj = new clsPmieducarHistoricoDisciplinas();
+        $obj = new clsPmieducarHistoricoDisciplinas;
         $obj->setOrderby('nm_disciplina ASC');
         $lst = $obj->lista(int_ref_ref_cod_aluno: $this->ref_cod_aluno, int_ref_sequencial: $this->sequencial);
 
@@ -223,9 +230,9 @@ return new class extends clsDetalhe
             $this->addDetalhe(['Disciplina', "{$tabela}"]);
         }
 
-        $this->obj_permissao = new clsPermissoes();
+        $this->obj_permissao = new clsPermissoes;
         $this->nivel_usuario = $this->obj_permissao->nivel_acesso($this->pessoa_logada);
-        $db = new clsBanco();
+        $db = new clsBanco;
 
         $restringir_historico_escolar = $db->CampoUnico("SELECT restringir_historico_escolar
                                                            FROM pmieducar.instituicao
@@ -237,10 +244,10 @@ return new class extends clsDetalhe
                                              FROM pmieducar.historico_escolar
                                             WHERE ref_cod_aluno = $this->ref_cod_aluno
                                               AND sequencial = $this->sequencial");
-            //Verifica se a escola foi digitada manualmente no histórico
+            // Verifica se a escola foi digitada manualmente no histórico
             $escola_usuario = '';
             if ($ref_cod_escola == '') {
-                $escolasUsuario = new clsPmieducarEscolaUsuario();
+                $escolasUsuario = new clsPmieducarEscolaUsuario;
                 $escolasUsuario = $escolasUsuario->lista($this->pessoa_logada);
 
                 $idEscolasUsuario = [];

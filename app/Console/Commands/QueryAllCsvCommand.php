@@ -32,7 +32,7 @@ class QueryAllCsvCommand extends Command
      */
     public function handle()
     {
-        $array = [];
+        $header = [];
         $data = [];
         $file = file_get_contents($this->getFile());
 
@@ -44,14 +44,17 @@ class QueryAllCsvCommand extends Command
             }
 
             try {
-                $data[$connection] = DB::connection($connection)->select($file);
-            } catch (Exception $exception) {
-                continue;
-            }
-        }
+                $connectionData = DB::connection($connection)->select($file);
 
-        if (isset($data[$connection][0])) {
-            $header = array_keys((array) $data[$connection][0]);
+                if (!empty($connectionData) && empty($header)) {
+                    $header = array_merge(['conexao'], array_keys((array) $connectionData[0]));
+                }
+                $data[$connection] = $connectionData;
+            } catch (Exception) {
+                continue;
+            } finally {
+                DB::purge($connection);
+            }
         }
 
         $this->makeCsv($header, $data);

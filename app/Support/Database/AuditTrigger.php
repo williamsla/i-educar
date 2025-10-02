@@ -15,8 +15,28 @@ trait AuditTrigger
     public function getSkippedTables()
     {
         return config('audit.skip', [
-            'audit',
-            'public.audit',
+            'ieducar_audit',
+            'public.ieducar_audit',
+            'modules.auditoria',
+            'modules.auditoria_geral',
+            'portal.acesso',
+            'cadastro.deficiencia_excluidos',
+            'modules.area_conhecimento_excluidos',
+            'modules.componente_curricular_ano_escolar_excluidos',
+            'modules.componente_curricular_turma_excluidos',
+            'modules.professor_turma_excluidos',
+            'modules.regra_avaliacao_recuperacao_excluidos',
+            'modules.regra_avaliacao_serie_ano_excluidos',
+            'pmieducar.aluno_excluidos',
+            'pmieducar.disciplina_dependencia_excluidos',
+            'pmieducar.dispensa_disciplina_excluidos',
+            'pmieducar.escola_serie_disciplina_excluidos',
+            'pmieducar.matricula_turma_excluidos',
+            'public.migrations',
+            'migrations',
+            'reports_counts',
+            'notifications',
+            'public.notifications',
         ]);
     }
 
@@ -27,11 +47,18 @@ trait AuditTrigger
      */
     public function getAuditedTables()
     {
-        $tables = DB::connection()->getDoctrineSchemaManager()->listTableNames();
+        $tables = DB::select('SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = \'BASE TABLE\' AND table_schema IN (\'cadastro\', \'modules\', \'pmieducar\', \'portal\', \'public\', \'relatorio\');');
 
-        return collect($tables)->sort()->reject(function ($table) {
-            return in_array($table, $this->getSkippedTables());
-        })->values()->toArray();
+        $return = [];
+        foreach ($tables as $table) {
+            if (in_array($table->table_name, $this->getSkippedTables())) {
+                continue;
+            }
+
+            $return[] = $table->table_schema . '.' . $table->table_name;
+        }
+
+        return $return;
     }
 
     /**

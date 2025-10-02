@@ -103,6 +103,37 @@ trait Avaliacao_Service_Boletim_RegraAvaliacao
     }
 
     /**
+     * Retorna aprovar pela frequencia após exame da regra de avaliação.
+     *
+     * @return bool
+     */
+    public function getRegraAvaliacaoAprovarPelaFrequenciaAposExame()
+    {
+        return $this->getRegraAvaliacao()->get('aprovarPelaFrequenciaAposExame') && $this->hasRegraAvaliacaoFormulaRecuperacao();
+    }
+
+    /**
+     * Retorna verdadeiro se a regra de avaliação permite reprovar o aluno automaticamente
+     * após pegar dependências.
+     *
+     * @return bool
+     */
+    public function hasReprovarAutomaticamenteAposDependencias()
+    {
+        return $this->getRegraAvaliacao()->get('reprovarAutomaticamenteAposDependencias') > 0;
+    }
+
+    /**
+     * Retorna a quantidade de disciplinas que o aluno pode pegar dependência.
+     *
+     * @return int
+     */
+    public function getQtdeReprovarAutomaticamenteAposDependencias()
+    {
+        return (int) $this->getRegraAvaliacao()->get('reprovarAutomaticamenteAposDependencias');
+    }
+
+    /**
      * Retorna "1" se a regra de avaliação é do tipo nota geral por etapa.
      *
      * @return string

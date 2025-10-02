@@ -1,5 +1,6 @@
 <?php
 
+use App\Events\EmployeeCreated;
 use App\Models\Employee;
 use App\Models\EmployeeGraduation;
 use App\Models\EmployeePosgraduate;
@@ -18,7 +19,7 @@ use iEducar\Support\View\SelectOptions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 
-return new class() extends clsCadastro
+return new class extends clsCadastro
 {
     public $pessoa_logada;
 
@@ -76,7 +77,7 @@ return new class() extends clsCadastro
             $this->ref_cod_instituicao_original = $_POST['ref_cod_instituicao_original'];
         }
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(
             635,
             $this->pessoa_logada,
@@ -109,12 +110,12 @@ return new class() extends clsCadastro
 
                 $this->multi_seriado = dbBool($this->multi_seriado);
 
-                $obj_permissoes = new clsPermissoes();
+                $obj_permissoes = new clsPermissoes;
                 if ($obj_permissoes->permissao_excluir(635, $this->pessoa_logada, 7)) {
                     $this->fexcluir = true;
                 }
 
-                $db = new clsBanco();
+                $db = new clsBanco;
 
                 // Carga horária alocada no ultimo ano de alocação
                 $sql = sprintf(
@@ -141,7 +142,7 @@ return new class() extends clsCadastro
                 $this->total_horas_alocadas = str_pad($cargaHoraria, 2, 0, STR_PAD_LEFT);
 
                 // Funções
-                $obj_funcoes = new clsPmieducarServidorFuncao();
+                $obj_funcoes = new clsPmieducarServidorFuncao;
                 $lst_funcoes = $obj_funcoes->lista($this->ref_cod_instituicao, $this->cod_servidor);
 
                 if ($lst_funcoes) {
@@ -218,7 +219,7 @@ return new class() extends clsCadastro
         if ($this->cod_servidor) {
             $servidor = new clsFuncionario($this->cod_servidor);
             $servidor->detalhe();
-            //$detalhe = $detalhe['idpes']->detalhe();
+            // $detalhe = $detalhe['idpes']->detalhe();
 
             $this->campoRotulo('nm_servidor', 'Pessoa', $servidor->nome);
             $this->campoOculto('cod_servidor', $this->cod_servidor);
@@ -227,7 +228,7 @@ return new class() extends clsCadastro
                 $this->ref_cod_instituicao_original
             );
         } else {
-            $parametros = new clsParametrosPesquisas();
+            $parametros = new clsParametrosPesquisas;
             $parametros->setSubmit(0);
             $parametros->adicionaCampoSelect(
                 'cod_servidor',
@@ -369,7 +370,7 @@ return new class() extends clsCadastro
 
         // Dados do docente no Inep/Educacenso.
         if ($this->docente) {
-            $docenteMapper = new Educacenso_Model_DocenteDataMapper();
+            $docenteMapper = new Educacenso_Model_DocenteDataMapper;
 
             $docenteInep = null;
 
@@ -381,7 +382,7 @@ return new class() extends clsCadastro
 
         $opcoes = ['' => 'Selecione'];
 
-        $objTemp = new clsCadastroEscolaridade();
+        $objTemp = new clsCadastroEscolaridade;
         $lista = $objTemp->lista();
 
         if (is_array($lista) && count($lista)) {
@@ -390,7 +391,7 @@ return new class() extends clsCadastro
             }
         }
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         if ($obj_permissoes->permissao_cadastra(632, $this->pessoa_logada, 4)) {
             $script = 'javascript:showExpansivelIframe(350, 135, \'educar_escolaridade_cad_pop.php\');';
             $script = "<img id='img_deficiencia' style='display: \'\'' src='imagens/banco_imagens/escreve.gif' style='cursor:hand; cursor:pointer;' border='0' onclick=\"{$script}\">";
@@ -503,7 +504,7 @@ JS;
         $ensinoSuperior = $escolaridade == Escolaridade::EDUCACAO_SUPERIOR;
         $this->complementacao_pedagogica = $ensinoSuperior ? transformDBArrayInString($this->complementacao_pedagogica) : null;
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(635, $this->pessoa_logada, 7, 'educar_servidor_lst.php');
 
         $obj = new clsPmieducarServidor($this->cod_servidor, null, null, null, null, null, null, $this->ref_cod_instituicao);
@@ -552,6 +553,9 @@ JS;
 
                 include 'educar_limpa_sessao_curso_disciplina_servidor.php';
 
+                $employee = Employee::query()->find($this->cod_servidor);
+                EmployeeCreated::dispatch($employee);
+
                 $this->mensagem = 'Cadastro efetuado com sucesso.<br>';
                 $this->simpleRedirect("educar_servidor_det.php?cod_servidor={$this->cod_servidor}&ref_cod_instituicao={$this->ref_cod_instituicao}");
             }
@@ -579,7 +583,7 @@ JS;
         $ensinoSuperior = $escolaridade == Escolaridade::EDUCACAO_SUPERIOR;
         $this->complementacao_pedagogica = $ensinoSuperior ? transformDBArrayInString($this->complementacao_pedagogica) : null;
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(635, $this->pessoa_logada, 7, 'educar_servidor_lst.php');
 
         if ($this->ref_cod_instituicao == $this->ref_cod_instituicao_original) {
@@ -710,7 +714,7 @@ JS;
 
     public function Excluir()
     {
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_excluir(635, $this->pessoa_logada, 7, 'educar_servidor_lst.php');
 
         if (!$this->validaExclusaoFuncoes()) {
@@ -850,6 +854,9 @@ JS;
 
             foreach ($funcoes as $funcao => $cursos) {
                 foreach ($cursos as $curso => $disciplinas) {
+                    if (empty($curso)) {
+                        continue;
+                    }
                     $cursos_servidor[] = $curso;
 
                     foreach ($disciplinas as $disciplina) {
@@ -1051,7 +1058,7 @@ JS;
         $graduations = [];
         if (old('course_id')) {
             foreach (old('course_id') as $key => $value) {
-                $oldInputGraduation = new EmployeeGraduation();
+                $oldInputGraduation = new EmployeeGraduation;
                 $oldInputGraduation->course = old('employee_course')[$key];
                 $oldInputGraduation->course_id = old('employee_course_id')[$key];
                 $oldInputGraduation->completion_year = old('employee_completion_year')[$key];
@@ -1114,7 +1121,7 @@ JS;
                 continue;
             }
 
-            $valueObject = new EmployeeGraduationValueObject();
+            $valueObject = new EmployeeGraduationValueObject;
             $valueObject->employeeId = $employeeId;
             $valueObject->courseId = $this->employee_course_id[$key];
             $valueObject->completionYear = $this->employee_completion_year[$key];
@@ -1145,7 +1152,7 @@ JS;
                 continue;
             }
 
-            $valueObject = new EmployeePosgraduateValueObject();
+            $valueObject = new EmployeePosgraduateValueObject;
             $valueObject->employeeId = $employeeId;
             $valueObject->entityId = $this->ref_cod_instituicao;
             $valueObject->typeId = $this->posgraduate_type_id[$key] ?: null;

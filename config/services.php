@@ -31,4 +31,18 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'passport' => [
+        'client_id' => env('PASSPORT_CLIENT_ID'),
+        'client_secret' => env('PASSPORT_CLIENT_SECRET'),
+        'redirect' => env('PASSPORT_REDIRECT_URI'),
+        'host' => env('PASSPORT_HOST'),
+        'authorize_uri' => env('PASSPORT_AUTHORIZE_URI', 'oauth/authorize'),
+        'token_uri' => env('PASSPORT_TOKEN_URI', 'oauth/token'),
+        'userinfo_uri' => env('PASSPORT_USERINFO_URI', 'api/user'),
+        'guzzle' => [
+            'verify' => env('PASSPORT_GUZZLE_VERIFY', true),
+        ],
+        'label' => env('PASSPORT_LABEL', 'Single sign-on (SSO)'),
+    ],
+
 ];

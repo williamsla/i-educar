@@ -8,7 +8,7 @@ use App\Models\LegacyStageType;
 use App\Models\View\Discipline;
 use Illuminate\Support\Facades\DB;
 
-return new class() extends clsDetalhe
+return new class extends clsDetalhe
 {
     public $titulo;
 
@@ -57,7 +57,11 @@ return new class() extends clsDetalhe
     public function Gerar()
     {
         $this->titulo = 'Turma - Detalhe';
-        $this->cod_turma = $_GET['cod_turma'];
+        $this->cod_turma = request()->integer('cod_turma');
+
+        if (is_null($this->cod_turma) || $this->cod_turma === 0) {
+            $this->simpleRedirect(url: 'educar_turma_lst.php');
+        }
 
         $dias_da_semana = [
             '' => 'Selecione',
@@ -75,7 +79,7 @@ return new class() extends clsDetalhe
             $not_access = LegacySchoolClass::filter(['school_user' => $this->pessoa_logada])->where(column: 'cod_turma', operator: $this->cod_turma)->doesntExist();
         }
 
-        $lst_obj = (new clsPmieducarTurma())->lista(
+        $lst_obj = (new clsPmieducarTurma)->lista(
             int_cod_turma: $this->cod_turma,
             visivel: [
                 'true',
@@ -117,7 +121,7 @@ return new class() extends clsDetalhe
         $det_ser = $obj_ser->detalhe();
         $registro['ref_ref_cod_serie'] = $det_ser['nm_serie'];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
 
         $this->addDetalhe(detalhe: ['Ano', $this->ano]);
 
@@ -269,7 +273,7 @@ return new class() extends clsDetalhe
                 );
             }
         } elseif ($padrao_ano_escolar == 0) {
-            $obj = new clsPmieducarTurmaModulo();
+            $obj = new clsPmieducarTurmaModulo;
             $obj->setOrderby(strNomeCampo: 'sequencial ASC');
             $lst = $obj->lista(int_ref_cod_turma: $this->cod_turma);
 

@@ -33,7 +33,7 @@ return new class extends clsCadastro
 
         $this->cod_abandono_tipo = $_GET['cod_abandono_tipo'];
 
-        $obj_permissoes = new clsPermissoes();
+        $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(int_processo_ap: 950, int_idpes_usuario: $this->pessoa_logada, int_soma_nivel_acesso: 7, str_pagina_redirecionar: 'educar_abandono_tipo_lst.php');
 
         if (is_numeric($this->cod_abandono_tipo)) {
@@ -52,7 +52,7 @@ return new class extends clsCadastro
 
         $nomeMenu = $retorno == 'Editar' ? $retorno : 'Cadastrar';
 
-        $this->breadcrumb(currentPage: $nomeMenu . ' tipo de abandono', breadcrumbs: [
+        $this->breadcrumb(currentPage: $nomeMenu . ' tipo da situação deixou de frequentar', breadcrumbs: [
             url('intranet/educar_index.php') => 'Escola',
         ]);
 
@@ -68,12 +68,12 @@ return new class extends clsCadastro
         include 'include/pmieducar/educar_campo_lista.php';
 
         // text
-        $this->campoTexto(nome: 'nome', campo: 'Motivo Abandono', valor: $this->nome, tamanhovisivel: 30, tamanhomaximo: 255, obrigatorio: true);
+        $this->campoTexto(nome: 'nome', campo: 'Motivo - Deixou de Frequentar', valor: $this->nome, tamanhovisivel: 30, tamanhomaximo: 255, obrigatorio: true);
     }
 
     public function Novo()
     {
-        $abandono = new LegacyAbandonmentType();
+        $abandono = new LegacyAbandonmentType;
         $abandono->ref_usuario_cad = $this->pessoa_logada;
         $abandono->nome = $this->nome;
         $abandono->ref_cod_instituicao = $this->ref_cod_instituicao;
@@ -125,7 +125,7 @@ return new class extends clsCadastro
 
     public function Formular()
     {
-        $this->title = 'Motivo Abandono';
+        $this->title = 'Motivo - Deixou de Frequentar';
         $this->processoAp = '950';
     }
 };

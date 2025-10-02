@@ -1,5 +1,7 @@
 <?php
 
+use App\Events\StudentCreated;
+use App\Models\LegacyStudent;
 use iEducar\Legacy\Model;
 
 class clsPmieducarAluno extends Model
@@ -103,7 +105,7 @@ class clsPmieducarAluno extends Model
         $rota_transporte = null,
         $utiliza_transporte_rural = null
     ) {
-        $db = new clsBanco();
+        $db = new clsBanco;
         $this->_schema = 'pmieducar.';
         $this->_tabela = $this->_schema . 'aluno a';
 
@@ -215,7 +217,7 @@ class clsPmieducarAluno extends Model
     public function cadastra()
     {
         if (is_numeric($this->ref_idpes)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
 
             $campos = '';
             $valores = '';
@@ -402,7 +404,11 @@ class clsPmieducarAluno extends Model
 
             $db->Consulta("INSERT INTO pmieducar.aluno ($campos) VALUES ($valores)");
 
-            return $db->InsertId('pmieducar.aluno_cod_aluno_seq');
+            $studentId = $db->InsertId('pmieducar.aluno_cod_aluno_seq');
+            $student = LegacyStudent::query()->find($studentId);
+            StudentCreated::dispatch($student);
+
+            return $studentId;
         }
 
         return false;
@@ -416,7 +422,7 @@ class clsPmieducarAluno extends Model
     public function edita()
     {
         if (is_numeric($this->cod_aluno)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $gruda = '';
             $set = '';
 
@@ -684,7 +690,7 @@ class clsPmieducarAluno extends Model
 
         $this->_campos_lista .= ', pessoa.nome AS nome_aluno, fisica.nome_social';
 
-        $db = new clsBanco();
+        $db = new clsBanco;
 
         $sql = "
             SELECT
@@ -875,13 +881,13 @@ class clsPmieducarAluno extends Model
     public function detalhe()
     {
         if (is_numeric($this->cod_aluno)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT {$this->_todos_campos} FROM {$this->_tabela} WHERE cod_aluno = '{$this->cod_aluno}'");
             $db->ProximoRegistro();
 
             return $db->Tupla();
         } elseif (is_numeric($this->ref_idpes)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT {$this->_todos_campos} FROM {$this->_tabela} WHERE ref_idpes = '{$this->ref_idpes}'");
             $db->ProximoRegistro();
 
@@ -899,13 +905,13 @@ class clsPmieducarAluno extends Model
     public function existe()
     {
         if (is_numeric($this->cod_aluno)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT 1 FROM {$this->_tabela} WHERE cod_aluno = '{$this->cod_aluno}'");
             $db->ProximoRegistro();
 
             return $db->Tupla();
         } elseif (is_numeric($this->ref_idpes)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $db->Consulta("SELECT 1 FROM {$this->_tabela} WHERE ref_idpes = '{$this->ref_idpes}'");
             $db->ProximoRegistro();
 
@@ -918,7 +924,7 @@ class clsPmieducarAluno extends Model
     public function verificaInep($cod_aluno = null)
     {
         if (is_numeric($cod_aluno)) {
-            $db = new clsBanco();
+            $db = new clsBanco;
             $sql = "SELECT cod_aluno_inep
                 FROM {$this->_tabela}
                INNER JOIN modules.educacenso_cod_aluno eca ON (eca.cod_aluno = a.cod_aluno)
@@ -930,7 +936,7 @@ class clsPmieducarAluno extends Model
         }
     }
 
-    public function getResponsavelAluno()
+    public function getResponsavelAluno($exibirUrl = false)
     {
         if ($this->cod_aluno) {
             $registro = $this->detalhe();
@@ -949,7 +955,16 @@ class clsPmieducarAluno extends Model
                     $obj_fisica = new clsFisica($det_fisica_aluno['idpes_pai']);
                     $det_fisica = $obj_fisica->detalhe();
 
-                    $registro['nome_responsavel'] = $det_ref_idpes['nome'];
+                    if ($exibirUrl) {
+                        $pai = sprintf(
+                            '<a target="_blank" href="/intranet/atendidos_det.php?cod_pessoa=%s">%s</a>',
+                            $det_ref_idpes['idpes'],
+                            $det_ref_idpes['nome']
+                        );
+                    } else {
+                        $pai = $det_ref_idpes['nome'];
+                    }
+                    $registro['nome_responsavel'] = $pai;
                     $registro['cpf_responsavel'] = $det_fisica['cpf'] ? int2CPF($det_fisica['cpf']) : 'Não informado';
                 }
             }
@@ -968,7 +983,16 @@ class clsPmieducarAluno extends Model
                     $obj_fisica = new clsFisica($det_fisica_aluno['idpes_mae']);
                     $det_fisica = $obj_fisica->detalhe();
 
-                    $registro['nome_responsavel'] = $det_ref_idpes['nome'];
+                    if ($exibirUrl) {
+                        $mae = sprintf(
+                            '<a target="_blank" href="/intranet/atendidos_det.php?cod_pessoa=%s">%s</a>',
+                            $det_ref_idpes['idpes'],
+                            $det_ref_idpes['nome']
+                        );
+                    } else {
+                        $mae = $det_ref_idpes['nome'];
+                    }
+                    $registro['nome_responsavel'] = $mae;
                     $registro['cpf_responsavel'] = $det_fisica['cpf'] ? int2CPF($det_fisica['cpf']) : 'Não informado';
                 }
             }
@@ -987,7 +1011,16 @@ class clsPmieducarAluno extends Model
                     $det_ref_idpes = $obj_ref_idpes->detalhe();
                     $det_fisica = $obj_fisica->detalhe();
 
-                    $registro['nome_responsavel'] = $det_ref_idpes['nome'];
+                    if ($exibirUrl) {
+                        $responsavel = sprintf(
+                            '<a target="_blank" href="/intranet/atendidos_det.php?cod_pessoa=%s">%s</a>',
+                            $det_ref_idpes['idpes'],
+                            $det_ref_idpes['nome']
+                        );
+                    } else {
+                        $responsavel = $det_ref_idpes['nome'];
+                    }
+                    $registro['nome_responsavel'] = $responsavel;
                     $registro['cpf_responsavel'] = $det_fisica['cpf'] ? int2CPF($det_fisica['cpf']) : 'Não informado';
                 }
             }
@@ -1007,7 +1040,22 @@ class clsPmieducarAluno extends Model
                     $fisica_pai = (new clsFisica($det_fisica_aluno['idpes_pai']))->detalhe();
                     $det_pai = $obj_pai->detalhe();
 
-                    $registro['nome_responsavel'] = $det_pai['nome'] . ', ' . $det_mae['nome'];
+                    if ($exibirUrl) {
+                        $pai = sprintf(
+                            '<a target="_blank" href="/intranet/atendidos_det.php?cod_pessoa=%s">%s</a>',
+                            $det_pai['idpes'],
+                            $det_pai['nome']
+                        );
+                        $mae = sprintf(
+                            '<a target="_blank" href="/intranet/atendidos_det.php?cod_pessoa=%s">%s</a>',
+                            $det_mae['idpes'],
+                            $det_mae['nome']
+                        );
+                    } else {
+                        $pai = $det_pai['nome'];
+                        $mae = $det_mae['nome'];
+                    }
+                    $registro['nome_responsavel'] = $pai . ', ' . $mae;
                     $cpfPai = $fisica_pai['cpf'] ? int2CPF($fisica_pai['cpf']) : 'Não informado';
                     $cpfMae = $fisica_mae['cpf'] ? int2CPF($fisica_mae['cpf']) : 'não informado';
                     $registro['cpf_responsavel'] = $cpfPai . ', ' . $cpfMae;

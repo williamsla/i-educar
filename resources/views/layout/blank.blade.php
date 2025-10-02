@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt" class="no-js">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'/>
     <meta http-equiv="Pragma" content="no-cache"/>
     <meta http-equiv="Expires" content="-1"/>
@@ -64,7 +65,6 @@
     <script type="text/javascript" src="{{ Asset::get("/intranet/scripts/padrao.js") }} "></script>
     <script type="text/javascript" src="{{ Asset::get("/intranet/scripts/novo.js") }} "></script>
     <script type="text/javascript" src="{{ Asset::get("/intranet/scripts/dom.js") }} "></script>
-    <script type="text/javascript" src="{{ Asset::get("/intranet/scripts/menu.js") }} "></script>
     <script type="text/javascript" src="{{ Asset::get("/intranet/scripts/ied/forms.js") }} "></script>
     <script type="text/javascript" src="{{ Asset::get("/intranet/scripts/ied/phpjs.js") }} "></script>
 
@@ -81,7 +81,7 @@
     <!-- Google Tag Manager (noscript) -->
     <noscript>
         <iframe src="https://www.googletagmanager.com/ns.html?id={{$config['app']['gtm']['id']}}"
-                height="0" width="0" style="display:none;visibility:hidden"></iframe>
+                height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe>
     </noscript>
     <!-- End Google Tag Manager (noscript) -->
 @endif

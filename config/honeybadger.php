@@ -1,9 +1,14 @@
 <?php
 
+use Honeybadger\HoneybadgerLaravel\HoneybadgerLaravel;
 use iEducar\Support\Exceptions\DisciplinesWithoutInformedHoursException;
 
 return [
     'api_key' => env('HONEYBADGER_API_KEY'),
+    'events' => [
+        'enabled' => env('HONEYBADGER_EVENTS_ENABLED', true),
+        'automatic' => HoneybadgerLaravel::DEFAULT_EVENTS,
+    ],
     'environment' => [
         'filter' => [],
         'include' => [],

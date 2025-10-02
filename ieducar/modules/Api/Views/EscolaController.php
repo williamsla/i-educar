@@ -306,7 +306,7 @@ class EscolaController extends ApiCoreController
 
     public function _getQtdMatriculaTurno($escolaId)
     {
-        $obj_mt = new clsPmieducarMatriculaTurma();
+        $obj_mt = new clsPmieducarMatriculaTurma;
 
         return count(array_filter(($obj_mt->lista(
             $int_ref_cod_matricula = null,
@@ -348,7 +348,7 @@ class EscolaController extends ApiCoreController
 
     public function _getMaxAlunoTurno($escolaId)
     {
-        $obj_t = new clsPmieducarTurma();
+        $obj_t = new clsPmieducarTurma;
         $det_t = $obj_t->detalhe();
 
         $lista_t = $obj_t->lista(
@@ -357,7 +357,7 @@ class EscolaController extends ApiCoreController
             $int_ref_usuario_cad = null,
             $int_ref_ref_cod_serie = $this->getRequest()->serie_id,
             $int_ref_ref_cod_escola = $escolaId,
-            $int_ref_cod_infra_predio_comodo = null,
+            $int_ref_cod_infra_predio_comodo = null, // TODO: remover no futuro
             $str_nm_turma = null,
             $str_sgl_turma = null,
             $int_max_aluno = null,
@@ -470,7 +470,7 @@ class EscolaController extends ApiCoreController
     protected function getEscolasMultipleSearch()
     {
         $cod_usuario = \Illuminate\Support\Facades\Auth::id();
-        $permissao = new clsPermissoes();
+        $permissao = new clsPermissoes;
         $nivel = $permissao->nivel_acesso($cod_usuario);
         $cursoId = $this->getRequest()->curso_id;
 
@@ -542,7 +542,7 @@ class EscolaController extends ApiCoreController
             return null;
         }
 
-        $escolasUsuario = new clsPmieducarEscolaUsuario();
+        $escolasUsuario = new clsPmieducarEscolaUsuario;
         $escolasUsuario = $escolasUsuario->lista($ref_cod_usuario);
 
         $escolas = [];
@@ -557,7 +557,7 @@ class EscolaController extends ApiCoreController
     protected function getEscolasSelecao()
     {
         $userId = \Illuminate\Support\Facades\Auth::id();
-        $permissao = new clsPermissoes();
+        $permissao = new clsPermissoes;
         $nivel = $permissao->nivel_acesso($userId);
 
         if (
@@ -665,7 +665,13 @@ class EscolaController extends ApiCoreController
                         'serie_id', serie_id,
                         'disciplinas_anos_letivos', disciplinas_anos_letivos
                     )
-                ) AS series_disciplinas_anos_letivos
+                ) AS series_disciplinas_anos_letivos,
+                json_agg(
+                    json_build_object(
+                        'serie_id', serie_id,
+                        'disciplinas_etapas_utilizadas', disciplinas_etapas_utilizadas
+                        )
+                ) AS series_disciplinas_etapas_utilizadas
             FROM (
                 SELECT
                     ref_ref_cod_escola AS escola_id,
@@ -674,7 +680,12 @@ class EscolaController extends ApiCoreController
                         json_build_object(
                             ref_cod_disciplina, anos_letivos
                         )
-                    ) AS disciplinas_anos_letivos
+                    ) AS disciplinas_anos_letivos,
+                    json_agg(
+                        json_build_object(
+                            ref_cod_disciplina,  etapas_utilizadas
+                            )
+                    ) AS disciplinas_etapas_utilizadas
                 FROM pmieducar.escola_serie_disciplina
                 $whereModified
                 GROUP BY
@@ -686,11 +697,12 @@ class EscolaController extends ApiCoreController
         ";
 
         $escolas = $this->fetchPreparedQuery($sql);
-        $attrs = ['escola_id', 'series_disciplinas_anos_letivos'];
+        $attrs = ['escola_id', 'series_disciplinas_anos_letivos', 'series_disciplinas_etapas_utilizadas'];
         $escolas = Portabilis_Array_Utils::filterSet($escolas, $attrs);
 
         foreach ($escolas as $key => $escola) {
             $escolas[$key]['series_disciplinas_anos_letivos'] = json_decode($escola['series_disciplinas_anos_letivos']);
+            $escolas[$key]['series_disciplinas_etapas_utilizadas'] = json_decode($escola['series_disciplinas_etapas_utilizadas']);
         }
 
         return ['escolas' => $escolas];

@@ -25,13 +25,18 @@ class IncompatibleDescriptiveOpinion implements Rule
         $schoolClass = $value[0]['turma_id'];
         $schoolClass = LegacySchoolClass::find($schoolClass);
         $grades = array_column($value, 'serie_id');
+        $utilizaRegraDiferenciada = $schoolClass->school->utiliza_regra_diferenciada;
 
         $descriptiveOpinionType = LegacyEvaluationRuleGradeYear::query()
             ->whereIn('serie_id', $grades)
             ->where('ano_letivo', $schoolClass->ano)
-            ->with('evaluationRule')
+            ->with(['evaluationRule', 'differentiatedEvaluationRule'])
             ->get()
-            ->map(function ($model) {
+            ->map(function ($model) use ($utilizaRegraDiferenciada) {
+                if ($utilizaRegraDiferenciada && $model->differentiatedEvaluationRule) {
+                    return $model->differentiatedEvaluationRule->parecer_descritivo;
+                }
+
                 return $model->evaluationRule->parecer_descritivo;
             })
             ->toArray();

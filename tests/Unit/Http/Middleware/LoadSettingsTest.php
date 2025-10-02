@@ -17,7 +17,7 @@ class LoadSettingsTest extends TestCase
     /**
      * @return void
      */
-    public function testMiddleware()
+    public function test_middleware()
     {
         SettingFactory::new()->create([
             'key' => 'load.settings.test',
@@ -27,10 +27,9 @@ class LoadSettingsTest extends TestCase
 
         $request = Request::create('/intranet/index.php');
 
-        $middleware = new LoadSettings();
+        $middleware = new LoadSettings;
 
-        $middleware->handle($request, function () {
-        });
+        $middleware->handle($request, function () {});
 
         $this->assertEquals('Middleware for Test', Config::get('load.settings.test'));
     }

@@ -11,7 +11,7 @@ class LegacyBenefitTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function testSaveSuccess(): void
+    public function test_save_success(): void
     {
         $user = LegacyUserFactory::new()->admin()->create();
         $this->actingAs($user);
@@ -30,7 +30,7 @@ class LegacyBenefitTest extends TestCase
         $this->post('/intranet/educar_aluno_beneficio_cad.php', $payload)
             ->assertRedirectContains('educar_aluno_beneficio_lst.php');
 
-        $this->assertDatabaseHas($benefit, [
+        $this->assertDatabaseHas($benefit->getTable(), [
             'nm_beneficio' => $benefit->name,
             'desc_beneficio' => $benefit->description,
             'ref_usuario_cad' => $user->getKey(),
@@ -38,7 +38,7 @@ class LegacyBenefitTest extends TestCase
         ]);
     }
 
-    public function testEditSuccess(): void
+    public function test_edit_success(): void
     {
         $user = LegacyUserFactory::new()->admin()->create();
         $this->actingAs($user);
