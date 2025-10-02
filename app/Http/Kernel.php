@@ -39,6 +39,7 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\SetLayoutVariables::class,
             \App\Http\Middleware\AnnouncementMiddleware::class,
+            \App\Http\Middleware\PreventIframe::class,
         ],
 
         'api' => [

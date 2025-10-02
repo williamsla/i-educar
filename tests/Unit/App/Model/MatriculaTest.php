@@ -7,7 +7,7 @@ class App_Model_MatriculaTest extends UnitBaseTest
         $matricula = $this->getCleanMock('clsPmieducarMatricula');
         $matricula->expects($this->once())
             ->method('edita')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         // Guarda no repositório estático de classes
         CoreExt_Entity::addClassToStorage(

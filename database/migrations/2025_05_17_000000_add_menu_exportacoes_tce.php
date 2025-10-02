@@ -11,31 +11,21 @@ class AddMenuExportacoesTCE extends Migration
      *
      * @return void
      */
-    public function up()
+     public function up()
     {
-        Menu::query()
-            ->where('process', Process::TCE_EXPORT)
-            ->update([
-                'title' => 'Exportação para o TCE',
-                'link' => '/exportacao-para-o-tce',
-                'parent_id' => Menu::query()->where('old', Process::MENU_SCHOOL_TOOLS_EXPORTS)->valueOrFail('id'),
-                'parent_old' => Process::MENU_SCHOOL_TOOLS_EXPORTS,
-            ]);
-    }
+        $parentId = Menu::query()
+            ->where('old', Process::MENU_SCHOOL_TOOLS_EXPORTS)
+            ->value('id');
 
-    /**
-     * Reverse the migrations.
-     *
-     * @return void
-     */
-    public function down()
-    {
-        Menu::query()
-            ->where('process', Process::TCE_EXPORT)
-            ->update([
-                'title' => 'Exportações de documentos',
-                'parent_id' => Menu::query()->where('old', Process::MENU_SCHOOL_TOOLS_EXPORTS)->valueOrFail('id'),
-                'parent_old' => Process::MENU_SCHOOL_TOOLS_EXPORTS,
-            ]);
+        if ($parentId) {
+            Menu::query()
+                ->where('process', Process::TCE_EXPORT)
+                ->update([
+                    'title'      => 'Exportação para o TCE',
+                    'link'       => '/exportacao-para-o-tce',
+                    'parent_id'  => $parentId,
+                    'parent_old' => Process::MENU_SCHOOL_TOOLS_EXPORTS,
+                ]);
+        }
     }
 }

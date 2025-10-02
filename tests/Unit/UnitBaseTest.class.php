@@ -107,15 +107,23 @@ abstract class UnitBaseTest extends TestCase
             $mockName = $className . '_Mock_' . substr(md5(uniqid()), 0, 6);
         }
 
-        return $this->getMockForAbstractClass(
-            $className,
-            $args,
-            $mockName,
-            $callOriginalConstructor,
-            $callOriginalClone,
-            $callOriginalAutoload,
-            $mockMethods
-        );
+        $mockBuilder = $this->getMockBuilder($className)
+            ->setConstructorArgs($args)
+            ->setMockClassName($mockName);
+
+        if (!$callOriginalConstructor) {
+            $mockBuilder->disableOriginalConstructor();
+        }
+
+        if (!$callOriginalClone) {
+            $mockBuilder->disableOriginalClone();
+        }
+
+        if (!empty($mockMethods)) {
+            $mockBuilder->onlyMethods($mockMethods);
+        }
+
+        return $mockBuilder->getMock();
     }
 
     /**

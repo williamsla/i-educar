@@ -34,6 +34,7 @@ class DatabaseToCsvExporter implements ShouldQueue
     public function __construct(Export $export)
     {
         $this->export = $export;
+        $this->onQueue('export');
     }
 
     /**

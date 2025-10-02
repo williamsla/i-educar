@@ -49,11 +49,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
         // Na terceira chamada, irá retornar false para interromper o loop while
         $this->_db->expects($this->any())
             ->method('ProximoRegistro')
-            ->will($this->onConsecutiveCalls(true, true, false));
+            ->willReturnOnConsecutiveCalls(true, true, false);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->onConsecutiveCalls($options1, $options2));
+            ->willReturnOnConsecutiveCalls($options1, $options2);
 
         $mapper = new CoreExt_EntityDataMapperStub($this->_db);
         $found = $mapper->findAll();
@@ -80,11 +80,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
         // Na terceira chamada, irá retornar false para interromper o loop while
         $this->_db->expects($this->any())
             ->method('ProximoRegistro')
-            ->will($this->onConsecutiveCalls(true, true, false));
+            ->willReturnOnConsecutiveCalls(true, true, false);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->onConsecutiveCalls($options1, $options2));
+            ->willReturnOnConsecutiveCalls($options1, $options2);
 
         $mapper = new CoreExt_EntityDataMapperStub($this->_db);
         $found = $mapper->findAll(['nome']);
@@ -105,11 +105,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
 
         $this->_db->expects($this->any())
             ->method('ProximoRegistro')
-            ->will($this->onConsecutiveCalls(true, false));
+            ->willReturnOnConsecutiveCalls(true, false);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->onConsecutiveCalls($returnedOptions));
+            ->willReturnOnConsecutiveCalls($returnedOptions);
 
         $mapper = new CoreExt_EntityDataMapperStub($this->_db);
         $found = $mapper->findAll();
@@ -130,11 +130,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
 
         $this->_db->expects($this->any())
             ->method('ProximoRegistro')
-            ->will($this->returnValue(true, false));
+            ->willReturn(true, false);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue($expectedOptions));
+            ->willReturn($expectedOptions);
 
         $mapper = new CoreExt_EntityDataMapperStub($this->_db);
         $found = $mapper->find(1);
@@ -155,11 +155,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
 
         $this->_db->expects($this->once())
             ->method('ProximoRegistro')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue($expectedOptions));
+            ->willReturn($expectedOptions);
 
         $mapper = new CoreExt_EntityCompoundDataMapperStub($this->_db);
         $found = $mapper->find([1, 1]);
@@ -180,11 +180,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
 
         $this->_db->expects($this->once())
             ->method('ProximoRegistro')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue($expectedOptions));
+            ->willReturn($expectedOptions);
 
         $mapper = new CoreExt_EntityCompoundDataMapperStub($this->_db);
         $found = $mapper->find(['pessoa' => 1]);
@@ -207,11 +207,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
 
         $this->_db->expects($this->once())
             ->method('ProximoRegistro')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue($expectedOptions));
+            ->willReturn($expectedOptions);
 
         $mapper = new CoreExt_ChildEntityDataMapperStub($this->_db);
         $found = $mapper->find(1);
@@ -224,7 +224,7 @@ class CoreExt_DataMapperTest extends UnitBaseTest
         $this->expectException(\Exception::class);
         $this->_db->expects($this->once())
             ->method('ProximoRegistro')
-            ->will($this->returnValue(false));
+            ->willReturn(false);
 
         $mapper = new CoreExt_EntityDataMapperStub($this->_db);
         $found = $mapper->find(1);
@@ -236,11 +236,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
     {
         $this->_db->expects($this->any())
             ->method('Consulta')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue([]));
+            ->willReturn([]);
 
         $entity = new CoreExt_EntityStub;
         $entity->nome = 'Fernando Nascimento';
@@ -258,11 +258,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
     {
         $this->_db->expects($this->any())
             ->method('Consulta')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue([]));
+            ->willReturn([]);
 
         $entity = new CoreExt_EntityCompoundStub;
         $entity->pessoa = 1;
@@ -284,11 +284,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
 
         $this->_db->expects($this->any())
             ->method('Consulta')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue([]));
+            ->willReturn([]);
 
         $mapper = new CoreExt_EntityCompoundDataMapperStub($this->_db);
 
@@ -299,11 +299,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
     {
         $this->_db->expects($this->any())
             ->method('Consulta')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue([]));
+            ->willReturn([]);
 
         $entity = new CoreExt_EntityStub;
         $entity->id = 1;
@@ -320,11 +320,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
     {
         $this->_db->expects($this->any())
             ->method('Consulta')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue([]));
+            ->willReturn([]);
 
         $entity = new CoreExt_EntityCompoundStub;
         $entity->pessoa = 1;
@@ -341,11 +341,11 @@ class CoreExt_DataMapperTest extends UnitBaseTest
     {
         $this->_db->expects($this->any())
             ->method('Consulta')
-            ->will($this->onConsecutiveCalls(true));
+            ->willReturnOnConsecutiveCalls((true));
 
         $this->_db->expects($this->any())
             ->method('Tupla')
-            ->will($this->returnValue([]));
+            ->willReturn([]);
 
         $entity = new CoreExt_EntityStub;
         $mapper = new CoreExt_EntityDataMapperStub($this->_db);
@@ -357,7 +357,7 @@ class CoreExt_DataMapperTest extends UnitBaseTest
     {
         $this->_db->expects($this->any())
             ->method('Consulta')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $entity = new CoreExt_EntityStub;
         $mapper = new CoreExt_EntityDataMapperStub($this->_db);

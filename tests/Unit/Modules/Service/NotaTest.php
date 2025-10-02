@@ -117,32 +117,32 @@ class Avaliacao_Service_NotaTest extends Avaliacao_Service_TestCommon
         $mock->expects($this->at(0))
             ->method('findAll')
             ->with([], ['notaAluno' => $notaAluno->id], ['etapa' => 'ASC'])
-            ->will($this->returnValue([]));
+            ->willReturn([]);
 
         $mock->expects($this->at(1))
             ->method('save')
             ->with($notas[0])
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $mock->expects($this->at(2))
             ->method('save')
             ->with($notas[1])
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $mock->expects($this->at(3))
             ->method('save')
             ->with($notas[2])
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $mock->expects($this->at(4))
             ->method('save')
             ->with($notas[3])
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $mock->expects($this->at(5))
             ->method('findAll')
             ->with([], ['notaAluno' => $notaAluno->id], ['etapa' => 'ASC'])
-            ->will($this->returnValue($notas));
+            ->willReturn($notas);
 
         $this->_setNotaComponenteDataMapperMock($mock);
 
@@ -152,17 +152,17 @@ class Avaliacao_Service_NotaTest extends Avaliacao_Service_TestCommon
         $mock->expects($this->at(0))
             ->method('findAll')
             ->with([], ['notaAluno' => $notaAluno->id])
-            ->will($this->returnValue([]));
+            ->willReturn([]);
 
         $mock->expects($this->at(1))
             ->method('find')
             ->with([$notaAluno->id, $this->_getConfigOption('matricula', 'cod_matricula')])
-            ->will($this->returnValue(null));
+            ->willReturn(null);
 
         $mock->expects($this->at(2))
             ->method('save')
             ->with($media)
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_setNotaComponenteMediaDataMapperMock($mock);
 
@@ -231,22 +231,22 @@ class Avaliacao_Service_NotaTest extends Avaliacao_Service_TestCommon
         $mock->expects($this->at(0))
             ->method('findAll')
             ->with([], ['notaAluno' => $notaAluno->id], ['etapa' => 'ASC'])
-            ->will($this->returnValue($notasPersistidas));
+            ->willReturn($notasPersistidas);
 
         $mock->expects($this->at(1))
             ->method('save')
             ->with($notas[0])
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $mock->expects($this->at(2))
             ->method('save')
             ->with($notas[1])
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $mock->expects($this->at(3))
             ->method('findAll')
             ->with([], ['notaAluno' => $notaAluno->id], ['etapa' => 'ASC'])
-            ->will($this->returnValue([$notasPersistidas[0], $notas[0], $notas[1]]));
+            ->willReturn([$notasPersistidas[0], $notas[0], $notas[1]]);
 
         $this->_setNotaComponenteDataMapperMock($mock);
 
@@ -256,12 +256,12 @@ class Avaliacao_Service_NotaTest extends Avaliacao_Service_TestCommon
         $mock->expects($this->at(0))
             ->method('findAll')
             ->with([], ['notaAluno' => $notaAluno->id])
-            ->will($this->returnValue($mediasPersistidas));
+            ->willReturn($mediasPersistidas);
 
         $mock->expects($this->at(1))
             ->method('find')
             ->with([$notaAluno->id, $this->_getConfigOption('matricula', 'cod_matricula')])
-            ->will($this->returnValue($mediasPersistidas[0]));
+            ->willReturn($mediasPersistidas[0]);
 
         // Valores de média esperados
         $media = clone $mediasPersistidas[0];
@@ -272,7 +272,7 @@ class Avaliacao_Service_NotaTest extends Avaliacao_Service_TestCommon
         $mock->expects($this->at(2))
             ->method('save')
             ->with($media)
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $this->_setNotaComponenteMediaDataMapperMock($mock);
 

@@ -6,14 +6,9 @@ class CoreExt_Controller_FrontTest extends PHPUnit\Framework\TestCase
 
     protected $_path = null;
 
-    public function __construct($name = null, array $data = [], $dataName = '')
-    {
-        parent::__construct($name, $data, $dataName);
-        $this->_path = realpath(dirname(__FILE__) . '/_stub');
-    }
-
     protected function setUp(): void
     {
+        $this->_path = realpath(dirname(__FILE__) . '/_stub');
         $this->_frontController = CoreExt_Controller_Front::getInstance();
         $this->_frontController->resetOptions();
     }
