@@ -33,6 +33,11 @@ class StudentEloquentBuilder extends Builder
                 'organization' => 'mf.empresa as Empresa da mãe',
                 'monthly_income' => 'mf.renda_mensal as Renda Mensal da mãe',
                 'gender' => 'mf.sexo as Gênero da mãe',
+                'religion' => 'mre.name as Religião da mãe',
+                'race' => 'mra.nm_raca as Raça da mãe',
+                'birthplace' => DB::raw('COALESCE((mbc.name || \' - \'::text) || mbs.abbreviation, \'Não informado\'::text) AS "Naturalidade da mãe"'),
+                'marital_status' => 'mec.descricao as Estado Civil da mãe',
+                'person_schooling_degree' => 'mes.descricao as Escolaridade da mãe',
             ],
             'mother.document' => [
                 'rg' => 'md.rg as RG da mãe',
@@ -57,6 +62,11 @@ class StudentEloquentBuilder extends Builder
                 'organization' => 'ff.empresa as Empresa do pai',
                 'monthly_income' => 'ff.renda_mensal as Renda Mensal do pai',
                 'gender' => 'ff.sexo as Gênero do pai',
+                'religion' => 'fre.name as Religião do pai',
+                'race' => 'fra.nm_raca as Raça do pai',
+                'birthplace' => DB::raw('COALESCE((fbc.name || \' - \'::text) || fbs.abbreviation, \'Não informado\'::text) AS "Naturalidade do pai"'),
+                'marital_status' => 'fec.descricao as Estado Civil do pai',
+                'person_schooling_degree' => 'fes.descricao as Escolaridade do pai',
             ],
             'father.document' => [
                 'rg' => 'fd.rg as RG do pai',
@@ -81,6 +91,11 @@ class StudentEloquentBuilder extends Builder
                 'organization' => 'gf.empresa as Empresa do responsável',
                 'monthly_income' => 'gf.renda_mensal as Renda Mensal do responsável',
                 'gender' => 'gf.sexo as Gênero do responsável',
+                'religion' => 'gre.name as Religião do responsável',
+                'race' => 'gra.nm_raca as Raça do responsável',
+                'birthplace' => DB::raw('COALESCE((gbc.name || \' - \'::text) || gbs.abbreviation, \'Não informado\'::text) AS "Naturalidade do responsável"'),
+                'marital_status' => 'gec.descricao as Estado Civil do responsável',
+                'person_schooling_degree' => 'ges.descricao as Escolaridade do responsável',
             ],
             'guardian.document' => [
                 'rg' => 'gd.rg as RG do responsável',
@@ -121,6 +136,24 @@ class StudentEloquentBuilder extends Builder
         if ($only = $this->model->getLegacyExportedColumns('mother.individual', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.fisica as mf', 'exporter_student_grouped_registration.mother_id', 'mf.idpes');
+
+            if (in_array('religion', $columns, true)) {
+                $this->leftJoin('pmieducar.religions as mre', 'mre.id', 'mf.ref_cod_religiao');
+            }
+            if (in_array('race', $columns, true)) {
+                $this->leftJoin('cadastro.fisica_raca as mfr', 'mfr.ref_idpes', 'mf.idpes');
+                $this->leftJoin('cadastro.raca as mra', 'mra.cod_raca', 'mfr.ref_cod_raca');
+            }
+            if (in_array('birthplace', $columns, true)) {
+                $this->leftJoin('cities as mbc', 'mbc.id', 'mf.idmun_nascimento');
+                $this->leftJoin('states as mbs', 'mbs.id', 'mbc.state_id');
+            }
+            if (in_array('marital_status', $columns, true)) {
+                $this->leftJoin('cadastro.estado_civil as mec', 'mec.ideciv', 'mf.ideciv');
+            }
+            if (in_array('person_schooling_degree', $columns, true)) {
+                $this->leftJoin('cadastro.escolaridade as mes', 'mes.idesco', 'mf.idesco');
+            }
         }
 
         // documento
@@ -153,6 +186,24 @@ class StudentEloquentBuilder extends Builder
         if ($only = $this->model->getLegacyExportedColumns('father.individual', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.fisica as ff', 'exporter_student_grouped_registration.father_id', 'ff.idpes');
+
+            if (in_array('religion', $columns, true)) {
+                $this->leftJoin('pmieducar.religions as fre', 'fre.id', 'ff.ref_cod_religiao');
+            }
+            if (in_array('race', $columns, true)) {
+                $this->leftJoin('cadastro.fisica_raca as ffr', 'ffr.ref_idpes', 'ff.idpes');
+                $this->leftJoin('cadastro.raca as fra', 'fra.cod_raca', 'ffr.ref_cod_raca');
+            }
+            if (in_array('birthplace', $columns, true)) {
+                $this->leftJoin('cities as fbc', 'fbc.id', 'ff.idmun_nascimento');
+                $this->leftJoin('states as fbs', 'fbs.id', 'mbc.state_id');
+            }
+            if (in_array('marital_status', $columns, true)) {
+                $this->leftJoin('cadastro.estado_civil as fec', 'fec.ideciv', 'ff.ideciv');
+            }
+            if (in_array('person_schooling_degree', $columns, true)) {
+                $this->leftJoin('cadastro.escolaridade as fes', 'fes.idesco', 'ff.idesco');
+            }
         }
 
         // documento
@@ -185,6 +236,24 @@ class StudentEloquentBuilder extends Builder
         if ($only = $this->model->getLegacyExportedColumns('guardian.individual', $columns)) {
             $this->addSelect($only);
             $this->leftJoin('cadastro.fisica as gf', 'exporter_student_grouped_registration.guardian_id', 'gf.idpes');
+
+            if (in_array('religion', $columns, true)) {
+                $this->leftJoin('pmieducar.religions as gre', 'gre.id', 'gf.ref_cod_religiao');
+            }
+            if (in_array('race', $columns, true)) {
+                $this->leftJoin('cadastro.fisica_raca as gfr', 'gfr.ref_idpes', 'gf.idpes');
+                $this->leftJoin('cadastro.raca as gra', 'gra.cod_raca', 'gfr.ref_cod_raca');
+            }
+            if (in_array('birthplace', $columns, true)) {
+                $this->leftJoin('cities as gbc', 'gbc.id', 'gf.idmun_nascimento');
+                $this->leftJoin('states as gbs', 'gbs.id', 'gbc.state_id');
+            }
+            if (in_array('marital_status', $columns, true)) {
+                $this->leftJoin('cadastro.estado_civil as gec', 'gec.ideciv', 'gf.ideciv');
+            }
+            if (in_array('person_schooling_degree', $columns, true)) {
+                $this->leftJoin('cadastro.escolaridade as ges', 'ges.idesco', 'gf.idesco');
+            }
         }
 
         // documento

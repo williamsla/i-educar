@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Educacenso\Registro30;
+use App\Models\DeficiencyType;
 use App\Models\Individual;
 use App\Models\LegacyDeficiency;
 use App\Models\LegacyIndividual;
@@ -14,7 +14,9 @@ use App\Models\LogUnification;
 use App\Models\SchoolInep;
 use App\Models\TransportationProvider;
 use App\User;
+use iEducar\Modules\Educacenso\Model\Deficiencias;
 use iEducar\Modules\Educacenso\Model\Nacionalidade;
+use iEducar\Modules\Educacenso\Model\Transtornos;
 use iEducar\Modules\Educacenso\Validator\BirthCertificateValidator;
 use iEducar\Modules\Educacenso\Validator\DeficiencyValidator;
 use iEducar\Modules\Educacenso\Validator\InepExamValidator;
@@ -339,6 +341,9 @@ class AlunoController extends ApiCoreController
     {
         $resources = array_filter((array) $this->getRequest()->recursos_prova_inep__);
         $deficiencies = array_filter((array) $this->getRequest()->deficiencias);
+        $transtornos = array_filter((array) $this->getRequest()->transtornos);
+
+        $deficiencies = array_merge($deficiencies, $transtornos);
 
         $deficiencies = $this->replaceByEducacensoDeficiencies($deficiencies);
 
@@ -362,6 +367,22 @@ class AlunoController extends ApiCoreController
     protected function loadNomeAluno($alunoId)
     {
         $sql = 'select nome from cadastro.pessoa, pmieducar.aluno where idpes = ref_idpes and cod_aluno = $1';
+        $nome = $this->fetchPreparedQuery($sql, $alunoId, false, 'first-field');
+
+        return $this->toUtf8($nome, ['transform' => true]);
+    }
+
+    protected function loadNomeSocialAluno($alunoId)
+    {
+        $sql = 'select nome_social from cadastro.fisica, pmieducar.aluno where idpes = ref_idpes and cod_aluno = $1';
+        $nome = $this->fetchPreparedQuery($sql, $alunoId, false, 'first-field');
+
+        return $this->toUtf8($nome, ['transform' => true]);
+    }
+
+    protected function loadDataNascimentoAluno($alunoId)
+    {
+        $sql = 'select COALESCE(data_nasc, CURRENT_DATE) from cadastro.fisica, pmieducar.aluno where idpes = ref_idpes and cod_aluno = $1';
         $nome = $this->fetchPreparedQuery($sql, $alunoId, false, 'first-field');
 
         return $this->toUtf8($nome, ['transform' => true]);
@@ -1184,6 +1205,8 @@ class AlunoController extends ApiCoreController
             $aluno = Portabilis_Array_Utils::filter($alunoDetalhe, $attrs);
 
             $aluno['nome'] = $this->loadNomeAluno($id);
+            $aluno['nome_social'] = $this->loadNomeSocialAluno($id);
+            $aluno['data_nascimento'] = $this->loadDataNascimentoAluno($id);
             $aluno['tipo_transporte'] = $this->loadTransporte($aluno['tipo_transporte']);
             $aluno['tipo_responsavel'] = $this->tipoResponsavel($aluno);
             $aluno['aluno_inep_id'] = $this->loadAlunoInepId($id);
@@ -2190,10 +2213,34 @@ class AlunoController extends ApiCoreController
 
     private function replaceByEducacensoDeficiencies($deficiencies)
     {
-        $databaseDeficiencies = LegacyDeficiency::all()->getKeyValueArray('deficiencia_educacenso');
+        $databaseDeficiencies = LegacyDeficiency::query()
+            ->where('deficiency_type_id', DeficiencyType::DEFICIENCY)
+            ->where('deficiencia_educacenso', '!=', Deficiencias::OUTRAS)
+            ->get()
+            ->getKeyValueArray('deficiencia_educacenso');
+
+        $databaseDisorders = LegacyDeficiency::query()
+            ->where('deficiency_type_id', DeficiencyType::DISORDER)
+            ->where('transtorno_educacenso', '!=', Transtornos::OUTROS)
+            ->get()
+            ->getKeyValueArray('transtorno_educacenso');
 
         $arrayEducacensoDeficiencies = [];
         foreach ($deficiencies as $deficiency) {
+            $deficiencyObject = LegacyDeficiency::find($deficiency);
+
+            if (!$deficiencyObject) {
+                continue;
+            }
+
+            if ($deficiencyObject->deficiency_type_id == DeficiencyType::DEFICIENCY) {
+                $arrayEducacensoDeficiencies[] = $databaseDeficiencies[$deficiency];
+            }
+
+            if ($deficiencyObject->deficiency_type_id == DeficiencyType::DISORDER) {
+                $arrayEducacensoDeficiencies[] = $databaseDisorders[$deficiency];
+            }
+
             $arrayEducacensoDeficiencies[] = $databaseDeficiencies[$deficiency];
         }
 
@@ -2204,9 +2251,6 @@ class AlunoController extends ApiCoreController
     {
         // Pega os códigos das deficiências do censo
         $deficiencias = $this->replaceByEducacensoDeficiencies(array_filter(explode(',', $this->getRequest()->deficiencias)));
-
-        // Remove "Altas Habilidades"
-        $deficiencias = Registro30::removeAltasHabilidadesArrayDeficiencias($deficiencias);
 
         return [
             'result' => !empty($deficiencias),

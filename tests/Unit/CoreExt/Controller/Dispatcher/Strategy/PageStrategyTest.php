@@ -7,14 +7,9 @@ class CoreExt_Controller_Dispatcher_Strategy_PageStrategyTest extends PHPUnit\Fr
 
     protected $_pageStrategy = null;
 
-    public function __construct($name = null, array $data = [], $dataName = '')
-    {
-        parent::__construct($name, $data, $dataName);
-        $this->_path = realpath(dirname(__FILE__) . '/../../_stub');
-    }
-
     protected function setUp(): void
     {
+        $this->_path = realpath(dirname(__FILE__) . '/../../_stub');
         $this->_frontController = CoreExt_Controller_Front::getInstance();
         $this->_frontController->setOptions(['basepath' => $this->_path]);
         $this->_pageStrategy = new CoreExt_Controller_Dispatcher_Strategy_PageStrategy($this->_frontController);

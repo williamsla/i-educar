@@ -48,6 +48,8 @@ class clsPmieducarCurso extends Model
 
     public $descricao;
 
+    public $bloquear_novas_matriculas;
+
     public function __construct(
         $cod_curso = null,
         $ref_usuario_cad = null,
@@ -77,13 +79,14 @@ class clsPmieducarCurso extends Model
         $avaliacao_globalizada = null,
         $multi_seriado = null,
         $importar_curso_pre_matricula = null,
-        $descricao = null
+        $descricao = null,
+        $bloquear_novas_matriculas = null,
     ) {
 
         $this->_schema = 'pmieducar.';
         $this->_tabela = $this->_schema . 'curso';
 
-        $this->_campos_lista = $this->_todos_campos = 'cod_curso, ref_usuario_cad, ref_cod_tipo_regime, ref_cod_nivel_ensino, ref_cod_tipo_ensino, nm_curso, sgl_curso, qtd_etapas, carga_horaria, ato_poder_publico, objetivo_curso, publico_alvo, data_cadastro, data_exclusao, ativo, ref_usuario_exc, ref_cod_instituicao, padrao_ano_escolar, hora_falta, multi_seriado, modalidade_curso, importar_curso_pre_matricula, descricao';
+        $this->_campos_lista = $this->_todos_campos = 'cod_curso, ref_usuario_cad, ref_cod_tipo_regime, ref_cod_nivel_ensino, ref_cod_tipo_ensino, nm_curso, sgl_curso, qtd_etapas, carga_horaria, ato_poder_publico, objetivo_curso, publico_alvo, data_cadastro, data_exclusao, ativo, ref_usuario_exc, ref_cod_instituicao, padrao_ano_escolar, hora_falta, multi_seriado, modalidade_curso, importar_curso_pre_matricula, descricao, bloquear_novas_matriculas';
 
         if (is_numeric($ref_cod_instituicao)) {
             $this->ref_cod_instituicao = $ref_cod_instituicao;
@@ -167,6 +170,7 @@ class clsPmieducarCurso extends Model
 
         $this->multi_seriado = $multi_seriado;
         $this->importar_curso_pre_matricula = $importar_curso_pre_matricula;
+        $this->bloquear_novas_matriculas = $bloquear_novas_matriculas;
     }
 
     /**
@@ -308,6 +312,12 @@ class clsPmieducarCurso extends Model
                 $gruda = ', ';
             }
 
+            if (is_numeric($this->bloquear_novas_matriculas)) {
+                $campos .= "{$gruda}bloquear_novas_matriculas";
+                $valores .= "{$gruda}'{$this->bloquear_novas_matriculas}'";
+                $gruda = ', ';
+            }
+
             $db->Consulta("INSERT INTO {$this->_tabela} ( $campos ) VALUES( $valores )");
 
             return $db->InsertId("{$this->_tabela}_cod_curso_seq");
@@ -443,6 +453,11 @@ class clsPmieducarCurso extends Model
 
             if (is_numeric($this->modalidade_curso)) {
                 $set .= "{$gruda}modalidade_curso = '{$this->modalidade_curso}'";
+                $gruda = ', ';
+            }
+
+            if (is_numeric($this->bloquear_novas_matriculas)) {
+                $set .= "{$gruda}bloquear_novas_matriculas = '{$this->bloquear_novas_matriculas}'";
                 $gruda = ', ';
             }
 

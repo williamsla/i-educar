@@ -49,7 +49,7 @@ class FormulaTest extends UnitBaseTest
         $mock = $this->getCleanMock('clsPmieducarInstituicao');
         $mock->expects($this->any())
             ->method('lista')
-            ->will($this->returnValue($returnValue));
+            ->willReturn($returnValue);
 
         $this->_entity->addClassToStorage('clsPmieducarInstituicao', $mock);
 

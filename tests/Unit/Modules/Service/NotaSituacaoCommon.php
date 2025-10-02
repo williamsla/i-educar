@@ -12,7 +12,7 @@ abstract class Avaliacao_Service_NotaSituacaoCommon extends Avaliacao_Service_Te
         $mock->expects($this->any())
             ->method('findAll')
             ->with([], ['notaAluno' => $notaAluno->id])
-            ->will($this->returnValue($medias));
+            ->willReturn($medias);
 
         $this->_setNotaComponenteMediaDataMapperMock($mock);
     }

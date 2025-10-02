@@ -76,7 +76,7 @@ return new class extends clsListagem
 
         $query = LegacyAbsenceDelay::query()
             ->with(['employeeRole'])
-            ->orderBy('tipo', 'ASC');
+            ->orderByDesc('data_falta_atraso');
 
         if ($this->ref_cod_instituicao) {
             $query->where('ref_ref_cod_instituicao', $this->ref_cod_instituicao);
@@ -106,7 +106,7 @@ return new class extends clsListagem
             $horas = $service->getHoursCompensate(
                 cod_servidor: $registro['ref_cod_servidor'],
                 cod_escola: $registro['ref_cod_escola'],
-                cod_instituicao: $registro['data_falta']
+                cod_instituicao: $registro['ref_ref_cod_instituicao']
             );
 
             if ($horas) {

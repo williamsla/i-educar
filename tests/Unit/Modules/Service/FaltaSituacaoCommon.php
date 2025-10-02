@@ -12,7 +12,7 @@ class Avaliacao_Service_FaltaSituacaoCommon extends Avaliacao_Service_TestCommon
         $mock->expects($this->any())
             ->method('findAll')
             ->with([], ['faltaAluno' => $faltaAluno->id], ['etapa' => 'ASC'])
-            ->will($this->returnValue($faltas));
+            ->willReturn($faltas);
 
         $this->_setFaltaAbstractDataMapperMock($mock);
     }

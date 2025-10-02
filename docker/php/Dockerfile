@@ -26,11 +26,7 @@ RUN apk add --update \
     libzip-dev  \
     linux-headers \
     openjdk8  \
-<<<<<<< HEAD
-    postgresql-client \
-=======
-    postgresql16-client \
->>>>>>> 171fb67c815bc826a7d06e06fe185634e5d8f405
+    postgresql17-client \
     postgresql-dev \
     ttf-dejavu \
     unzip \
@@ -72,11 +68,27 @@ RUN docker-php-ext-enable  \
 RUN apk del .phpize_deps
 
 RUN ln -s /var/www/ieducar/artisan /usr/local/bin/artisan
-<<<<<<< HEAD
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-=======
->>>>>>> 171fb67c815bc826a7d06e06fe185634e5d8f405
+
+# Argumentos para UID e GID do usuário do host
+# Esses valores devem ser passados pelo docker-compose.yml
+# para garantir que os arquivos gerados no volume montado
+# tenham o mesmo proprietário do usuário no host (ex: ieducar)
+ARG HOST_UID
+ARG HOST_GID
+
+# Criação de grupo e usuário com UID e GID iguais ao do host
+# Isso garante que arquivos criados dentro do container tenham
+# as mesmas permissões do usuário do host (evita problemas com volumes)
+RUN addgroup -g ${HOST_GID} ieducar && \
+    adduser -u ${HOST_UID} -G ieducar -s /bin/sh -D ieducar
+
+# Define o usuário padrão do container para evitar execução como root
+USER ieducar
+
+# Define o diretório de trabalho
+WORKDIR /var/www/ieducar

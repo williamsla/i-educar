@@ -58,7 +58,7 @@ class Avaliacao_Service_UtilityTest extends Avaliacao_Service_TestCommon
         $mock = $this->getCleanMock('TabelaArredondamento_Model_TabelaValorDataMapper');
         $mock->expects($this->any())
             ->method('findAll')
-            ->will($this->returnValue($tabelaValores));
+            ->willReturn($tabelaValores);
 
         $tabelaDataMapper = new TabelaArredondamento_Model_TabelaDataMapper;
         $tabelaDataMapper->setTabelaValorDataMapper($mock);
@@ -131,7 +131,7 @@ class Avaliacao_Service_UtilityTest extends Avaliacao_Service_TestCommon
         $mock->expects($this->at(0))
             ->method('findAll')
             ->with([], ['notaAluno' => $notaAluno->id], ['etapa' => 'ASC'])
-            ->will($this->returnValue($notas));
+            ->willReturn($notas);
 
         $this->_setNotaComponenteDataMapperMock($mock);
 
