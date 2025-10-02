@@ -26,7 +26,7 @@ AS SELECT p.idpes AS id,
           end as nationality,
           COALESCE( ci."name"||' - '||st.abbreviation , 'Não informado') as birthplace,
           coe.name AS country_of_origin,
-          re.name AS religion,
+          re.nm_religiao AS religion,
           case f.localizacao_diferenciada
               when 1 then 'Área de assentamento'
               when 2 then 'Terra indígena'
@@ -43,5 +43,5 @@ AS SELECT p.idpes AS id,
      LEFT JOIN public.cities ci ON ci.id = f.idmun_nascimento
      LEFT JOIN public.states st on ci.state_id = st.id
      LEFT JOIN public.countries coe on coe.id = f.idpais_estrangeiro
-     LEFT JOIN pmieducar.religions re on re.id = f.ref_cod_religiao
+     LEFT JOIN pmieducar.religions re on re.cod_religiao = f.ref_cod_religiao
   WHERE true AND f.ativo = 1;
