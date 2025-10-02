@@ -439,11 +439,11 @@ return new class extends clsDetalhe
         }
 
         if ($det_fisica['ref_cod_religiao']) {
-            $nm_religiao = Religion::query()
-                ->where('cod_religiao', $det_fisica['ref_cod_religiao'])
-                ->value('nm_religiao'); // Usando o nome correto da coluna
+            // $nm_religiao = Religion::query()
+            //     ->where('cod_religiao', $det_fisica['ref_cod_religiao'])
+            //     ->value('nm_religiao'); // Usando o nome correto da coluna
 
-            $this->addDetalhe(['Religião', $nm_religiao]);
+            // $this->addDetalhe(['Religião', $nm_religiao]);
         }
 
         if ($nameRace) {
