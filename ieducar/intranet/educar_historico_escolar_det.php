@@ -164,7 +164,8 @@ return new class extends clsDetalhe
             } elseif ($registro['aprovado'] == 16) {
                 $registro['aprovado'] = 'Promovido';
             }
-
+        }
+        
         $situacoes = EnrollmentStatusFilter::getDescriptiveValues();
 
         if (isset($registro['aprovado']) && array_key_exists($registro['aprovado'], $situacoes)) {
