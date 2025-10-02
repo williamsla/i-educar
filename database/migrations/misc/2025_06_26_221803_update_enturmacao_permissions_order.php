@@ -34,6 +34,10 @@ return new class extends Migration
             ->where('process', Process::REGISTRATION_ACTIONS)
             ->first();
 
+        if (!$mainMenu) {
+            return;
+        }
+
         // Atualiza a ordem do Enturmar para 14
         Menu::query()->updateOrCreate([
             'process' => 683,
