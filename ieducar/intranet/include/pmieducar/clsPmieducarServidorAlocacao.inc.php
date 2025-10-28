@@ -226,7 +226,6 @@ class clsPmieducarServidorAlocacao extends Model
     {
         if (is_numeric($this->ref_ref_cod_instituicao)
             && is_numeric($this->ref_usuario_cad)
-            && is_numeric($this->ref_cod_escola)
             && is_numeric($this->ref_cod_servidor)
             && is_string($this->carga_horaria)
             && $this->periodo

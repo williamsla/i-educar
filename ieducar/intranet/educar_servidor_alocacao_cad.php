@@ -182,7 +182,8 @@ return new class extends clsCadastro
 
         $this->inputsHelper()->integer('ano', ['value' => $this->ano, 'max_length' => 4]);
 
-        $this->inputsHelper()->dynamic('escola');
+        $this->inputsHelper()->dynamic('escola', ['required' => false]);
+
 
         // Períodos
         $periodo = [
