@@ -81,6 +81,9 @@ class ExportacaoXmlController extends Controller
         } 
 
         foreach ($escolas as $escola) {
+
+            $alunos_ja_adicionados_na_escola = [];
+
             $this->alerts[] = 'ESCOLA: ' . $escola->sigla . ' - INEP: ' . $escola->inep_escola;
             
             $xmlEscola = $xml->addChild('edu:escola', null, $xml->getNamespaces()['edu']);
@@ -97,10 +100,10 @@ class ExportacaoXmlController extends Controller
 
 
                 // TODO: Essa turma estava dando problema porque não tem quadro de horário nem professor vinculado a disciplina
-                // if ($turma->cod_turma == 1792) {
-                //     $this->alerts[] = '     - Turma ' . $turma->nm_turma . ' não deve ser exportada.';
-                //     continue; // Pula turmas específicas
-                // }
+                if ($turma->cod_turma == 1814 || $turma->cod_turma == 1811) {
+                    $this->alerts[] = '     - Turma ' . $turma->nm_turma . ' não deve ser exportada.';
+                    continue; // Pula turmas específicas
+                }
 
                 $turmaPeriodo = $this->getTurmaPeriodo($turma->cod_turma);
 
@@ -132,6 +135,13 @@ class ExportacaoXmlController extends Controller
                     
                     $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes);
                     foreach ($matriculas as $matricula) {
+                        if (in_array($matricula->cpf, $alunos_ja_adicionados_na_escola)) {
+                            $this->alerts[] = '     - Aluno ' . $matricula->nome . ' ' . $matricula->nome . ' duplicado.';
+                            continue; // Pula alunos já adicionados na escola
+                        } else {
+                            $alunos_ja_adicionados_na_escola[] = $matricula->cpf;
+                        }
+
                         $xmlMatricula = $xmlSerie->addChild('edu:matricula', null, $xml->getNamespaces()['edu']);
                         $xmlMatricula->addChild('edu:numero', $matricula->cod_matricula, $xml->getNamespaces()['edu']);
                         $xmlMatricula->addChild('edu:data_matricula', $matricula->data_matricula, $xml->getNamespaces()['edu']);
