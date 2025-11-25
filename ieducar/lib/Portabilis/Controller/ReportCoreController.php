@@ -77,7 +77,7 @@ class Portabilis_Controller_ReportCoreController extends Core_Controller_Page_Ed
             $this->report->addArg('data_emissao', (int) config('legacy.report.header.show_data_emissao'));
 
             $this->validatesPresenseOfRequiredArgsInReport();
-            $this->aftervalidation();
+            $this->afterValidation();
 
             if (count($this->validationErrors) > 0) {
                 $this->onValidationError();
@@ -152,9 +152,14 @@ class Portabilis_Controller_ReportCoreController extends Core_Controller_Page_Ed
             $nivelUsuario = (new clsPermissoes)->nivel_acesso(\Illuminate\Support\Facades\Auth::id());
 
             if ((bool) config('legacy.report.show_error_details') === true || (int) $nivelUsuario === 1) {
-                $details = 'Detalhes: ' . $e->getMessage();
+                $details = 'Detalhes: ' . $e->getMessage() . ' File: ' . $e->getFile() . ' Line: ' . $e->getLine();
             } else {
                 $details = 'Visualização dos detalhes sobre o erro desativada.';
+            }
+
+            // se a lib Jasper retorna stderr, capture:
+            if (method_exists($this->report, 'getLastError')) {
+                error_log("Jasper last error: " . $this->report->getLastError());
             }
 
             $this->renderError($details);
@@ -272,7 +277,7 @@ class Portabilis_Controller_ReportCoreController extends Core_Controller_Page_Ed
     public function renderError($details = '')
     {
         $details = Portabilis_String_Utils::escape($details);
-        $msg = 'Ocorreu um erro ao emitir o relatório. \n\n' . $details;
+        $msg = 'Ocorreu um erro ao emitir o relatório. \n' . $details;
 
         $msg = "<script type='text/javascript'>alert('$msg'); close();</script>";
 

@@ -118,20 +118,31 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
 
             $report->addArg('source', $dataFile);
 
-            $builder->process(
-                $jasperFile,
-                $outputFile,
-                ['pdf'],
-                $report->args,
-                [
-                    'driver' => 'json',
-                    'json_query' => $report->getJsonQuery(),
-                    'data_file' => $dataFile,
-                ],
-                false // Não executar em background garante que o erro será retornado
-            )->execute();
+            try{
+                $builder->process(
+                    $jasperFile,
+                    $outputFile,
+                    ['pdf'],
+                    $report->args,
+                    [
+                        'driver' => 'json',
+                        'json_query' => $report->getJsonQuery(),
+                        'data_file' => $dataFile,
+                    ],
+                    false // Não executar em background garante que o erro será retornado
+                )->execute();
 
-            unlink($dataFile);
+                unlink($dataFile);
+            } catch (Exception $e) {
+                error_log("JSON Data: $json");
+                error_log("\n JASPER File: $jasperFile");
+                error_log("\n OUTPUT File: $outputFile");
+                
+                error_log("Erro ao gerar relatório: " . $e->getMessage());
+                throw $e;
+            }
+
+            
         } else {
             $builder->process(
                 $jasperFile,
