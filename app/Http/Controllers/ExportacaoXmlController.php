@@ -131,6 +131,8 @@ class ExportacaoXmlController extends Controller
                 $series = $turma->multiseriada == 1 ? $this->getSeriesTurmaMulti($turma->cod_turma) : $this->getSeriesTurmaNormal($turma->cod_turma);
                 
                 $series_adicionadas = [];
+                
+                $qtdMatriculasCursando = 0;
 
                 foreach ($series as $serie) {
                     if ($this->existeMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes) === false) {
@@ -149,7 +151,6 @@ class ExportacaoXmlController extends Controller
                         $this->adicionarUnico($mapCursoTurno, $turma->turno, $curso_sigla);
                     }
 
-                    $qtdMatriculasCursando = 0;
                     $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes);
                     foreach ($matriculas as $matricula) {
                         $aluno_curso_situacao = $matricula->cpf . '-' . $curso_sigla . '-' . $matricula->data_cancelamento . '-' . $matricula->aprovado;
@@ -211,7 +212,9 @@ class ExportacaoXmlController extends Controller
                     $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);
                 }
                 
-                $xmlTurma->addChild('edu:finalTurma', $qtdMatriculasCursando == 0 ? 'true' : 'false', $xml->getNamespaces()['edu']);
+                if ($qtdMatriculasCursando == 0) { // Se não houver matrículas cursando, a turma é final
+                    $xmlTurma->addChild('edu:finalTurma', $qtdMatriculasCursando == 0 ? 'true' : 'false', $xml->getNamespaces()['edu']);
+                }
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 && count($series_adicionadas) > 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
                 
