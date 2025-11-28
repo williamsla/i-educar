@@ -98,14 +98,30 @@ class ExportacaoXmlController extends Controller
                     continue; // Se não houver matrículas, pula para a próxima turma
                 }
 
+                $horarios = $this->getHorarios($turma->cod_turma);
+                if ($horarios->isEmpty()) {
+                    $horarios = $this->getHorariosExterno($turma->cod_turma);
+                    
+                    if ($horarios->isEmpty()) {
+                        $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
+                        $horarios = $this->getHorarioAleatorioDaTurmaAux($turma->cod_turma); //distribuindo um horario aleatoriamente para o professor
+                        // Garantir que $horarios seja sempre uma Collection (pegar apenas o primeiro se houver)
+                        $horarios = $horarios->isNotEmpty() ? collect([$horarios->first()]) : collect([]);
+                    }
+                }
 
-                // TODO: Essa turma estava dando problema porque não tem quadro de horário nem professor vinculado a disciplina
-                if ($turma->cod_turma == 1814 || $turma->cod_turma == 1811) {
-                    $this->alerts[] = '     - Turma ' . $turma->nm_turma . ' não deve ser exportada.';
-                    continue; // Pula turmas específicas
+                if ($horarios->isEmpty()) {
+                    $this->alerts[] = '     - Nenhum professor vinculado a disciplina para a turma ' . $turma->nm_turma;
+                    continue; // Se não houver horários, pula para a próxima turma
                 }
 
                 $turmaPeriodo = $this->getTurmaPeriodo($turma->cod_turma);
+
+                // TODO: Verificar se a turma EJA do 2º semestre está dando conflito de CPF duplciado com a turma do 1º semestre
+                if ($turmaPeriodo->periodo == 2) {
+                    $this->alerts[] = '     - Turma EJA não deve ser exportada. Está dando conflito de CPF duplciado com a turma do 1º semestre.';
+                    continue; // Pula turmas EJA do 2º semestre
+                }
 
                 $xmlTurma = $xmlEscola->addChild('edu:turma', null, $xml->getNamespaces()['edu']);
                 $xmlTurma->addChild('edu:periodo', $turmaPeriodo->periodo, $xml->getNamespaces()['edu']);
@@ -122,24 +138,26 @@ class ExportacaoXmlController extends Controller
                     }
                     $idSerie = $serie->idSerie;
                     
+                    $curso_sigla = "";
                     if (!in_array($idSerie, $series_adicionadas)) {
                         $series_adicionadas[] = $idSerie;
                        
                         $xmlSerie = $xmlTurma->addChild('edu:serie', null, $xml->getNamespaces()['edu']);
                         $xmlSerie->addChild('edu:idSerie', $idSerie, $xml->getNamespaces()['edu']);
                         
-                        $curso_sigla = $this->getCursoSigla($serie->idSerie);
+                        $curso_sigla = $this->getCursoSigla($idSerie);
                         $this->adicionarUnico($mapCursoTurno, $turma->turno, $curso_sigla);
                     }
 
-                    
+                    $qtdMatriculasCursando = 0;
                     $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes);
                     foreach ($matriculas as $matricula) {
-                        if (in_array($matricula->cpf, $alunos_ja_adicionados_na_escola)) {
+                        $aluno_curso_situacao = $matricula->cpf . '-' . $curso_sigla . '-' . $matricula->data_cancelamento . '-' . $matricula->aprovado;
+                        if (in_array($aluno_curso_situacao, $alunos_ja_adicionados_na_escola)) {
                             $this->alerts[] = '     - Aluno ' . $matricula->nome . ' ' . $matricula->nome . ' duplicado.';
-                            continue; // Pula alunos já adicionados na escola
+                            continue; // Pula alunos já adicionados na escola no mesmo curso e situação
                         } else {
-                            $alunos_ja_adicionados_na_escola[] = $matricula->cpf;
+                            $alunos_ja_adicionados_na_escola[] = $aluno_curso_situacao;
                         }
 
                         $xmlMatricula = $xmlSerie->addChild('edu:matricula', null, $xml->getNamespaces()['edu']);
@@ -149,8 +167,12 @@ class ExportacaoXmlController extends Controller
                             $xmlMatricula->addChild('edu:data_cancelamento', $matricula->data_cancelamento, $xml->getNamespaces()['edu']);
                         }
                         $xmlMatricula->addChild('edu:numero_faltas', $matricula->faltas ?? 0, $xml->getNamespaces()['edu']);
-                        $xmlMatricula->addChild('edu:aprovado', in_array($matricula->aprovado, self::SITUACOES_APROVADO) ? 'true' : 'false', $xml->getNamespaces()['edu']);
                         
+                        if ($matricula->aprovado == App_Model_MatriculaSituacao::EM_ANDAMENTO) {
+                            $qtdMatriculasCursando++;
+                        } else {
+                            $xmlMatricula->addChild('edu:aprovado', in_array($matricula->aprovado, self::SITUACOES_APROVADO) ? 'true' : 'false', $xml->getNamespaces()['edu']);
+                        }
                         $xmlAluno = $xmlMatricula->addChild('edu:aluno', null, $xml->getNamespaces()['edu']);
                         
                         if (!empty($matricula->cpf)) {
@@ -174,17 +196,6 @@ class ExportacaoXmlController extends Controller
                         }
                     }
                 }
-
-                $horarios = $this->getHorarios($turma->cod_turma);
-                if ($horarios->isEmpty()) {
-                    $horarios = $this->getHorariosExterno($turma->cod_turma);
-                    
-                    if ($horarios->isEmpty()) {
-                        $this->alerts[] = '     - Nenhum horário encontrado para a turma ' . $turma->nm_turma;
-                        $horarios = $this->getHorarioAleatorioDaTurmaAux($turma->cod_turma); //distribuindo um horario aleatoriamente para o professor
-                        $horarios = $horarios ? reset($horarios) : [];
-                    }
-                }
                 
                 foreach ($horarios as $horario) {
                     if ($horario->duracao < 1) {
@@ -199,6 +210,8 @@ class ExportacaoXmlController extends Controller
                     $xmlHorario->addChild('edu:disciplina', $horario->disciplina, $xml->getNamespaces()['edu']);
                     $xmlHorario->addChild('edu:cpfProfessor', $this->getCpfNumbers($horario->cpf_professor), $xml->getNamespaces()['edu']);
                 }
+                
+                $xmlTurma->addChild('edu:finalTurma', $qtdMatriculasCursando == 0 ? 'true' : 'false', $xml->getNamespaces()['edu']);
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 && count($series_adicionadas) > 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
                 
@@ -313,7 +326,7 @@ class ExportacaoXmlController extends Controller
                 'turma.nm_turma',
                 'turma.turma_turno_id AS turno',
                 'turma.ano',
-                'turma.multiseriada'
+                'turma.multiseriada',
             )
             ->where('turma.ano', '=', $ano)
             ->where('turma.ref_ref_cod_escola', '=', $codEscola)

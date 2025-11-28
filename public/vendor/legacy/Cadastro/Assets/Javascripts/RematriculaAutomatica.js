@@ -1,12 +1,12 @@
 
 $j(document).ready(function(){
 
-  $j('#ano').closest('tr').hide();
+  $j('#ano').closest('tr').show();
 
   var $escolaField = getElementFor('escola');
 
   var handleGetEscolaAnoLetivo = function(response) {
-    $j('#ano').val(response[0]-1);
+    $j('#ano').val(response[0]);
   }
 
   var updateEscolaAnoLetivo = function(){
