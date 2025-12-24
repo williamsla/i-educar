@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\SchoolController;
 use App\Http\Controllers\Api\SituationController;
 use App\Http\Controllers\Api\StageController;
 use App\Http\Controllers\Api\StateController;
+use App\Http\Controllers\Api\StudentScoreController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -61,6 +62,13 @@ Route::get('/school-class/calendars', 'Api\SchoolClassController@getCalendars');
 Route::get('/school-class/stages/{schoolClass}', 'Api\SchoolClassController@getStages');
 
 Route::delete('/employee-withdrawal/{id}', [EmployeeWithdrawalController::class, 'remove']);
+
+// Rotas para recuperar notas de alunos (para integração com i-diario)
+// Usa access_key e secret_key como parâmetros de query, similar ao /module/Api/Diario
+Route::group(['namespace' => 'Api'], static function () {
+    Route::get('/student-score', [StudentScoreController::class, 'getScore'])->name('api.student-score.get');
+    Route::get('/student-scores', [StudentScoreController::class, 'getScoresByDiscipline'])->name('api.student-scores.get');
+});
 
 Route::group(['middleware' => 'auth:sanctum', 'namespace' => 'Api'], static function () {
     Route::resource('institution', InstitutionController::class)->only(['index']);
