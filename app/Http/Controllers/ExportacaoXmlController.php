@@ -116,12 +116,7 @@ class ExportacaoXmlController extends Controller
                 }
 
                 $turmaPeriodo = $this->getTurmaPeriodo($turma->cod_turma);
-
-                // TODO: Verificar se a turma EJA do 2º semestre está dando conflito de CPF duplciado com a turma do 1º semestre
-                if ($turmaPeriodo->periodo == 2) {
-                    $this->alerts[] = '     - Turma EJA não deve ser exportada. Está dando conflito de CPF duplciado com a turma do 1º semestre.';
-                    continue; // Pula turmas EJA do 2º semestre
-                }
+                $isTurmaEJA = $this->isTurmaEJA($turma->cod_turma);
 
                 $xmlTurma = $xmlEscola->addChild('edu:turma', null, $xml->getNamespaces()['edu']);
                 $xmlTurma->addChild('edu:periodo', $turmaPeriodo->periodo, $xml->getNamespaces()['edu']);
@@ -133,6 +128,7 @@ class ExportacaoXmlController extends Controller
                 $series_adicionadas = [];
                 
                 $qtdMatriculasCursando = 0;
+                $qtdMatriculasTotal = 0;
 
                 foreach ($series as $serie) {
                     if ($this->existeMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes) === false) {
@@ -153,6 +149,14 @@ class ExportacaoXmlController extends Controller
 
                     $matriculas = $this->getMatriculasPorTurmaESerie($turma->cod_turma, $serie->cod_serie, $ano, $mes);
                     foreach ($matriculas as $matricula) {
+                        // Se for turma EJA do 2º semestre, verificar se o aluno tem outra matrícula ativa no ano
+                        if ($isTurmaEJA && $turmaPeriodo->periodo == 2) {
+                            if ($this->alunoTeveMatriculaAtivaEja1Semestre($matricula->ref_cod_aluno, $ano, $turma->cod_turma)) {
+                                $this->alerts[] = '     - Aluno ' . $matricula->nome . ' (CPF: ' . $matricula->cpf . ') excluído do 2º semestre EJA por ter matrícula ativa no 1º semestre.';
+                                continue; // Pula alunos que tiveram matrícula ativa no 1º semestre EJA
+                            }
+                        }
+
                         $aluno_curso_situacao = $matricula->cpf . '-' . $curso_sigla . '-' . $matricula->data_cancelamento . '-' . $matricula->aprovado;
                         if (in_array($aluno_curso_situacao, $alunos_ja_adicionados_na_escola)) {
                             $this->alerts[] = '     - Aluno ' . $matricula->nome . ' ' . $matricula->nome . ' duplicado.';
@@ -195,9 +199,19 @@ class ExportacaoXmlController extends Controller
                         if (empty($matricula->cpf)) {
                             $xmlAluno->addChild('edu:justSemCpf', 3, $xml->getNamespaces()['edu']);
                         }
+
+                        $qtdMatriculasTotal++;
                     }
                 }
                 
+                if ($qtdMatriculasTotal == 0) {
+                    $this->alerts[] = '     - Turma ' . $turma->nm_turma . ' não possui matrículas cadastradas.';
+                    // Remove o elemento xmlTurma do XML antes de pular para a próxima turma
+                    $domTurma = dom_import_simplexml($xmlTurma);
+                    $domTurma->parentNode->removeChild($domTurma);
+                    continue; // Se não houver matrículas, pula para a próxima turma
+                }
+
                 foreach ($horarios as $horario) {
                     if ($horario->duracao < 1) {
                         // $this->alerts[] = '     - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana;
@@ -373,6 +387,39 @@ class ExportacaoXmlController extends Controller
                     END as periodo
                 "))
                 ->first();
+    }
+
+    /**
+     * Verifica se uma turma é EJA através da modalidade do curso
+     */
+    private function isTurmaEJA($cod_turma)
+    {        
+        $result = DB::table('pmieducar.turma as t')
+            ->join('pmieducar.curso as c', 'c.cod_curso', '=', 't.ref_cod_curso')
+            ->where('t.cod_turma', $cod_turma)
+            ->select('c.modalidade_curso')
+            ->first();
+
+        return $result && $result->modalidade_curso == 3; // 3 = EJA
+    }
+
+    /**
+     * Verifica se um aluno tem outra matrícula ativa em turma EJA do mesmo ano
+     * (excluindo a turma atual do 2º semestre)
+     */
+    private function alunoTeveMatriculaAtivaEja1Semestre($cod_aluno, $ano, $cod_turma_atual)
+    {      
+        // Verifica se o aluno tem matrícula ativa em alguma dessas turmas EJA
+        $temMatricula = DB::table('pmieducar.matricula as m')
+            ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
+            ->where('m.ref_cod_aluno', $cod_aluno)
+            ->where('m.ano', $ano)
+            ->where('m.ativo', 1)
+            ->where('mt.ref_cod_turma', '!=', $cod_turma_atual)
+            ->where('mt.ativo', 1)
+            ->exists();
+
+        return $temMatricula;
     }
 
     private function getSeriesTurmaMulti($cod_turma)
@@ -638,6 +685,10 @@ class ExportacaoXmlController extends Controller
             }
 
             $novo->cpf_professor = $this->getCpfNumbers($item->cpf_professor);
+
+            if ($novo->cpf_professor === null || strlen($novo->cpf_professor) != 11 || $novo->cpf_professor == '00000000000') {
+                continue; // Pula se o CPF do professor for inválido
+            }
 
             $dadosFormatados[] = $novo;
         }
