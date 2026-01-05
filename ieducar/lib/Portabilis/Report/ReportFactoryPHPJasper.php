@@ -102,7 +102,12 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
         // Compila o arquivo .jrxml caso o arquivo .jasper não exista.
 
         if (file_exists($jasperFile) === false) {
-            $builder->compile($jrxmlFile, $filename, false, false)->execute();
+            if (file_exists($jrxmlFile)) {
+                $builder->compile($jrxmlFile, $filename, false, false)->execute();
+            } else {
+                // FALLBACK PARA HTML
+                return $this->renderHtmlFallback($report);
+            }
         }
 
         // Com o intuito de manter a compatibilidade até finalizar a migração
@@ -171,6 +176,27 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
 
         return $result;
     }
+
+    protected function renderHtmlFallback($report)
+    {
+        $htmlData = $report->getHtmlData();
+        
+        $data = [];
+
+        // padrão antigo dos relatórios
+        if (isset($htmlData['main'])) {
+            $data = $htmlData['main'];
+        }
+
+        // // mantém compatibilidade
+        // $data = array_merge($htmlData, $data);
+
+        return view(
+            $report->templateName(),
+            $data
+        )->render();
+    }
+
 
     /**
      * Deleta o PDF gerado.

@@ -206,7 +206,19 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
 Route::get('/auth/redirect', SocialiteRedirectController::class)->name('socialite.redirect');
 Route::get('/auth/callback', SocialiteCallbackController::class)->name('socialite.callback');
 
-//TODO: Remover. Funciona apenas em Coité do Nóia
-Route::get(['/pre-matricula', '/pre-matriculas'], function () {
-    return redirect()->away('https://script.google.com/macros/s/AKfycbxm9M3sxHRiiXlRyPoSgXYBw6cd0lN949npo4HQ2Ds7rK24XVaq9JsrYws04UmIHcMa/exec');
+//TODO: Remover. Funciona apenas em Delmiro Gouveia
+Route::get('/pre-matricula', function () {
+    return redirect('/pre-matricula-digital');
+});
+Route::get('/pre-matriculas', function () {
+    return redirect('/pre-matricula-digital');
+});
+Route::get('/pre-matriculasdigital', function () {
+    return redirect('/pre-matricula-digital');
+});
+Route::get('/pre-matriculadigital', function () {
+    return redirect('/pre-matricula-digital');
+});
+Route::get('/prematriculadigital', function () {
+    return redirect('/pre-matricula-digital');
 });
