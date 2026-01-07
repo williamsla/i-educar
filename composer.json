@@ -138,6 +138,11 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "optimize-autoloader": true,
+        "audit": {
+            "ignore": {
+                "PKSA-dxyf-6n16-t87m": "Required dependency for i-Educar (AWS SDK)"
+            }
+        },
         "allow-plugins": {
             "dex/composer-plug-and-play": true,
             "pestphp/pest-plugin": true
