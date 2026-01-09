@@ -365,10 +365,11 @@ class DiarioApiController extends ApiCoreController
 
     protected function canDeleteNota()
     {
+        // $this->validatesInexistenceNotasInNextEtapas() &&
+        
         return $this->canDelete() &&
         $this->validatesPresenceOf('componente_curricular_id') &&
         $this->validatesInexistenceOfNotaExame() &&
-        $this->validatesInexistenceNotasInNextEtapas() &&
         $this->validatesPeriodoLancamentoFaltasNotas();
     }
 

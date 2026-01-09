@@ -842,10 +842,7 @@ function deleteFalta($faltaFieldElement) {
   var $notaExameField = $j('#nota_exame-matricula-'+ matriculaId + '-cc-' + ccId);
   var $parecerField = $j('#parecer-matricula-'+ matriculaId + '-cc-' + ccId);
 
-  if(($notaField.length < 1 || $notaField.val() == '') &&
-     ($notaExameField.length < 1 || $notaExameField.val() == '') &&
-     ($parecerField.length < 1 || $j.trim($parecerField.val()) == '')
-    ) {
+  if($faltaFieldElement.data('old_value') > 0) {
     var resourceName = 'falta';
 
     var additionalVars = {
