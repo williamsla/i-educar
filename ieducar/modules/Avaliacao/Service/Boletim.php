@@ -2481,6 +2481,22 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
                     $data['RSPM' . $cont] = $mediaEtapasRecuperacao;
                 }
 
+                // Ajuste específico para RSPM1 e RSPM2 conforme solicitação
+                $etapas = $_regraRecuperacao->getEtapas();
+                if ($cont == 1 && count($etapas) == 2 && in_array('1', $etapas) && in_array('2', $etapas)) {
+                    // RSPM1: considerar apenas se RSPM1 > (E1+E2)/2
+                    $mediaE1E2 = ($data['E1'] + $data['E2']) / 2;
+                    if ($data['RSPM1'] <= $mediaE1E2) {
+                        $data['RSPM1'] = $mediaE1E2;
+                    }
+                } elseif ($cont == 2 && count($etapas) == 2 && in_array('3', $etapas) && in_array('4', $etapas)) {
+                    // RSPM2: considerar apenas se RSPM2 > (E3+E4)/2
+                    $mediaE3E4 = ($data['E3'] + $data['E4']) / 2;
+                    if ($data['RSPM2'] <= $mediaE3E4) {
+                        $data['RSPM2'] = $mediaE3E4;
+                    }
+                }
+
                 // Caso nota de recuperação seja maior que soma das etapas, atribuí variável SRE+N
                 if (!$substituiMenorNota || $notaRecuperacao->notaRecuperacaoEspecifica > $somaEtapasRecuperacao) {
                     $data['RSPS' . $cont] = $notaRecuperacao->notaRecuperacaoEspecifica;
@@ -2501,6 +2517,22 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
                 $data['Se'] += $somaEtapasRecuperacao;
                 $data['RSPM' . $cont] = $somaEtapasRecuperacao / $countEtapasRecuperacao;
                 $data['RSPS' . $cont] = $somaEtapasRecuperacao;
+
+                // Ajuste específico para RSPM1 e RSPM2 conforme solicitação
+                $etapas = $_regraRecuperacao->getEtapas();
+                if ($cont == 1 && count($etapas) == 2 && in_array('1', $etapas) && in_array('2', $etapas)) {
+                    // RSPM1: considerar apenas se RSPM1 > (E1+E2)/2
+                    $mediaE1E2 = ($data['E1'] + $data['E2']) / 2;
+                    if ($data['RSPM1'] <= $mediaE1E2) {
+                        $data['RSPM1'] = $mediaE1E2;
+                    }
+                } elseif ($cont == 2 && count($etapas) == 2 && in_array('3', $etapas) && in_array('4', $etapas)) {
+                    // RSPM2: considerar apenas se RSPM2 > (E3+E4)/2
+                    $mediaE3E4 = ($data['E3'] + $data['E4']) / 2;
+                    if ($data['RSPM2'] <= $mediaE3E4) {
+                        $data['RSPM2'] = $mediaE3E4;
+                    }
+                }
             }
         }
 
@@ -2719,6 +2751,24 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             return true;
         }
 
+        // Preserva situações finais definidas manualmente (exceto Cursando e Em exame que são transitórias)
+        // Situações finais: Aprovado, Retido, Aprovado após exame, Aprovado com dependência, 
+        // Aprovado pelo conselho, Reprovado por faltas
+        $situacoesFinais = App_Model_MatriculaSituacao::getSituacoesFinais();
+        $situacoesTransitorias = [
+            App_Model_MatriculaSituacao::EM_ANDAMENTO,
+            App_Model_MatriculaSituacao::EM_EXAME,
+        ];
+        
+        // Se a situação atual é uma situação final e não é transitória, preserva ela
+        // a menos que seja explicitamente solicitada uma nova situação
+        if (in_array($situacaoMatricula, $situacoesFinais, true) 
+            && !in_array($situacaoMatricula, $situacoesTransitorias, true)
+            && $novaSituacaoMatricula === null) {
+            // Não altera situações finais definidas manualmente quando não há nova situação explícita
+            return true;
+        }
+
         if ($situacaoMatricula == App_Model_MatriculaSituacao::TRANSFERIDO) {
             $novaSituacaoMatricula = App_Model_MatriculaSituacao::TRANSFERIDO;
         } else {
@@ -2727,7 +2777,12 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             } else {
                 switch ($tipoProgressao) {
                     case RegraAvaliacao_Model_TipoProgressao::CONTINUADA:
-                        $novaSituacaoMatricula = App_Model_MatriculaSituacao::APROVADO;
+                        // Verifica se a data atual está <= 15 dias do encerramento ou > que a data de encerramento
+                        if ($this->verificaDataEncerramentoUltimaEtapa()) {
+                            $novaSituacaoMatricula = App_Model_MatriculaSituacao::APROVADO;
+                        } else {
+                            $novaSituacaoMatricula = App_Model_MatriculaSituacao::EM_ANDAMENTO;
+                        }
                         break;
                     case RegraAvaliacao_Model_TipoProgressao::NAO_CONTINUADA_MEDIA_PRESENCA:
                         if ($situacaoBoletim->aprovado && !$situacaoBoletim->retidoFalta && $situacaoBoletim->aprovadoComDependencia) {
@@ -3082,6 +3137,101 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
     protected function _updateMatricula($matricula, $usuario, $promover)
     {
         return App_Model_Matricula::atualizaMatricula($matricula, $usuario, $promover);
+    }
+
+    /**
+     * Processa histórico automaticamente quando a situação muda de Cursando para Aprovado
+     *
+     * @param int $matriculaId
+     * @return void
+     */
+    protected function _processarHistoricoAutomaticamente($matriculaId)
+    {
+        try {
+            // Busca os dados da matrícula
+            $matriculaInstance = CoreExt_Entity::addClassToStorage(
+                'clsPmieducarMatricula',
+                null,
+                'include/pmieducar/clsPmieducarMatricula.inc.php'
+            );
+            $matriculaInstance->cod_matricula = $matriculaId;
+            $detalheMatricula = $matriculaInstance->detalhe();
+
+            if (!$detalheMatricula) {
+                return;
+            }
+
+            // Busca dados da enturmação ativa
+            $matriculaTurma = new clsPmieducarMatriculaTurma;
+            $enturmacoes = $matriculaTurma->lista($matriculaId, null, null, null, null, null, null, null, 1);
+
+            if (empty($enturmacoes)) {
+                return;
+            }
+
+            $enturmacao = $enturmacoes[0];
+            $instituicaoId = $enturmacao['ref_cod_instituicao'];
+
+            // Verifica se já existe histórico processado para esta matrícula
+            $alunoId = $detalheMatricula['ref_cod_aluno'];
+            $ano = $detalheMatricula['ano'];
+            
+            $sql = 'SELECT 1 FROM pmieducar.historico_escolar 
+                    WHERE ref_cod_aluno = $1 AND ano = $2 
+                    AND ref_cod_instituicao = $3 AND ref_cod_matricula = $4 AND ativo = 1';
+            $params = [$alunoId, $ano, $instituicaoId, $matriculaId];
+            $historicoExiste = Portabilis_Utils_Database::selectField($sql, $params) == 1;
+
+            // Se já existe histórico, não processa novamente automaticamente
+            // (o usuário pode reprocessar manualmente se necessário)
+            if ($historicoExiste) {
+                return;
+            }
+
+            // Prepara os dados do request para o processamento
+            // Salva valores originais do request
+            $requestOriginal = $_REQUEST;
+            
+            // Define valores necessários para processamento automático usando dados do boletim
+            $_REQUEST['matricula_id'] = $matriculaId;
+            $_REQUEST['instituicao_id'] = $instituicaoId;
+            $_REQUEST['situacao'] = 'buscar-matricula';
+            $_REQUEST['disciplinas'] = 'buscar-boletim';
+            $_REQUEST['notas'] = 'buscar-boletim';
+            $_REQUEST['faltas'] = 'buscar-boletim';
+            $_REQUEST['percentual_frequencia'] = 'buscar-boletim';
+            $_REQUEST['dias_letivos'] = '';
+            $_REQUEST['extra_curricular'] = 0;
+            $_REQUEST['grade_curso_id'] = null;
+            $_REQUEST['observacao'] = '';
+            $_REQUEST['registro'] = '';
+            $_REQUEST['livro'] = '';
+            $_REQUEST['folha'] = '';
+            $_REQUEST['dependencia'] = false;
+            $_REQUEST['posicao'] = null;
+            $_REQUEST['media_area_conhecimento'] = false;
+            $_REQUEST['processar_media_geral'] = true;
+            $_REQUEST['att'] = 'processamento';
+            $_REQUEST['oper'] = 'post';
+
+            try {
+                // Usa o ProcessamentoApiController para processar o histórico
+                $processamentoController = new ProcessamentoApiController();
+                
+                // Chama o método Gerar que processa a requisição
+                $processamentoController->Gerar();
+            } catch (Exception $e) {
+                // Em caso de erro, apenas registra mas não interrompe o fluxo
+                error_log('Erro ao processar histórico automaticamente: ' . $e->getMessage());
+            } finally {
+                // Restaura valores originais do request
+                $_REQUEST = $requestOriginal;
+            }
+        } catch (Exception $e) {
+            // Em caso de erro, apenas registra mas não interrompe o fluxo
+            // O histórico pode ser processado manualmente depois
+            error_log('Erro ao processar histórico automaticamente: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -3527,5 +3677,63 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
             return $this->getOption('cursoHoraFalta');
         });
+    }
+
+    /**
+     * Verifica se a data atual está <= 15 dias do encerramento da última etapa ou > que a data de encerramento.
+     *
+     * @return bool Retorna true se a data está no intervalo (<= 15 dias do encerramento ou > que a data de encerramento)
+     */
+    private function verificaDataEncerramentoUltimaEtapa()
+    {
+        $turmaId = $this->getOption('turmaId');
+        
+        if (!$turmaId) {
+            return false;
+        }
+
+        try {
+            $etapas = App_Model_IedFinder::getEtapasDaTurma($turmaId);
+            
+            if (empty($etapas)) {
+                return false;
+            }
+
+            // Encontra a última etapa (maior sequencial)
+            $ultimaEtapa = null;
+            $maiorSequencial = 0;
+            
+            foreach ($etapas as $etapa) {
+                $sequencial = (int) $etapa['sequencial'];
+                if ($sequencial > $maiorSequencial) {
+                    $maiorSequencial = $sequencial;
+                    $ultimaEtapa = $etapa;
+                }
+            }
+            
+            if (!$ultimaEtapa || empty($ultimaEtapa['data_fim'])) {
+                return false;
+            }
+
+            $dataEncerramento = new \DateTime($ultimaEtapa['data_fim']);
+            $dataEncerramento->setTime(23, 59, 59); // Fim do dia de encerramento
+            $dataAtual = new \DateTime();
+            $dataAtual->setTime(0, 0, 0); // Início do dia atual
+            
+            // Verifica se a data atual está > que a data de encerramento
+            if ($dataAtual > $dataEncerramento) {
+                return true;
+            }
+            
+            // Calcula a diferença em dias até o encerramento
+            $intervalo = $dataAtual->diff($dataEncerramento);
+            $diferencaDias = (int) $intervalo->days;
+            
+            // Verifica se está <= 15 dias do encerramento
+            return $diferencaDias <= 15;
+        } catch (Exception $e) {
+            // Em caso de erro ao obter as etapas, retorna false para continuar o fluxo normal
+            return false;
+        }
     }
 }
