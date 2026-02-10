@@ -760,7 +760,7 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             return $situacao;
         }
 
-        if ($flagSituacaoFalta === App_Model_MatriculaSituacao::REPROVADO) {
+        if ($flagSituacaoFalta === App_Model_MatriculaSituacao::REPROVADO || $flagSituacaoFalta === App_Model_MatriculaSituacao::REPROVADO_POR_FALTAS) {
             $situacao->retidoFalta = true;
             $andamento = false;
 
@@ -2773,6 +2773,10 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
         if ($situacaoMatricula == App_Model_MatriculaSituacao::TRANSFERIDO) {
             $novaSituacaoMatricula = App_Model_MatriculaSituacao::TRANSFERIDO;
+        } elseif ($situacaoMatricula == App_Model_MatriculaSituacao::ABANDONO) {
+            $novaSituacaoMatricula = App_Model_MatriculaSituacao::ABANDONO;
+        } elseif ($situacaoMatricula == App_Model_MatriculaSituacao::FALECIDO) {
+            $novaSituacaoMatricula = App_Model_MatriculaSituacao::FALECIDO;
         } else {
             if ($situacaoBoletim->andamento) {
                 $novaSituacaoMatricula = App_Model_MatriculaSituacao::EM_ANDAMENTO;

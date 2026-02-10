@@ -66,11 +66,12 @@ class App_Model_MatriculaSituacao extends CoreExt_Enum
     public static function getSituacoesFinais()
     {
         return [
-            self::APROVADO,
-            self::REPROVADO,
-            self::APROVADO_APOS_EXAME,
+            self::TRANSFERIDO,
+            self::ABANDONO,
+            self::FALECIDO,
             self::APROVADO_COM_DEPENDENCIA,
             self::APROVADO_PELO_CONSELHO,
+            self::RECLASSIFICADO,
             self::REPROVADO_POR_FALTAS,
         ];
     }
