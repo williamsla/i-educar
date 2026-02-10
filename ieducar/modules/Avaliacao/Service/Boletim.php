@@ -1150,6 +1150,8 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
         }
 
         if (
+            method_exists($this, 'hasReprovarAutomaticamenteAposDependencias') &&
+            method_exists($this, 'getQtdeReprovarAutomaticamenteAposDependencias') &&
             $this->hasReprovarAutomaticamenteAposDependencias() &&
             $componentesEmExame >= $this->getQtdeReprovarAutomaticamenteAposDependencias()
         ) {
