@@ -72,7 +72,6 @@ class App_Model_MatriculaSituacao extends CoreExt_Enum
             self::APROVADO_COM_DEPENDENCIA,
             self::APROVADO_PELO_CONSELHO,
             self::RECLASSIFICADO,
-            self::REPROVADO_POR_FALTAS,
         ];
     }
 }

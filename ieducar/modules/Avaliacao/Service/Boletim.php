@@ -711,27 +711,29 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
      */
     private function processaSituacaoDaNota($flagSituacaoNota, $situacao)
     {
-        if ($flagSituacaoNota === App_Model_MatriculaSituacao::EM_ANDAMENTO) {
+        $flagNota = (int) $flagSituacaoNota;
+
+        if ($flagNota === App_Model_MatriculaSituacao::EM_ANDAMENTO) {
             $situacao->aprovado = false;
             $situacao->andamento = true;
 
             return $situacao;
         }
 
-        if ($flagSituacaoNota === App_Model_MatriculaSituacao::APROVADO_APOS_EXAME) {
+        if ($flagNota === App_Model_MatriculaSituacao::APROVADO_APOS_EXAME) {
             $situacao->andamento = false;
             $situacao->recuperacao = true;
 
             return $situacao;
         }
 
-        if ($flagSituacaoNota === App_Model_MatriculaSituacao::APROVADO_COM_DEPENDENCIA) {
+        if ($flagNota === App_Model_MatriculaSituacao::APROVADO_COM_DEPENDENCIA) {
             $situacao->aprovadoComDependencia = true;
 
             return $situacao;
         }
 
-        if ($flagSituacaoNota === App_Model_MatriculaSituacao::EM_EXAME) {
+        if ($flagNota === App_Model_MatriculaSituacao::EM_EXAME) {
             $situacao->aprovado = false;
             $situacao->andamento = true;
             $situacao->recuperacao = true;
@@ -739,7 +741,7 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             return $situacao;
         }
 
-        if ($flagSituacaoNota === App_Model_MatriculaSituacao::REPROVADO) {
+        if ($flagNota === App_Model_MatriculaSituacao::REPROVADO) {
             $situacao->aprovado = false;
 
             return $situacao;
@@ -753,33 +755,24 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
      */
     private function processaSituacaoFalta($flagSituacaoFalta, $flagSituacaoNota, $situacao)
     {
-        if ($flagSituacaoFalta === App_Model_MatriculaSituacao::EM_ANDAMENTO) {
+        $flagFalta = (int) $flagSituacaoFalta;
+        $flagNota = (int) $flagSituacaoNota;
+
+        if ($flagFalta === App_Model_MatriculaSituacao::EM_ANDAMENTO) {
             $situacao->aprovado = false;
             $situacao->andamento = true;
 
             return $situacao;
         }
 
-        if ($flagSituacaoFalta === App_Model_MatriculaSituacao::REPROVADO || $flagSituacaoFalta === App_Model_MatriculaSituacao::REPROVADO_POR_FALTAS) {
+        if ($flagFalta === App_Model_MatriculaSituacao::REPROVADO || $flagFalta === App_Model_MatriculaSituacao::REPROVADO_POR_FALTAS) {
             $situacao->retidoFalta = true;
             $andamento = false;
 
             // Permite o lançamento de nota de exame final, mesmo que o aluno
-            // esteja retido por falta, apenas quando a regra de avaliação possuir
-            // uma média para recuperação (exame final).
-
-            if ($this->hasRegraAvaliacaoMediaRecuperacao()) {
-                if ($this->getRegraAvaliacaoTipoNota() != RegraAvaliacao_Model_Nota_TipoValor::NENHUM) {
-
-                    // Mesmo se reprovado por falta, só da a situação final após o lançamento de todas as notas
-                    $situacoesFinais = App_Model_MatriculaSituacao::getSituacoesFinais();
-
-                    $andamento = in_array($flagSituacaoNota, $situacoesFinais, true) === false;
-                }
-
-                if ($flagSituacaoNota === App_Model_MatriculaSituacao::EM_EXAME) {
-                    $andamento = true;
-                }
+            // esteja retido por falta: só mantém "em andamento" quando a nota está em exame.
+            if ($this->hasRegraAvaliacaoMediaRecuperacao() && $flagNota === App_Model_MatriculaSituacao::EM_EXAME) {
+                $andamento = true;
             }
 
             $situacao->andamento = $andamento;
@@ -787,7 +780,7 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             return $situacao;
         }
 
-        if ($flagSituacaoFalta === App_Model_MatriculaSituacao::APROVADO) {
+        if ($flagFalta === App_Model_MatriculaSituacao::APROVADO) {
             $situacao->retidoFalta = false;
 
             return $situacao;
@@ -2869,7 +2862,10 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             $media->bloqueada = 'f';
             $media->markOld();
 
-            return $this->getNotaComponenteMediaDataMapper()->save($media);
+            $this->getNotaComponenteMediaDataMapper()->save($media);
+            $this->_atualizarSituacaoTodosComponentes();
+
+            return true;
         } catch (Exception) {
             return false;
         }
@@ -2908,7 +2904,8 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
         // Salva a média
         $this->getNotaComponenteMediaDataMapper()->save($notaComponenteCurricularMedia);
-        $notaComponenteCurricularMedia->situacao = $this->getSituacaoComponentesCurriculares()->componentesCurriculares[$componente]->situacao;
+
+        $this->_atualizarSituacaoTodosComponentes();
 
         try {
             // Atualiza situação matricula
@@ -2917,10 +2914,6 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             // Evita que uma mensagem de erro apareça caso a situação na matrícula
             // não seja alterada.
         }
-
-        // Atualiza a situação de acordo com o que foi inserido na média anteriormente
-        $notaComponenteCurricularMedia->markOld();
-        $this->getNotaComponenteMediaDataMapper()->save($notaComponenteCurricularMedia);
     }
 
     /**
@@ -3127,6 +3120,46 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             }
 
             $this->deleteNotaComponenteCurricularMediaWithoutNotas($notaAlunoId);
+            $this->_atualizarSituacaoTodosComponentes();
+        }
+    }
+
+    /**
+     * Atualiza a coluna situacao em nota_componente_curricular_media para todos os
+     * componentes do aluno, evitando situação desatualizada (ex.: "Cursando" com etapa Rc ou 4).
+     * Deve ser chamado após qualquer salvamento de notas/médias.
+     *
+     * @return void
+     *
+     * @throws Exception
+     */
+    private function _atualizarSituacaoTodosComponentes()
+    {
+        $notaAlunoId = $this->_getNotaAluno()->id;
+        $medias = $this->getNotaComponenteMediaDataMapper()->findAll(
+            [],
+            ['notaAluno' => $notaAlunoId]
+        );
+
+        if (empty($medias)) {
+            return;
+        }
+
+        $situacaoComponentes = $this->getSituacaoComponentesCurriculares();
+        $dataMapper = $this->getNotaComponenteMediaDataMapper();
+
+        foreach ($medias as $media) {
+            $componenteId = $media->get('componenteCurricular');
+            if (!isset($situacaoComponentes->componentesCurriculares[$componenteId])) {
+                continue;
+            }
+            $novaSituacao = $situacaoComponentes->componentesCurriculares[$componenteId]->situacao;
+            if ($media->situacao === $novaSituacao) {
+                continue;
+            }
+            $media->situacao = $novaSituacao;
+            $media->markOld();
+            $dataMapper->save($media);
         }
     }
 
