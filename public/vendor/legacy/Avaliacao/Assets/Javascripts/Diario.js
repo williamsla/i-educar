@@ -1162,7 +1162,8 @@ function handleSearch($resultTable, dataResponse) {
     if (! componenteCurricularSelected && value.componentes_curriculares)
       updateComponenteCurriculares($resultTable, value.matricula_id, value.componentes_curriculares, value.regra);
 
-    if((value.regra.quantidade_etapas == $j('#etapa').val() ) && (value.regra.progressao_manual || value.regra.progressao_manual_ciclo) && !componenteCurricularSelected){
+    // Exibe "Situação final" e "Bloquear troca de situação" na última etapa, para qualquer tipo de progressão
+    if((value.regra.quantidade_etapas == $j('#etapa').val()) && !componenteCurricularSelected){
       situacaoFinalField(dataResponse.matricula_id, dataResponse.situacao,value).appendTo($resultTable);
     }
 
