@@ -324,7 +324,7 @@ return new class extends clsDetalhe
 
         $nivel_acesso = (new clsPermissoes)->nivel_acesso($this->pessoa_logada);
 
-        $isAllowedRemove = in_array($nivel_acesso, [LegacyUserType::LEVEL_ADMIN, LegacyUserType::LEVEL_INSTITUTIONAL], true);
+        $isAllowedRemove = in_array($nivel_acesso, [LegacyUserType::LEVEL_ADMIN, LegacyUserType::LEVEL_INSTITUTIONAL, LegacyUserType::LEVEL_SCHOOLING], true);
 
         if (count($withdrawals) > 0) {
             $this->addHtml(view(
