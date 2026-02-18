@@ -1124,7 +1124,7 @@ return new class extends clsCadastro
         if ($validator->fails()) {
             $this->mensagem = $validator->errors()->first();
 
-            return false;
+            // return false;
         }
 
         return true;
