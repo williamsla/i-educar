@@ -174,10 +174,23 @@ return new class extends clsCadastro
             'value' => $this->tamanho_min_rede_estadual,
         ]);
 
-        $teacherReporcCard = app(TeacherReportCard::class);
+        $defaultReportOptions = [
+            1 => 'Modelo padrão',
+            2 => 'Recuperação paralela',
+            3 => 'Recuperação por etapa',
+        ];
+        try {
+            $teacherReportCard = app(TeacherReportCard::class);
+            $reportOptions = (is_object($teacherReportCard) && method_exists($teacherReportCard, 'getOptions'))
+                ? $teacherReportCard->getOptions()
+                : $defaultReportOptions;
+        } catch (Throwable $e) {
+            $reportOptions = $defaultReportOptions;
+        }
+        $reportOptions = $reportOptions ?? $defaultReportOptions;
         $options = [
             'label' => 'Modelo do boletim do professor',
-            'resources' => $teacherReporcCard->getOptions(),
+            'resources' => $reportOptions,
             'value' => $this->modelo_boletim_professor,
         ];
 
