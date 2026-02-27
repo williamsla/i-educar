@@ -282,7 +282,7 @@ return new class extends clsCadastro
         }
         $carga_horaria_alocada += $this->hhmmToMinutes($servidorAlocacao->getCargaHorariaAnoSemAlocacaoAtual());
 
-        if ($carga_horaria_disponivel >= $carga_horaria_alocada) {
+        // if ($carga_horaria_disponivel >= $carga_horaria_alocada) {
             $obj_novo = new clsPmieducarServidorAlocacao(
                 $this->cod_servidor_alocacao,
                 $this->ref_ref_cod_instituicao,
@@ -328,12 +328,12 @@ return new class extends clsCadastro
 
             // Atualiza código da alocação
             $this->cod_servidor_alocacao = $cadastrou;
-        } else {
-            $this->mensagem = 'Não é possível alocar quantidade superior de horas do que o disponível.<br />';
-            $this->alocacao_array = null;
+        // } else {
+        //     $this->mensagem = 'Não é possível alocar quantidade superior de horas do que o disponível.<br />';
+        //     $this->alocacao_array = null;
 
-            return false;
-        }
+        //     return false;
+        // }
 
         $this->mensagem .= 'Cadastro efetuado com sucesso.<br />';
         $this->simpleRedirect(sprintf('educar_servidor_alocacao_det.php?cod_servidor_alocacao=%d', $this->cod_servidor_alocacao));
