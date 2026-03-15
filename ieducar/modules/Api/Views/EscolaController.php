@@ -511,7 +511,7 @@ class EscolaController extends ApiCoreController
         $escolaId = $this->getRequest()->escola_id;
 
         if (is_numeric($escolaId)) {
-            $sql = 'SELECT ano FROM pmieducar.escola_ano_letivo WHERE ref_cod_escola = $1 AND andamento = 1 AND ativo = 1;';
+            $sql = 'SELECT ano FROM pmieducar.escola_ano_letivo WHERE ref_cod_escola = $1 AND andamento = 1 AND ativo = 1 ORDER BY ano DESC;';
             $ano = $this->fetchPreparedQuery($sql, [$escolaId]);
         }
 
