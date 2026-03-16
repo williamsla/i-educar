@@ -12,6 +12,7 @@ class AddFunctionRelatorioGetQtdeAlunos2 extends Migration
      */
     public function up()
     {
+        DB::unprepared('DROP FUNCTION IF EXISTS relatorio.get_qtde_alunos2(integer, integer, integer, integer);');
         DB::unprepared(
             file_get_contents(__DIR__ . '/../sqls/functions/relatorio.get_qtde_alunos2.sql')
         );
