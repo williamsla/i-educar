@@ -73,6 +73,18 @@ class ConfiguracaoMovimentoGeralController extends clsCadastro
             'value' => [],
             'help' => '',
         ],
+        'serie-10' => [
+            'label' => 'EJA - Anos iniciais',
+            'coluna' => 10,
+            'value' => [],
+            'help' => '',
+        ],
+        'serie-11' => [
+            'label' => 'EJA - Anos finais',
+            'coluna' => 11,
+            'value' => [],
+            'help' => '',
+        ],
     ];
 
     public $_titulo = 'Configuração movimento geral';
