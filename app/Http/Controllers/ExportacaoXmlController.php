@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App_Model_MatriculaSituacao;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\LegacySchool;
 use App\Models\LegacySchoolClass;
 use Illuminate\Support\Facades\Storage;
@@ -62,7 +63,7 @@ class ExportacaoXmlController extends Controller
         $data = new DateTime("$ano-$mes-01");
         $ultimo_dia_mes = $data->format('t');
 
-        $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><edu:educacao xmlns:edu="http://www.tce.se.gov.br/sagres2025/xml/sagresEdu"/>');
+        $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><edu:educacao xmlns:edu="http://www.tce.se.gov.br/sagres' . $ano . '/xml/sagresEdu"/>');
 
         $prestacao = $xml->addChild('edu:PrestacaoContas', null, $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:codigoUnidGestora', '001301', $xml->getNamespaces()['edu']);
@@ -82,6 +83,10 @@ class ExportacaoXmlController extends Controller
 
         foreach ($escolas as $escola) {
 
+            if ($this->existeMatriculasPorEscola($escola->cod_escola, $ano, $mes) === false) {
+                continue; // Se não houver matrículas, pula para a próxima escola
+            }
+
             $alunos_ja_adicionados_na_escola = [];
 
             $this->alerts[] = 'ESCOLA: ' . $escola->sigla . ' - INEP: ' . $escola->inep_escola;
@@ -92,7 +97,8 @@ class ExportacaoXmlController extends Controller
             $turmas = $this->getTurmas($ano, $escola->cod_escola);
 
             $mapCursoTurno = [];
-          
+            $escolaExportouTurmaComMatricula = false;
+
             foreach ($turmas as $turma) {
                 if ($this->existeMatriculasPorTurma($turma->cod_turma) === false) {
                     continue; // Se não houver matrículas, pula para a próxima turma
@@ -212,6 +218,8 @@ class ExportacaoXmlController extends Controller
                     continue; // Se não houver matrículas, pula para a próxima turma
                 }
 
+                $escolaExportouTurmaComMatricula = true;
+
                 foreach ($horarios as $horario) {
                     if ($horario->duracao < 1) {
                         // $this->alerts[] = '     - Duração do horário muito pequeno para a turma ' . $turma->nm_turma . ' no dia ' . $horario->dia_semana;
@@ -233,6 +241,14 @@ class ExportacaoXmlController extends Controller
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 && count($series_adicionadas) > 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
                 
             } // fim do bloco turma
+
+            if ($escolaExportouTurmaComMatricula === false) {
+                $domEscola = dom_import_simplexml($xmlEscola);
+                $domEscola->parentNode->removeChild($domEscola);
+                $this->alerts[] = '     - Escola ' . $escola->sigla . ' (INEP ' . $escola->inep_escola . '): ignorada no XML — nenhuma turma com matrícula exportada no período.';
+
+                continue;
+            }
 
             $diretor = $this->getDiretor($escola->inep_escola);
             if ($diretor === null || !isset($diretor->cpf)) {
@@ -472,6 +488,29 @@ class ExportacaoXmlController extends Controller
             ->exists();
     }
 
+    private function existeMatriculasPorEscola($cod_escola, $ano, $mes)
+    {
+        return DB::table('pmieducar.matricula')
+            ->join('pmieducar.matricula_turma', 'matricula_turma.ref_cod_matricula', '=', 'matricula.cod_matricula')
+            ->join('pmieducar.turma', 'turma.cod_turma', '=', 'matricula_turma.ref_cod_turma')
+            ->join('pmieducar.aluno', 'aluno.cod_aluno', '=', 'matricula.ref_cod_aluno')
+            ->join('cadastro.pessoa', 'pessoa.idpes', '=', 'aluno.ref_idpes')
+            ->join('cadastro.fisica', 'fisica.idpes', '=', 'aluno.ref_idpes')
+            ->where('turma.ref_ref_cod_escola', '=', $cod_escola)
+            ->where('turma.ano', '=', $ano)
+            ->where('turma.ativo', '=', 1)
+            ->where('matricula.ano', '=', $ano)
+            ->where('matricula.ativo', '=', 1)
+            ->where('matricula_turma.ativo', '=', 1)
+            ->where('aluno.ativo', '=', 1)
+            ->where('fisica.ativo', '=', 1)
+            ->whereRaw(
+                "date_trunc('month', matricula.data_matricula) <= date_trunc('month', make_date(?, ?, 1))",
+                [$ano, $mes]
+            )
+            ->exists();
+    }
+
     /**
      * Contas faltas por mês
      */
@@ -511,11 +550,7 @@ class ExportacaoXmlController extends Controller
             ->where('matricula_turma.ref_cod_turma', '=', $cod_turma)
             ->where('matricula.ref_ref_cod_serie', '=', $cod_serie)
             ->whereRaw(
-                    "matricula.data_matricula <= (DATE_TRUNC('month', make_date(?, ?, 1)) + INTERVAL '1 month - 1 day')::date",
-                    [$ano, $mes]
-            )
-            ->whereRaw(
-                    "matricula_turma.data_enturmacao <= (DATE_TRUNC('month', make_date(?, ?, 1)) + INTERVAL '1 month - 1 day')::date",
+                    "date_trunc('month', matricula.data_matricula) <= date_trunc('month', make_date(?, ?, 1))",
                     [$ano, $mes]
             )
             ->where('matricula.ativo', '=', 1)
@@ -600,14 +635,25 @@ class ExportacaoXmlController extends Controller
         return collect($dadosFormatados);
     }
 
-    private function getHorariosExterno($cod_turma) {
-        $host = getenv('DB_HOST_IDIARIO');
-        $port = getenv('DB_PORT_IDIARIO');
-        $dbname = getenv('DB_NAME_IDIARIO');
-        $user = getenv('DB_USER_IDIARIO');
-        $password = getenv('DB_PASSWORD_IDIARIO');
+    private function getHorariosExterno($cod_turma)
+    {
+        // Com config em cache, o .env não é carregado no FPM — use config/DB, não getenv().
+        $cfg = config('database.connections.idiario');
+        $temUrl = ! empty($cfg['url']);
+        if (! $temUrl && (empty($cfg['host']) || empty($cfg['database']) || empty($cfg['username']))) {
+            return collect([]);
+        }
 
-        $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require", $user, $password);
+        try {
+            $pdo = DB::connection('idiario')->getPdo();
+        } catch (\Throwable $e) {
+            Log::warning('ExportacaoXml: falha ao conectar ao banco idiario.', [
+                'message' => $e->getMessage(),
+                'cod_turma' => $cod_turma,
+            ]);
+
+            return collect([]);
+        }
 
         $stmt = $pdo->prepare("SELECT lblw.weekday as dia_semana_nome, lbl.lesson_number as aula, d.description as disciplina, u.cpf as cpf_professor , 1 as duracao, lb.period as turno
                                 FROM public.lessons_board_lesson_weekdays lblw
@@ -737,6 +783,10 @@ class ExportacaoXmlController extends Controller
         $path = storage_path('app/cardapios.csv');
 
         $cardapios = [];
+
+        if (! is_readable($path)) {
+            return [];
+        }
 
         if (($handle = fopen($path, 'r')) !== false) {
             $header = fgetcsv($handle, 1000, ','); // Lê o cabeçalho

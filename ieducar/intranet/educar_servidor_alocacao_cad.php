@@ -315,7 +315,7 @@ return new class extends clsCadastro
             $cadastrou = $obj_novo->cadastra();
 
             if (!$cadastrou) {
-                $this->mensagem = 'Cadastro não realizado.<br />';
+                $this->mensagem = 'Cadastro não realizado.<br/> Cada turno possui mínimo de 30h semanais. Verifique a configuração do turno, pois o noturno pode não comportar essa carga.';
 
                 return false;
             }

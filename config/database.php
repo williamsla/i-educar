@@ -97,6 +97,25 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        /*
+         * Banco externo (ex.: i-Diário) para horários na exportação XML.
+         * Defina no .env — não use só /etc/environment com PHP-FPM (getenv() costuma vir vazio).
+         */
+        'idiario' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_URL_IDIARIO'),
+            'host' => env('DB_HOST_IDIARIO'),
+            'port' => env('DB_PORT_IDIARIO', '5432'),
+            'database' => env('DB_NAME_IDIARIO'),
+            'username' => env('DB_USER_IDIARIO'),
+            'password' => env('DB_PASSWORD_IDIARIO', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE_IDIARIO', 'require'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),
