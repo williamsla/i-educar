@@ -43,6 +43,18 @@
             font-weight: bold;
         }
         tr:nth-child(even) td { background: #f9f9f9; }
+        .resumo-ano {
+            margin: 16px 0 20px;
+        }
+        .resumo-ano h2 {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 0 0 8px;
+        }
+        .resumo-ano table {
+            max-width: 320px;
+            margin-top: 0;
+        }
         .no-print {
             margin-bottom: 16px;
         }
@@ -77,6 +89,39 @@
         <p><span class="label">Total de CPF(s) extraídos do relatório eSUS:</span> {{ $cpfs_extraidos }}</p>
         <p><span class="label">Cidadãos sem matrícula ativa neste ano:</span> {{ count($itens) }}</p>
     </div>
+
+    @php
+        $resumo = $resumo_por_ano_nascimento ?? ['anos' => [], 'sem_data' => 0];
+        $anosResumo = $resumo['anos'] ?? [];
+        $semDataResumo = (int) ($resumo['sem_data'] ?? 0);
+    @endphp
+    @if (count($anosResumo) > 0 || $semDataResumo > 0)
+        <div class="resumo-ano">
+            <h2>Resumo — quantidade por ano de nascimento</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ano de nascimento</th>
+                        <th style="width: 28%; text-align: right;">Quantidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($anosResumo as $ano => $qtd)
+                        <tr>
+                            <td>{{ $ano }}</td>
+                            <td style="text-align: right;">{{ $qtd }}</td>
+                        </tr>
+                    @endforeach
+                    @if ($semDataResumo > 0)
+                        <tr>
+                            <td>Não informado ou inválido</td>
+                            <td style="text-align: right;">{{ $semDataResumo }}</td>
+                        </tr>
+                    @endif
+                </tbody>
+            </table>
+        </div>
+    @endif
 
     <table>
         <thead>

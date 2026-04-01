@@ -51,13 +51,90 @@ class VerificarCpfEsusExportController extends Controller
             ?? config('legacy.app.template.vars.instituicao')
             ?? config('app.name');
 
+        $itens = self::ordenarItensPorDataNascimentoAsc($payload['itens']);
+        $resumoPorAnoNascimento = self::resumoQuantidadePorAnoNascimento($itens);
+
         return view('reports.verificar-cpf-esus-export', [
             'titulo' => 'Relatório eSUS — sem matrícula ativa no ano letivo '.$anoLetivo,
             'instituicao' => $instituicao,
             'verificado_em' => $verificadoEm,
             'ano_letivo' => $anoLetivo,
             'cpfs_extraidos' => (int) ($payload['cpfs_extraidos'] ?? 0),
-            'itens' => $payload['itens'],
+            'itens' => $itens,
+            'resumo_por_ano_nascimento' => $resumoPorAnoNascimento,
         ]);
+    }
+
+    /**
+     * Ordena por data de nascimento (DD/MM/AAAA) crescente; sem data válida ficam por último.
+     *
+     * @param  list<array{cpf: string, nome: string, data_nascimento: string}>  $itens
+     * @return list<array{cpf: string, nome: string, data_nascimento: string}>
+     */
+    private static function ordenarItensPorDataNascimentoAsc(array $itens): array
+    {
+        $comTimestamp = [];
+        foreach ($itens as $i => $row) {
+            $data = trim((string) ($row['data_nascimento'] ?? ''));
+            $ts = null;
+            if ($data !== '' && $data !== '—') {
+                try {
+                    $ts = Carbon::createFromFormat('d/m/Y', $data)->startOfDay()->timestamp;
+                } catch (\Throwable) {
+                    $ts = null;
+                }
+            }
+            $comTimestamp[] = ['row' => $row, 'ts' => $ts, 'idx' => $i];
+        }
+
+        usort($comTimestamp, function (array $a, array $b): int {
+            if ($a['ts'] === null && $b['ts'] === null) {
+                return $a['idx'] <=> $b['idx'];
+            }
+            if ($a['ts'] === null) {
+                return 1;
+            }
+            if ($b['ts'] === null) {
+                return -1;
+            }
+            if ($a['ts'] !== $b['ts']) {
+                return $a['ts'] <=> $b['ts'];
+            }
+
+            return $a['idx'] <=> $b['idx'];
+        });
+
+        return array_map(fn (array $x) => $x['row'], $comTimestamp);
+    }
+
+    /**
+     * Conta registros por ano de nascimento (a partir de DD/MM/AAAA); sem data válida em `sem_data`.
+     *
+     * @param  list<array{cpf: string, nome: string, data_nascimento: string}>  $itens
+     * @return array{anos: array<int, int>, sem_data: int}
+     */
+    private static function resumoQuantidadePorAnoNascimento(array $itens): array
+    {
+        $anos = [];
+        $semData = 0;
+
+        foreach ($itens as $row) {
+            $data = trim((string) ($row['data_nascimento'] ?? ''));
+            if ($data === '' || $data === '—') {
+                $semData++;
+
+                continue;
+            }
+            try {
+                $ano = (int) Carbon::createFromFormat('d/m/Y', $data)->format('Y');
+                $anos[$ano] = ($anos[$ano] ?? 0) + 1;
+            } catch (\Throwable) {
+                $semData++;
+            }
+        }
+
+        ksort($anos, SORT_NUMERIC);
+
+        return ['anos' => $anos, 'sem_data' => $semData];
     }
 }

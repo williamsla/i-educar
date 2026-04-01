@@ -224,9 +224,9 @@ return new class extends clsCadastro
             );
         } else {
             $texto = sprintf(
-                '<strong>Resumo:</strong> %d CPF(s) lidos do PDF. Ano letivo <strong>%d</strong>. <strong>%d</strong> sem matrícula ativa (aluno e matrícula ativos).',
-                $total,
+                '<strong>Resumo:<br/>Ano letivo <strong>%d</strong>. <br/></strong> %d CPF(s) lidos do PDF. <br/><strong>%d</strong> sem matrícula ativa (aluno e matrícula ativos).',
                 $ano,
+                $total,                
                 $n
             );
         }
