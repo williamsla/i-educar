@@ -34,6 +34,7 @@ class SituationControllerTest extends TestCase
                 1 => 'Aprovado',
                 2 => 'Reprovado',
                 3 => 'Cursando',
+                17 => 'Em correção de fluxo',
                 4 => 'Transferido',
                 5 => 'Reclassificado',
                 6 => 'Deixou de Frequentar',

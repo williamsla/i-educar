@@ -99,6 +99,7 @@ class DiarioController extends ApiCoreController
                     RegistrationStatus::APPROVED,
                     RegistrationStatus::REPROVED,
                     RegistrationStatus::ONGOING,
+                    RegistrationStatus::ONGOING_IN_PROGRESS,
                     RegistrationStatus::TRANSFERRED,
                     RegistrationStatus::APPROVED_BY_BOARD,
                     RegistrationStatus::APPROVED_WITH_DEPENDENCY,

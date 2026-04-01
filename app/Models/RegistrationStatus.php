@@ -35,6 +35,11 @@ class RegistrationStatus implements Enum
     public const DECEASED = 15;
 
     /**
+     * Equivalente a {@see self::ONGOING} com rótulo "Em correção de fluxo" na matrícula.
+     */
+    public const ONGOING_IN_PROGRESS = 17;
+
+    /**
      * Situações das enturmações
      *
      * @return array<int, string>
@@ -56,6 +61,7 @@ class RegistrationStatus implements Enum
             self::APPROVED_BY_BOARD => 'Aprovado pelo conselho',
             self::REPROVED_BY_ABSENCE => 'Reprovado por faltas',
             self::DECEASED => 'Falecido',
+            self::ONGOING_IN_PROGRESS => 'Em correção de fluxo',
         ];
     }
 
@@ -96,6 +102,7 @@ class RegistrationStatus implements Enum
             self::APPROVED => 'Aprovado',
             self::REPROVED => 'Reprovado',
             self::ONGOING => 'Cursando',
+            self::ONGOING_IN_PROGRESS => 'Em correção de fluxo',
             self::TRANSFERRED => 'Transferido',
             self::RECLASSIFIED => 'Reclassificado',
             self::ABANDONED => 'Deixou de Frequentar',

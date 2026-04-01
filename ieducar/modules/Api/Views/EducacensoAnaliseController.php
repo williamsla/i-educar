@@ -2001,7 +2001,7 @@ class EducacensoAnaliseController extends ApiCoreController
              INNER JOIN cadastro.juridica pe ON (pe.idpes = e.ref_idpes)
              INNER JOIN pmieducar.instituicao i ON (i.cod_instituicao = e.ref_cod_instituicao)
              WHERE e.cod_escola = $2
-               AND m.aprovado IN (1, 2, 3, 4, 6, 15)
+               AND m.aprovado IN (1, 2, 3, 4, 6, 15, 17)
                AND m.ano = $1
                AND mt.data_enturmacao > i.data_educacenso
                AND i.data_educacenso IS NOT NULL

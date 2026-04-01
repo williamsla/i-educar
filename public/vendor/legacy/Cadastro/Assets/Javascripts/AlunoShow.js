@@ -72,7 +72,8 @@ var handleGetMatriculas = function(dataResponse) {
               {val: 12, text: 'Aprovado com dependência'},
               {val: 13, text: 'Aprovado pelo conselho'},
               {val: 14, text: 'Reprovado por faltas'},
-              {val: 15, text: 'Falecido'}
+              {val: 15, text: 'Falecido'},
+              {val: 17, text: 'Em correção de fluxo'}
         ];
 
         var sel = $j('<select>')

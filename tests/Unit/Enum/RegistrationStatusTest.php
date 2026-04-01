@@ -29,6 +29,7 @@ class RegistrationStatusTest extends EnumTestCase
             13 => 'Aprovado pelo conselho',
             14 => 'Reprovado por faltas',
             15 => 'Falecido',
+            17 => 'Em correção de fluxo',
         ];
     }
 }

@@ -64,12 +64,12 @@ class MatriculaController extends ApiCoreController
              else
               (case when $5 = 1 then
                 (case when instituicao.permissao_filtro_abandono_transferencia then
-                  matricula.aprovado in (1, 2, 3, 7, 8, 9, 12, 13, 14)
+                  matricula.aprovado in (1, 2, 3, 7, 8, 9, 12, 13, 14, 17)
                  else
-                  matricula.aprovado in (1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 14)
+                  matricula.aprovado in (1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 14, 17)
                  end)
                else
-                matricula.aprovado in (1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 14)
+                matricula.aprovado in (1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 14, 17)
                end)
              end)
         and (case when aprovado = 4 then not exists (select * from pmieducar.matricula m where m.ativo = 1 and m.ano = matricula.ano and m.ref_cod_aluno = aluno.cod_aluno and m.ref_ref_cod_escola = matricula.ref_ref_cod_escola and m.aprovado <> 4 ) else true end)
@@ -96,12 +96,12 @@ class MatriculaController extends ApiCoreController
              else
               (case when $5 = 1 then
                 (case when instituicao.permissao_filtro_abandono_transferencia then
-                  matricula.aprovado in (1, 2, 3, 7, 8, 9, 12, 13, 14)
+                  matricula.aprovado in (1, 2, 3, 7, 8, 9, 12, 13, 14, 17)
                  else
-                  matricula.aprovado in (1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 14)
+                  matricula.aprovado in (1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 14, 17)
                  end)
                else
-                matricula.aprovado in (1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 14)
+                matricula.aprovado in (1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 14, 17)
                end)
              end)
         and (case when aprovado = 4 then not exists (select * from pmieducar.matricula m where m.ativo = 1 and m.ano = matricula.ano and m.ref_cod_aluno = aluno.cod_aluno and m.ref_ref_cod_escola = matricula.ref_ref_cod_escola and m.aprovado <> 4 ) else true end)
@@ -244,7 +244,7 @@ class MatriculaController extends ApiCoreController
         $sql = 'select cod_matricula as id, ano, ref_cod_instituicao as instituicao_id, ref_ref_cod_escola as
             escola_id, ref_cod_curso as curso_id, ref_ref_cod_serie as serie_id from pmieducar.matricula,
             pmieducar.escola where cod_escola = ref_ref_cod_escola and ref_cod_aluno = $1 and ref_ref_cod_escola =
-            $2 and matricula.ativo = 1 and matricula.aprovado in (1, 2, 3, 7, 8, 9) order by ano desc, id';
+            $2 and matricula.ativo = 1 and matricula.aprovado in (1, 2, 3, 7, 8, 9, 17) order by ano desc, id';
 
         $params = [$alunoId, $escolaId];
         $matriculas = $this->fetchPreparedQuery($sql, $params, false);
@@ -719,7 +719,8 @@ class MatriculaController extends ApiCoreController
                 $situacaoNova == App_Model_MatriculaSituacao::REPROVADO ||
                 $situacaoNova == App_Model_MatriculaSituacao::APROVADO_COM_DEPENDENCIA ||
                 $situacaoNova == App_Model_MatriculaSituacao::APROVADO_PELO_CONSELHO ||
-                $situacaoNova == App_Model_MatriculaSituacao::REPROVADO_POR_FALTAS
+                $situacaoNova == App_Model_MatriculaSituacao::REPROVADO_POR_FALTAS ||
+                $situacaoNova == App_Model_MatriculaSituacao::EM_CORRECAO_DE_FLUXO
             ) {
                 $matriculaTurma = new clsPmieducarMatriculaTurma;
                 $enturmacoesParaAtivar = $matriculaTurma->lista($matriculaId);

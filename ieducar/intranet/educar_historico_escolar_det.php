@@ -149,6 +149,8 @@ return new class extends clsDetalhe
                 $registro['aprovado'] = 'Reprovado';
             } elseif ($registro['aprovado'] == 3) {
                 $registro['aprovado'] = 'Cursando';
+            } elseif ($registro['aprovado'] == 17) {
+                $registro['aprovado'] = 'Em correção de fluxo';
             } elseif ($registro['aprovado'] == 4) {
                 $registro['aprovado'] = 'Transferido';
             } elseif ($registro['aprovado'] == 5) {

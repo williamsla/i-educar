@@ -30,6 +30,11 @@ class App_Model_MatriculaSituacao extends CoreExt_Enum
 
     const FALECIDO = 15;
 
+    /**
+     * Situação equivalente a {@see self::EM_ANDAMENTO} com rótulo distinto na interface.
+     */
+    const EM_CORRECAO_DE_FLUXO = 17;
+
     protected $_data = [
         self::APROVADO => 'Aprovado',
         self::REPROVADO => 'Retido',
@@ -44,7 +49,25 @@ class App_Model_MatriculaSituacao extends CoreExt_Enum
         self::APROVADO_PELO_CONSELHO => 'Aprovado pelo conselho',
         self::REPROVADO_POR_FALTAS => 'Reprovado por faltas',
         self::FALECIDO => 'Falecido',
+        self::EM_CORRECAO_DE_FLUXO => 'Em correção de fluxo',
     ];
+
+    /**
+     * Códigos de matrícula considerados "em andamento" (curricularmente ativos).
+     *
+     * @return int[]
+     */
+    public static function situacoesEmAndamento(): array
+    {
+        return [
+            self::EM_ANDAMENTO,
+        ];
+    }
+
+    public static function isEmAndamento($codigo): bool
+    {
+        return in_array((int) $codigo, self::situacoesEmAndamento(), true);
+    }
 
     public static function getInstance()
     {
@@ -72,6 +95,7 @@ class App_Model_MatriculaSituacao extends CoreExt_Enum
             self::APROVADO_COM_DEPENDENCIA,
             self::APROVADO_PELO_CONSELHO,
             self::RECLASSIFICADO,
+            self::EM_CORRECAO_DE_FLUXO,
         ];
     }
 }
