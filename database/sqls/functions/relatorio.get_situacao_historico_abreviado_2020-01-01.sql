@@ -12,5 +12,6 @@ SELECT CASE
            WHEN $1 = 13 THEN 'ApCo'::character varying
            WHEN $1 = 14 THEN 'RpFt'::character varying
            WHEN $1 = 16 THEN 'Prom'::character varying
+           WHEN $1 = 17 THEN 'CorrFluxo'::character varying
            ELSE ''::character varying
            END AS situacao; $_$;
