@@ -28,8 +28,7 @@ return new class
 
         return '<!--
                 <table width=\'100%\' style=\'height: 100%;\'>
-                    <tr align=center valign=\'top\'><td><div id=\'flash-container\' align=\'right\' style=\'width: 200px; right: 10px;top: 27px; position: absolute;\'><p style=\'min-height: 0px;\' class=\'flash sucess\'>Olá! Alteramos o menu do lançamento de notas, agora, acesse apenas <strong>Movimentação > Faltas/Notas</strong> e pronto! Qualquer dúvida, entre em contato. :)</p></div></td></tr>
-                </table>-->
+                    <tr align=center valign=\'top\'>｜<div id=\'flash-container\' align=\'right\' style=\'width: 200px; right: 10px;top: 27px; position: absolute;\'><p style=\'min-height: 0px;\' class=\'flash sucess\'>Olá! Alteramos o menu do lançamento de notas, agora, acesse apenas <strong>Movimentação > Faltas/Notas</strong> e pronto! Qualquer dúvida, entre em contato. :)</p></div>｜2<-->
 
                 <link rel="stylesheet" href="styles/educar_index.css">
 
@@ -51,9 +50,9 @@ return new class
                             <div class="card-content">
                                 <ul>
                                     <li><span class="item-bullet">•</span>Nova matrícula</li>
-                                    <li><span class="item-bullet">•</span>Novo aluno</li>
-                                    <li><span class="item-bullet">•</span>Consultar alunos</li>
-                                    <li><span class="item-bullet">•</span>Requerimento de matrícula</li>
+                                    <li><a href="/module/Cadastro/aluno" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Novo aluno</a></li>
+                                    <li><a href="/intranet/educar_aluno_lst.php" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Consultar alunos</a></li>
+                                    <li><a href="/module/Reports/StudentSheet" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Requerimento de matrícula</a></li>
                                     <li><span class="item-bullet">•</span>Transferência de aluno</li>
                                     <li><span class="item-bullet">•</span>Trocar aluno de turma</li>
                                 </ul>
@@ -72,7 +71,7 @@ return new class
                                 <ul>
                                     <li><span class="item-bullet">•</span>Boletim numérico</li>
                                     <li><span class="item-bullet">•</span>Boletim conceitual</li>
-                                    <li><span class="item-bullet">•</span>Boletim do professor</li>
+                                    <li><a href="/module/Reports/TeacherReportCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim do professor</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -105,9 +104,9 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <li><span class="item-bullet">•</span>Declaração de transferência</li>
-                                    <li><span class="item-bullet">•</span>Declaração de frequência</li>
-                                    <li><span class="item-bullet">•</span>Declaração de conclusão</li>
+                                    <li><a href="/module/Reports/TransferenceCertificate" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Declaração de transferência</a></li>
+                                    <li><a href="/module/Reports/FrequencyCertificate" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Declaração de frequência</a></li>
+                                    <li><a href="/module/Reports/ConclusionCertificate" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Declaração de conclusão</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -697,7 +696,7 @@ return new class
                     <td style="padding: 12px; vertical-align: middle;">' . htmlspecialchars($aluno['nome']) . '</td>
                     <td style="padding: 12px; vertical-align: middle; font-family: monospace;">' . $cpfDisplay . '</td>
                     <td style="padding: 12px; text-align: center; vertical-align: middle;">
-<a href="/module/Cadastro/aluno?id=' . $aluno['cod_aluno'] . '" style="text-decoration: none;">
+                        <a href="/module/Cadastro/aluno?id=' . $aluno['cod_aluno'] . '" style="text-decoration: none;">
                             <button type="button"
                                     style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s;">
                                 Editar CPF
@@ -708,7 +707,8 @@ return new class
             ';
         }
 
-        $html .= '</tbody></table>';
+        $html .= '</tbody>
+             </table>';
 
         return $html;
     }
