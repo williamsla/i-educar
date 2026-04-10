@@ -1284,7 +1284,7 @@ class AlunoController extends Portabilis_Controller_Page_EditController
             'resources' => $tiposNacionalidade,
             'required' => $obrigarCamposCenso,
             'inline' => true,
-            'value' => $this->getRequest()->id == null ? Nacionalidade::BRASILEIRA : $this->tipo_nacionalidade, // Quando for novo registro, preenche com o valor default brasileiro
+            'value' => $this->getRequest()->id == null ? Nacionalidade::BRASILEIRA : $this->tipo_nacionalidade,
         ];
 
         $this->inputsHelper()->select('tipo_nacionalidade', $options);
@@ -1336,5 +1336,70 @@ class AlunoController extends Portabilis_Controller_Page_EditController
         ];
 
         $this->inputsHelper()->simpleSearchPessoa('nome', $options, $helperOptions);
+    }
+
+    /**
+     * Sobrescreve o método _save para atualizar data de enturmação
+     */
+    protected function _save()
+    {
+        // Chama o save original
+        $result = parent::_save();
+        
+        // Se salvou com sucesso E tem código do aluno
+        if ($result && !empty($this->cod_aluno)) {
+            $this->atualizarDataEnturmacaoVigente();
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Atualiza APENAS a data de enturmação da matrícula VIGENTE do aluno
+     */
+    private function atualizarDataEnturmacaoVigente()
+    {
+        try {
+            // Busca o ano atual
+            $anoAtual = date('Y');
+            
+            // Busca o aluno para pegar a data de entrada (data_cadastro)
+            $aluno = new clsPmieducarAluno($this->cod_aluno);
+            $detalheAluno = $aluno->detalhe();
+            
+            // Verifica se tem data de entrada
+            if (empty($detalheAluno['data_cadastro'])) {
+                return;
+            }
+            
+            $dataEntrada = $detalheAluno['data_cadastro'];
+            
+            // Converte para formato do PostgreSQL (YYYY-MM-DD) se necessário
+            if (strpos($dataEntrada, '/') !== false) {
+                $dataEntrada = Portabilis_Date_Utils::brToPgSQL($dataEntrada);
+            }
+            
+            // Instância do banco
+            $db = clsBanco::getInstance();
+            
+            // SQL para atualizar SOMENTE a matrícula ativa do aluno no ano atual
+            $sql = "UPDATE pmieducar.matricula_turma 
+                    SET data_enturmacao = '{$dataEntrada}'
+                    WHERE ref_cod_matricula IN (
+                        SELECT cod_matricula 
+                        FROM pmieducar.matricula 
+                        WHERE ref_cod_aluno = {$this->cod_aluno}
+                        AND ano = {$anoAtual}
+                        AND ativo = 1
+                    )
+                    AND ativo = 1";
+            
+            // Executa a atualização
+            $db->Consulta($sql);
+            
+        } catch (Exception $e) {
+            // Apenas loga o erro, não interrompe o salvamento do aluno
+            error_log("Erro ao atualizar data de enturmação do aluno {$this->cod_aluno}: " . $e->getMessage());
+        }
     }
 }

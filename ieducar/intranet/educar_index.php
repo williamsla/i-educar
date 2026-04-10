@@ -31,6 +31,60 @@ return new class
                     <tr align=center valign=\'top\'>｜<div id=\'flash-container\' align=\'right\' style=\'width: 200px; right: 10px;top: 27px; position: absolute;\'><p style=\'min-height: 0px;\' class=\'flash sucess\'>Olá! Alteramos o menu do lançamento de notas, agora, acesse apenas <strong>Movimentação > Faltas/Notas</strong> e pronto! Qualquer dúvida, entre em contato. :)</p></div>｜2<-->
 
                 <link rel="stylesheet" href="styles/educar_index.css">
+                
+                <style>
+                    /* Estilos para o menu com subitens */
+                    .menu-item-with-submenu {
+                        position: relative;
+                        cursor: pointer;
+                    }
+                    
+                    .submenu-items {
+                        display: none;
+                        margin-left: 20px;
+                        margin-top: 5px;
+                        margin-bottom: 5px;
+                        padding-left: 10px;
+                        border-left: 2px solid #e0e0e0;
+                    }
+                    
+                    .menu-item-with-submenu:hover .submenu-items {
+                        display: block;
+                    }
+                    
+                    .submenu-items li {
+                        padding: 4px 0;
+                        list-style: none;
+                    }
+                    
+                    .submenu-items li a {
+                        text-decoration: none;
+                        color: #555;
+                        font-size: 12px;
+                        display: block;
+                        padding: 2px 0;
+                    }
+                    
+                    .submenu-items li a:hover {
+                        color: #007bff;
+                    }
+                    
+                    .main-menu-item {
+                        font-weight: 500;
+                        padding: 4px 0;
+                        display: block;
+                    }
+                    
+                    .main-menu-item:hover {
+                        color: #007bff;
+                    }
+                    
+                    .divider-menu {
+                        height: 1px;
+                        background: #f0f0f0;
+                        margin: 8px 0;
+                    }
+                </style>
 
                 <div class="dashboard-container">
                     <div class="welcome-section">
@@ -49,12 +103,20 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <li><span class="item-bullet">•</span>Nova matrícula</li>
-                                    <li><a href="/module/Cadastro/aluno" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Novo aluno</a></li>
+                                    <!-- Menu Gestão de Alunos com subitens -->
+                                    <li class="menu-item-with-submenu">
+                                        <a href="/module/Cadastro/aluno" style="text-decoration: none; color: inherit; display: block;">
+                                            <span class="item-bullet">•</span> Gestão de Alunos
+                                        </a>
+                                        <ul class="submenu-items">
+                                            <li><a href="/module/Cadastro/aluno">↳ Nova matrícula</a></li>
+                                            <li><a href="/module/Cadastro/aluno">↳ Transferência de aluno</a></li>
+                                            <li><a href="/module/Cadastro/aluno">↳ Trocar aluno de turma</a></li>
+                                            <li><a href="/intranet/educar_historico_escolar_cad.php">↳ Informar histórico de anos anteriores</a></li>
+                                        </ul>
+                                    </li>
                                     <li><a href="/intranet/educar_aluno_lst.php" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Consultar alunos</a></li>
                                     <li><a href="/module/Reports/StudentSheet" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Requerimento de matrícula</a></li>
-                                    <li><span class="item-bullet">•</span>Transferência de aluno</li>
-                                    <li><span class="item-bullet">•</span>Trocar aluno de turma</li>
                                 </ul>
                             </div>
                         </div>
@@ -69,8 +131,9 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <li><span class="item-bullet">•</span>Boletim numérico</li>
-                                    <li><span class="item-bullet">•</span>Boletim conceitual</li>
+                                    <li><a href="/module/Reports/ReportCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim Escolar (Numérico)</a></li>
+                                    <li><a href="/module/Reports/ReportConceptualCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim Conceitual</a></li>
+                                    <li><a href="/module/Reports/ReportDescriptiveCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim Parecer Descritivo</a></li>
                                     <li><a href="/module/Reports/TeacherReportCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim do professor</a></li>
                                 </ul>
                             </div>
@@ -86,7 +149,6 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <li><span class="item-bullet">•</span>Informar histórico de anos anteriores</li>
                                     <li><span class="item-bullet">•</span>Imprimir histórico</li>
                                     <li><span class="item-bullet">•</span>Ata de resultado final</li>
                                     <li><span class="item-bullet">•</span>Ficha Individual</li>
@@ -708,7 +770,7 @@ return new class
         }
 
         $html .= '</tbody>
-             </table>';
+            </table>';
 
         return $html;
     }
