@@ -26,5 +26,6 @@ class DefaultRelatorioSituacaoMatriculaTableSeeder extends Seeder
         DB::table('relatorio.situacao_matricula')->insert(['cod_situacao' => 12, 'descricao' => 'Ap. Depen.']);
         DB::table('relatorio.situacao_matricula')->insert(['cod_situacao' => 5, 'descricao' => 'Reclassificado']);
         DB::table('relatorio.situacao_matricula')->insert(['cod_situacao' => 3, 'descricao' => 'Cursando']);
+        DB::table('relatorio.situacao_matricula')->insert(['cod_situacao' => 17, 'descricao' => 'Em correção de fluxo']);
     }
 }

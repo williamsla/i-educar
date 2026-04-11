@@ -78,7 +78,10 @@ class EsusPdfCpfService
             $after = substr($text, $offset + strlen($cpf), $nextStart - ($offset + strlen($cpf)));
 
             $nome = $this->extrairNomeAntesDoCpf($before);
-            $dataNasc = $this->extrairDataNascimento($after);
+            $dataNasc = $this->extrairDataNascimentoAntesDoCpf($before, $nome);
+            if ($dataNasc === '') {
+                $dataNasc = $this->extrairDataNascimentoAposCpf($after);
+            }
 
             $registros[$cpf] = [
                 'cpf' => $cpf,
@@ -90,7 +93,74 @@ class EsusPdfCpfService
         return $registros;
     }
 
-    private function extrairDataNascimento(string $after): string
+    /**
+     * Data da coluna à direita do relatório eSUS (ex.: "21/05/2025 CDS") — não é nascimento.
+     */
+    private function dataEColunaCds(string $trecho, int $offsetData, int $lenData): bool
+    {
+        $apos = substr($trecho, $offsetData + $lenData, 24);
+
+        return (bool) preg_match('/^\s*CDS\b/iu', $apos);
+    }
+
+    /**
+     * Linhas do texto após a linha do nome do cidadão (evita datas da linha anterior, ex. coluna CDS).
+     */
+    private function trechoAposLinhaDoNome(string $before, string $nome): string
+    {
+        if ($nome === '') {
+            return '';
+        }
+
+        $before = str_replace(["\r\n", "\r"], "\n", $before);
+        $lines = array_map('trim', explode("\n", $before));
+        $idxNome = -1;
+        foreach ($lines as $i => $line) {
+            if ($line === $nome) {
+                $idxNome = $i;
+            }
+        }
+        if ($idxNome < 0) {
+            return '';
+        }
+
+        $restLines = array_slice($lines, $idxNome + 1);
+
+        return trim(implode("\n", $restLines));
+    }
+
+    /**
+     * Alguns PDFs trazem nome → data → CPF; só considera datas entre o nome e o CPF (não o bloco inteiro anterior).
+     */
+    private function extrairDataNascimentoAntesDoCpf(string $before, string $nome): string
+    {
+        $trecho = $this->trechoAposLinhaDoNome($before, $nome);
+        if ($trecho === '') {
+            return '';
+        }
+
+        if (! preg_match_all('/\b(\d{2}\/\d{2}\/\d{4})\b/', $trecho, $dm, PREG_OFFSET_CAPTURE)) {
+            return '';
+        }
+
+        $ultima = '';
+        foreach ($dm[0] as $pair) {
+            $d = $pair[0];
+            $off = $pair[1];
+            if (! $this->dataPlausivelNascimento($d) || $this->dataEColunaCds($trecho, $off, strlen($d))) {
+                continue;
+            }
+            $ultima = $d;
+        }
+
+        return $ultima;
+    }
+
+    /**
+     * Layout típico após o CPF: sexo, idade ("X anos e Y meses"), data de nascimento, endereço…
+     * Ignora datas seguidas de "CDS" (outra coluna do relatório eSUS).
+     */
+    private function extrairDataNascimentoAposCpf(string $after): string
     {
         $after = trim($after);
         if ($after === '') {
@@ -108,21 +178,16 @@ class EsusPdfCpfService
             $rest
         );
 
-        if (preg_match_all('/\b(\d{2}\/\d{2}\/\d{4})\b/', $rest, $dm)) {
-            $melhor = '';
-            $melhorTs = null;
-            foreach ($dm[1] as $d) {
-                if (! $this->dataPlausivelNascimento($d)) {
-                    continue;
-                }
-                $ts = strtotime(str_replace('/', '-', $d));
-                if ($melhorTs === null || $ts < $melhorTs) {
-                    $melhorTs = $ts;
-                    $melhor = $d;
-                }
-            }
+        if (! preg_match_all('/\b(\d{2}\/\d{2}\/\d{4})\b/', $rest, $dm, PREG_OFFSET_CAPTURE)) {
+            return '';
+        }
 
-            return $melhor;
+        foreach ($dm[0] as $pair) {
+            $d = $pair[0];
+            $off = $pair[1];
+            if ($this->dataPlausivelNascimento($d) && ! $this->dataEColunaCds($rest, $off, strlen($d))) {
+                return $d;
+            }
         }
 
         return '';
