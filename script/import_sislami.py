@@ -385,7 +385,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--db-name",
-        default="ieducar",
+        default="ieducar_sislami",
         help="Nome do banco PostgreSQL.",
     )
     parser.add_argument(

@@ -1,5 +1,5 @@
 -- Uso:
--- psql -v ON_ERROR_STOP=1 -v user_id_cad=1 -v ano_letivo=2026 -f script/migrar_sislami_para_pmieducar.sql
+-- psql -h 127.0.0.1 -p 2345 -U ieducar -d ieducar_sislami -v ON_ERROR_STOP=1 -v user_id_cad=1 -v ano_letivo=2026 -f script/migrar_sislami_para_pmieducar.sql
 --
 -- Premissas:
 -- 1) schema sislami_migracao ja populado pelo script import_sislami.py
@@ -11,7 +11,7 @@ CREATE SCHEMA IF NOT EXISTS sislami_migracao;
 
 CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_instituicao (
     id_sislami_instituicao integer PRIMARY KEY,
-    cod_instituicao integer NOT NULL UNIQUE,
+    cod_instituicao integer NOT NULL,
     migrado_em timestamp without time zone NOT NULL DEFAULT now()
 );
 
@@ -23,10 +23,16 @@ CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_escola (
 
 CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_aluno (
     id_sislami_aluno bigint PRIMARY KEY,
-    idpes numeric(8,0) NOT NULL UNIQUE,
-    cod_aluno integer NOT NULL UNIQUE,
+    idpes numeric(8,0) NOT NULL,
+    cod_aluno integer NOT NULL,
     migrado_em timestamp without time zone NOT NULL DEFAULT now()
 );
+
+-- Deduplicacao por CPF pode gerar mapeamento N:1 (varios ids SISLAMI para um mesmo idpes/cod_aluno)
+ALTER TABLE sislami_migracao.mapa_aluno
+  DROP CONSTRAINT IF EXISTS mapa_aluno_idpes_key;
+ALTER TABLE sislami_migracao.mapa_aluno
+  DROP CONSTRAINT IF EXISTS mapa_aluno_cod_aluno_key;
 
 CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_matricula (
     id_sislami_aluno bigint NOT NULL,
@@ -38,18 +44,23 @@ CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_matricula (
 
 CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_curso (
     id_sislami_instituicao integer PRIMARY KEY,
-    cod_curso integer NOT NULL UNIQUE,
+    cod_curso integer NOT NULL,
     migrado_em timestamp without time zone NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_serie (
     id_sislami_instituicao integer NOT NULL,
     id_sislami_etapa integer NOT NULL,
-    cod_serie integer NOT NULL UNIQUE,
+    cod_serie integer NOT NULL,
     cod_curso integer NOT NULL,
     migrado_em timestamp without time zone NOT NULL DEFAULT now(),
     PRIMARY KEY (id_sislami_instituicao, id_sislami_etapa)
 );
+
+ALTER TABLE sislami_migracao.mapa_curso
+  DROP CONSTRAINT IF EXISTS mapa_curso_cod_curso_key;
+ALTER TABLE sislami_migracao.mapa_serie
+  DROP CONSTRAINT IF EXISTS mapa_serie_cod_serie_key;
 
 CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_turma (
     id_sislami_turma integer PRIMARY KEY,
@@ -71,10 +82,13 @@ CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_aluno_etapa_matricula (
 CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_componente_curricular (
     id_sislami_programa_item integer NOT NULL,
     id_sislami_instituicao integer NOT NULL,
-    componente_curricular_id integer NOT NULL UNIQUE,
+    componente_curricular_id integer NOT NULL,
     migrado_em timestamp without time zone NOT NULL DEFAULT now(),
     PRIMARY KEY (id_sislami_programa_item, id_sislami_instituicao)
 );
+
+ALTER TABLE sislami_migracao.mapa_componente_curricular
+  DROP CONSTRAINT IF EXISTS mapa_componente_curricular_componente_curricular_id_key;
 
 CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_historico_escolar (
     id_sislami_historico bigint PRIMARY KEY,
@@ -83,6 +97,15 @@ CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_historico_escolar (
     sequencial integer NOT NULL,
     migrado_em timestamp without time zone NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS sislami_migracao.mapa_servidor (
+    id_sislami_funcionario bigint PRIMARY KEY,
+    idpes numeric(8,0) NOT NULL,
+    migrado_em timestamp without time zone NOT NULL DEFAULT now()
+);
+
+ALTER TABLE sislami_migracao.mapa_servidor
+  DROP CONSTRAINT IF EXISTS mapa_servidor_idpes_key;
 
 SELECT set_config('sislami.user_id_cad', :'user_id_cad', false);
 SELECT set_config('sislami.ano_letivo', :'ano_letivo', false);
@@ -94,10 +117,29 @@ DECLARE
     v_instituicao_base integer;
     v_cod_escola integer;
     v_idpes numeric(8,0);
+    v_idpes_mae numeric(8,0);
+    v_idpes_pai numeric(8,0);
     v_cod_aluno integer;
     v_cod_matricula integer;
     v_cep numeric(8,0);
     v_cpf numeric(11,0);
+    v_cpf_mae numeric(11,0);
+    v_cpf_pai numeric(11,0);
+    v_idorg_rg integer;
+    v_def_visual integer;
+    v_def_auditiva integer;
+    v_def_fisica integer;
+    v_def_mental integer;
+    v_def_multipla integer;
+    v_def_superdotado integer;
+    v_telefone_empresa numeric;
+    v_ddd_telefone_empresa numeric;
+    v_observacao_extra text;
+    v_nacionalidade numeric;
+    v_cod_raca integer;
+    v_nis numeric(11,0);
+    v_localizacao_diferenciada integer;
+    v_place_id integer;
     v_cod_curso integer;
     v_cod_serie integer;
     v_cod_turma integer;
@@ -110,35 +152,85 @@ DECLARE
     v_falta_aluno_id integer;
     v_parecer_aluno_id integer;
     v_hist_id integer;
+    v_tem_tb_instituicao boolean;
     v_user_id_cad integer := current_setting('sislami.user_id_cad')::int;
     v_ano_letivo integer := current_setting('sislami.ano_letivo')::int;
 BEGIN
-    SELECT MIN(cod_instituicao) INTO v_instituicao_base FROM pmieducar.instituicao;
-    IF v_instituicao_base IS NULL THEN
-        RAISE EXCEPTION 'Tabela pmieducar.instituicao sem registros. Rode as migrations/seeders do i-Educar antes da migracao SISLAMI.';
+    -- Regra de negocio: no i-Educar, sempre usar instituicao codigo 1.
+    v_instituicao_base := 1;
+    IF NOT EXISTS (SELECT 1 FROM pmieducar.instituicao WHERE cod_instituicao = v_instituicao_base) THEN
+        RAISE EXCEPTION 'Instituicao codigo 1 nao encontrada em pmieducar.instituicao.';
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pmieducar.nivel_ensino) THEN
-        INSERT INTO pmieducar.nivel_ensino (
-            ref_usuario_cad, nm_nivel, descricao, data_cadastro, ativo, ref_cod_instituicao
-        ) VALUES (
-            v_user_id_cad, 'NIVEL SISLAMI', 'Criado automaticamente para migracao SISLAMI', now(), 1, v_instituicao_base
+    -- Compatibilidade com execucoes antigas (quando havia UNIQUE em cod_instituicao).
+    ALTER TABLE sislami_migracao.mapa_instituicao
+      DROP CONSTRAINT IF EXISTS mapa_instituicao_cod_instituicao_key;
+
+    -- Tipo de ensino (TB_TIPO_ENSINO -> pmieducar.tipo_ensino)
+    IF to_regclass('sislami_raw.tb_tipo_ensino') IS NOT NULL THEN
+        INSERT INTO pmieducar.tipo_ensino (
+            ref_usuario_cad, nm_tipo, data_cadastro, ativo, ref_cod_instituicao, atividade_complementar
         )
-        RETURNING cod_nivel_ensino INTO v_nivel_ensino;
-    ELSE
-        SELECT MIN(cod_nivel_ensino) INTO v_nivel_ensino FROM pmieducar.nivel_ensino;
+        SELECT DISTINCT
+            v_user_id_cad,
+            LEFT(COALESCE(NULLIF(TRIM(te.dc_tipo_ensino), ''), NULLIF(TRIM(te.dc_tipo_ensino_reduzido), ''), 'Importação'), 255),
+            now(),
+            1,
+            v_instituicao_base,
+            false
+        FROM sislami_raw.tb_tipo_ensino te
+        WHERE COALESCE(NULLIF(TRIM(te.dc_tipo_ensino), ''), NULLIF(TRIM(te.dc_tipo_ensino_reduzido), ''), '') <> ''
+          AND NOT EXISTS (
+              SELECT 1
+              FROM pmieducar.tipo_ensino pti
+              WHERE pti.ref_cod_instituicao = v_instituicao_base
+                AND lower(trim(pti.nm_tipo)) = lower(trim(COALESCE(NULLIF(TRIM(te.dc_tipo_ensino), ''), NULLIF(TRIM(te.dc_tipo_ensino_reduzido), ''))))
+          );
     END IF;
-
     IF NOT EXISTS (SELECT 1 FROM pmieducar.tipo_ensino) THEN
         INSERT INTO pmieducar.tipo_ensino (
             ref_usuario_cad, nm_tipo, data_cadastro, ativo, ref_cod_instituicao, atividade_complementar
         ) VALUES (
-            v_user_id_cad, 'TIPO SISLAMI', now(), 1, v_instituicao_base, false
-        )
-        RETURNING cod_tipo_ensino INTO v_tipo_ensino;
-    ELSE
-        SELECT MIN(cod_tipo_ensino) INTO v_tipo_ensino FROM pmieducar.tipo_ensino;
+            v_user_id_cad, 'Importação', now(), 1, v_instituicao_base, false
+        );
     END IF;
+    SELECT MIN(cod_tipo_ensino) INTO v_tipo_ensino
+    FROM pmieducar.tipo_ensino
+    WHERE ref_cod_instituicao = v_instituicao_base;
+    v_tipo_ensino := COALESCE(v_tipo_ensino, (SELECT MIN(cod_tipo_ensino) FROM pmieducar.tipo_ensino));
+
+    -- Nivel de ensino (TB_NIVEL -> pmieducar.nivel_ensino)
+    IF to_regclass('sislami_raw.tb_nivel') IS NOT NULL THEN
+        INSERT INTO pmieducar.nivel_ensino (
+            ref_usuario_cad, nm_nivel, descricao, data_cadastro, ativo, ref_cod_instituicao
+        )
+        SELECT DISTINCT
+            v_user_id_cad,
+            LEFT(COALESCE(NULLIF(TRIM(nv.dc_nivel), ''), NULLIF(TRIM(nv.dc_nivel_reduzido), ''), 'Importação'), 255),
+            LEFT(COALESCE(NULLIF(TRIM(nv.dc_nivel_reduzido), ''), NULLIF(TRIM(nv.dc_nivel), ''), 'Importação SISLAME'), 255),
+            now(),
+            1,
+            v_instituicao_base
+        FROM sislami_raw.tb_nivel nv
+        WHERE COALESCE(NULLIF(TRIM(nv.dc_nivel), ''), NULLIF(TRIM(nv.dc_nivel_reduzido), ''), '') <> ''
+          AND NOT EXISTS (
+              SELECT 1
+              FROM pmieducar.nivel_ensino pne
+              WHERE pne.ref_cod_instituicao = v_instituicao_base
+                AND lower(trim(pne.nm_nivel)) = lower(trim(COALESCE(NULLIF(TRIM(nv.dc_nivel), ''), NULLIF(TRIM(nv.dc_nivel_reduzido), ''))))
+          );
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pmieducar.nivel_ensino) THEN
+        INSERT INTO pmieducar.nivel_ensino (
+            ref_usuario_cad, nm_nivel, descricao, data_cadastro, ativo, ref_cod_instituicao
+        ) VALUES (
+            v_user_id_cad, 'Importação', 'Importação SISLAME', now(), 1, v_instituicao_base
+        );
+    END IF;
+    SELECT MIN(cod_nivel_ensino) INTO v_nivel_ensino
+    FROM pmieducar.nivel_ensino
+    WHERE ref_cod_instituicao = v_instituicao_base;
+    v_nivel_ensino := COALESCE(v_nivel_ensino, (SELECT MIN(cod_nivel_ensino) FROM pmieducar.nivel_ensino));
 
     IF NOT EXISTS (SELECT 1 FROM pmieducar.tipo_regime) THEN
         INSERT INTO pmieducar.tipo_regime (
@@ -173,105 +265,324 @@ BEGIN
         SELECT MIN(id) INTO v_area_conhecimento FROM modules.area_conhecimento;
     END IF;
 
-    -- Instituicao
-    FOR rec IN
-        SELECT
-            i.id_sislami_instituicao,
-            COALESCE(NULLIF(TRIM(ti.nm_instituicao), ''), 'INSTITUICAO SISLAMI ' || i.id_sislami_instituicao::text) AS nm_instituicao,
-            COALESCE(NULLIF(TRIM(ti.ed_municipio), ''), 'NAO INFORMADO') AS cidade,
-            COALESCE(NULLIF(TRIM(ti.ed_bairro), ''), 'CENTRO') AS bairro,
-            COALESCE(NULLIF(TRIM(ti.ed_logradouro), ''), 'NAO INFORMADO') AS logradouro,
-            NULLIF(regexp_replace(COALESCE(ti.ed_cep, ''), '[^0-9]', '', 'g'), '') AS cep_limpo,
-            COALESCE(NULLIF(TRIM(ti.ed_uf), ''), 'AL') AS uf
-        FROM sislami_migracao.instituicao i
-        LEFT JOIN sislami_raw.tb_instituicao ti
-               ON NULLIF(TRIM(ti.id_instituicao), '')::int = i.id_sislami_instituicao
-        WHERE i.id_sislami_instituicao IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1
-              FROM sislami_migracao.mapa_instituicao mi
-              WHERE mi.id_sislami_instituicao = i.id_sislami_instituicao
-          )
-        ORDER BY i.id_sislami_instituicao
-    LOOP
-        v_cep := COALESCE(NULLIF(rec.cep_limpo, '')::numeric(8,0), 0);
+    -- TB_INSTITUICAO do SISLAME representa unidades/escolas.
+    -- Mapeamos todas para a instituicao 1 do i-Educar.
+    v_tem_tb_instituicao := to_regclass('sislami_raw.tb_instituicao') IS NOT NULL;
 
-        INSERT INTO pmieducar.instituicao (
-            ref_usuario_cad,
-            ref_idtlog,
-            ref_sigla_uf,
-            cep,
-            cidade,
-            bairro,
-            logradouro,
-            nm_responsavel,
-            data_cadastro,
-            ativo,
-            nm_instituicao
-        ) VALUES (
-            v_user_id_cad,
-            'RUA',
-            LEFT(rec.uf, 2),
-            v_cep,
-            LEFT(rec.cidade, 60),
-            LEFT(rec.bairro, 40),
-            LEFT(rec.logradouro, 255),
-            'MIGRACAO SISLAMI',
-            now(),
-            1,
-            LEFT(rec.nm_instituicao, 255)
-        )
-        RETURNING cod_instituicao INTO v_cod_instituicao;
-
-        INSERT INTO sislami_migracao.mapa_instituicao (id_sislami_instituicao, cod_instituicao)
-        VALUES (rec.id_sislami_instituicao, v_cod_instituicao);
-    END LOOP;
+    IF EXISTS (SELECT 1 FROM sislami_migracao.mapa_instituicao) THEN
+        UPDATE sislami_migracao.mapa_instituicao
+           SET cod_instituicao = v_instituicao_base
+         WHERE cod_instituicao IS DISTINCT FROM v_instituicao_base;
+    ELSIF v_tem_tb_instituicao THEN
+        EXECUTE format($SQL$
+            INSERT INTO sislami_migracao.mapa_instituicao (id_sislami_instituicao, cod_instituicao)
+            SELECT
+                NULLIF(TRIM(ti.id_instituicao), '')::int AS id_sislami_instituicao,
+                %s
+            FROM sislami_raw.tb_instituicao ti
+            WHERE NULLIF(TRIM(ti.id_instituicao), '') IS NOT NULL
+            ON CONFLICT (id_sislami_instituicao) DO UPDATE
+               SET cod_instituicao = EXCLUDED.cod_instituicao
+        $SQL$, v_instituicao_base);
+    ELSIF to_regclass('sislami_raw.tb_aluno_instituicao') IS NOT NULL THEN
+        EXECUTE format($SQL$
+            INSERT INTO sislami_migracao.mapa_instituicao (id_sislami_instituicao, cod_instituicao)
+            SELECT DISTINCT
+                NULLIF(TRIM(ai.id_instituicao), '')::int,
+                %s
+            FROM sislami_raw.tb_aluno_instituicao ai
+            WHERE NULLIF(TRIM(ai.id_instituicao), '') IS NOT NULL
+            ON CONFLICT (id_sislami_instituicao) DO UPDATE
+               SET cod_instituicao = EXCLUDED.cod_instituicao
+        $SQL$, v_instituicao_base);
+    ELSIF to_regclass('sislami_raw.tb_aluno_etapa') IS NOT NULL THEN
+        EXECUTE format($SQL$
+            INSERT INTO sislami_migracao.mapa_instituicao (id_sislami_instituicao, cod_instituicao)
+            SELECT DISTINCT
+                NULLIF(TRIM(ae.id_instituicao), '')::int,
+                %s
+            FROM sislami_raw.tb_aluno_etapa ae
+            WHERE NULLIF(TRIM(ae.id_instituicao), '') IS NOT NULL
+            ON CONFLICT (id_sislami_instituicao) DO UPDATE
+               SET cod_instituicao = EXCLUDED.cod_instituicao
+        $SQL$, v_instituicao_base);
+    ELSIF to_regclass('sislami_raw.tb_funcionario_instituicao') IS NOT NULL THEN
+        EXECUTE format($SQL$
+            INSERT INTO sislami_migracao.mapa_instituicao (id_sislami_instituicao, cod_instituicao)
+            SELECT DISTINCT
+                NULLIF(TRIM(fi.id_instituicao), '')::int,
+                %s
+            FROM sislami_raw.tb_funcionario_instituicao fi
+            WHERE NULLIF(TRIM(fi.id_instituicao), '') IS NOT NULL
+            ON CONFLICT (id_sislami_instituicao) DO UPDATE
+               SET cod_instituicao = EXCLUDED.cod_instituicao
+        $SQL$, v_instituicao_base);
+    ELSIF to_regclass('sislami_migracao.instituicao') IS NOT NULL THEN
+        EXECUTE format($SQL$
+            INSERT INTO sislami_migracao.mapa_instituicao (id_sislami_instituicao, cod_instituicao)
+            SELECT
+                i.id_sislami_instituicao,
+                %s
+            FROM sislami_migracao.instituicao i
+            WHERE i.id_sislami_instituicao IS NOT NULL
+            ON CONFLICT (id_sislami_instituicao) DO UPDATE
+               SET cod_instituicao = EXCLUDED.cod_instituicao
+        $SQL$, v_instituicao_base);
+    ELSIF to_regclass('sislami_migracao.aluno_instituicao') IS NOT NULL THEN
+        EXECUTE format($SQL$
+            INSERT INTO sislami_migracao.mapa_instituicao (id_sislami_instituicao, cod_instituicao)
+            SELECT DISTINCT
+                ai.id_sislami_instituicao,
+                %s
+            FROM sislami_migracao.aluno_instituicao ai
+            WHERE ai.id_sislami_instituicao IS NOT NULL
+            ON CONFLICT (id_sislami_instituicao) DO UPDATE
+               SET cod_instituicao = EXCLUDED.cod_instituicao
+        $SQL$, v_instituicao_base);
+    ELSE
+        RAISE EXCEPTION 'Nao foi possivel montar mapa_instituicao: nenhuma fonte encontrada. Execute antes o import para sislami_raw no mesmo banco.';
+    END IF;
 
     -- Escola (1:1 com instituicao do SISLAMI)
-    FOR rec IN
-        SELECT
-            mi.id_sislami_instituicao,
-            mi.cod_instituicao
-        FROM sislami_migracao.mapa_instituicao mi
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM sislami_migracao.mapa_escola me
-            WHERE me.id_sislami_instituicao = mi.id_sislami_instituicao
-        )
-        ORDER BY mi.id_sislami_instituicao
-    LOOP
-        INSERT INTO pmieducar.escola (
-            ref_usuario_cad,
-            ref_cod_instituicao,
-            sigla,
-            data_cadastro,
-            ativo
-        ) VALUES (
-            v_user_id_cad,
-            rec.cod_instituicao,
-            LEFT('SL' || rec.id_sislami_instituicao::text, 20),
-            now(),
-            1
-        )
-        RETURNING cod_escola INTO v_cod_escola;
+    IF v_tem_tb_instituicao THEN
+        FOR rec IN
+            SELECT
+                mi.id_sislami_instituicao,
+                mi.cod_instituicao,
+                COALESCE(NULLIF(TRIM(ti.nm_instituicao), ''), 'ESCOLA SISLAMI ' || mi.id_sislami_instituicao::text) AS nm_instituicao
+            FROM sislami_migracao.mapa_instituicao mi
+            LEFT JOIN sislami_raw.tb_instituicao ti
+                   ON NULLIF(TRIM(ti.id_instituicao), '')::int = mi.id_sislami_instituicao
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM sislami_migracao.mapa_escola me
+                WHERE me.id_sislami_instituicao = mi.id_sislami_instituicao
+            )
+            ORDER BY mi.id_sislami_instituicao
+        LOOP
+            INSERT INTO cadastro.pessoa (
+                nome, data_cad, tipo, situacao, origem_gravacao, operacao
+            ) VALUES (
+                LEFT(rec.nm_instituicao, 150), now(), 'J', 'A', 'M', 'I'
+            )
+            RETURNING idpes INTO v_idpes;
 
-        INSERT INTO sislami_migracao.mapa_escola (id_sislami_instituicao, cod_escola)
-        VALUES (rec.id_sislami_instituicao, v_cod_escola);
-    END LOOP;
+            INSERT INTO cadastro.juridica (
+                idpes, cnpj, origem_gravacao, data_cad, operacao, fantasia
+            ) VALUES (
+                v_idpes, NULL, 'M', now(), 'I', LEFT(rec.nm_instituicao, 150)
+            );
+
+            INSERT INTO pmieducar.escola (
+                ref_usuario_cad,
+                ref_cod_instituicao,
+                ref_idpes,
+                sigla,
+                data_cadastro,
+                ativo
+            ) VALUES (
+                v_user_id_cad,
+                rec.cod_instituicao,
+                v_idpes,
+                LEFT('SL' || rec.id_sislami_instituicao::text, 20),
+                now(),
+                1
+            )
+            RETURNING cod_escola INTO v_cod_escola;
+
+            INSERT INTO sislami_migracao.mapa_escola (id_sislami_instituicao, cod_escola)
+            VALUES (rec.id_sislami_instituicao, v_cod_escola);
+        END LOOP;
+    ELSE
+        FOR rec IN
+            SELECT
+                mi.id_sislami_instituicao,
+                mi.cod_instituicao,
+                'ESCOLA SISLAMI ' || mi.id_sislami_instituicao::text AS nm_instituicao
+            FROM sislami_migracao.mapa_instituicao mi
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM sislami_migracao.mapa_escola me
+                WHERE me.id_sislami_instituicao = mi.id_sislami_instituicao
+            )
+            ORDER BY mi.id_sislami_instituicao
+        LOOP
+            INSERT INTO cadastro.pessoa (
+                nome, data_cad, tipo, situacao, origem_gravacao, operacao
+            ) VALUES (
+                LEFT(rec.nm_instituicao, 150), now(), 'J', 'A', 'M', 'I'
+            )
+            RETURNING idpes INTO v_idpes;
+
+            INSERT INTO cadastro.juridica (
+                idpes, cnpj, origem_gravacao, data_cad, operacao, fantasia
+            ) VALUES (
+                v_idpes, NULL, 'M', now(), 'I', LEFT(rec.nm_instituicao, 150)
+            );
+
+            INSERT INTO pmieducar.escola (
+                ref_usuario_cad,
+                ref_cod_instituicao,
+                ref_idpes,
+                sigla,
+                data_cadastro,
+                ativo
+            ) VALUES (
+                v_user_id_cad,
+                rec.cod_instituicao,
+                v_idpes,
+                LEFT('SL' || rec.id_sislami_instituicao::text, 20),
+                now(),
+                1
+            )
+            RETURNING cod_escola INTO v_cod_escola;
+
+            INSERT INTO sislami_migracao.mapa_escola (id_sislami_instituicao, cod_escola)
+            VALUES (rec.id_sislami_instituicao, v_cod_escola);
+        END LOOP;
+    END IF;
+
+    -- Backfill: escolas antigas sem ref_idpes (pessoa juridica)
+    IF v_tem_tb_instituicao THEN
+        FOR rec IN
+            SELECT
+                me.id_sislami_instituicao,
+                me.cod_escola,
+                COALESCE(NULLIF(TRIM(ti.nm_instituicao), ''), 'ESCOLA SISLAMI ' || me.id_sislami_instituicao::text) AS nm_instituicao
+            FROM sislami_migracao.mapa_escola me
+            JOIN pmieducar.escola pe
+              ON pe.cod_escola = me.cod_escola
+            LEFT JOIN sislami_raw.tb_instituicao ti
+                   ON NULLIF(TRIM(ti.id_instituicao), '')::int = me.id_sislami_instituicao
+            WHERE pe.ref_idpes IS NULL
+        LOOP
+            INSERT INTO cadastro.pessoa (
+                nome, data_cad, tipo, situacao, origem_gravacao, operacao
+            ) VALUES (
+                LEFT(rec.nm_instituicao, 150), now(), 'J', 'A', 'M', 'I'
+            )
+            RETURNING idpes INTO v_idpes;
+
+            INSERT INTO cadastro.juridica (
+                idpes, cnpj, origem_gravacao, data_cad, operacao, fantasia
+            ) VALUES (
+                v_idpes, NULL, 'M', now(), 'I', LEFT(rec.nm_instituicao, 150)
+            );
+
+            UPDATE pmieducar.escola
+               SET ref_idpes = v_idpes
+             WHERE cod_escola = rec.cod_escola
+               AND ref_idpes IS NULL;
+        END LOOP;
+    ELSE
+        FOR rec IN
+            SELECT
+                me.id_sislami_instituicao,
+                me.cod_escola,
+                'ESCOLA SISLAMI ' || me.id_sislami_instituicao::text AS nm_instituicao
+            FROM sislami_migracao.mapa_escola me
+            JOIN pmieducar.escola pe
+              ON pe.cod_escola = me.cod_escola
+            WHERE pe.ref_idpes IS NULL
+        LOOP
+            INSERT INTO cadastro.pessoa (
+                nome, data_cad, tipo, situacao, origem_gravacao, operacao
+            ) VALUES (
+                LEFT(rec.nm_instituicao, 150), now(), 'J', 'A', 'M', 'I'
+            )
+            RETURNING idpes INTO v_idpes;
+
+            INSERT INTO cadastro.juridica (
+                idpes, cnpj, origem_gravacao, data_cad, operacao, fantasia
+            ) VALUES (
+                v_idpes, NULL, 'M', now(), 'I', LEFT(rec.nm_instituicao, 150)
+            );
+
+            UPDATE pmieducar.escola
+               SET ref_idpes = v_idpes
+             WHERE cod_escola = rec.cod_escola
+               AND ref_idpes IS NULL;
+        END LOOP;
+    END IF;
 
     -- Aluno + pessoa + fisica
+    SELECT COALESCE((SELECT cod_deficiencia FROM cadastro.deficiencia WHERE nm_deficiencia ILIKE 'Baixa Visão' ORDER BY cod_deficiencia LIMIT 1), 3) INTO v_def_visual;
+    SELECT COALESCE((SELECT cod_deficiencia FROM cadastro.deficiencia WHERE nm_deficiencia ILIKE 'Deficiência Auditiva' ORDER BY cod_deficiencia LIMIT 1), 5) INTO v_def_auditiva;
+    SELECT COALESCE((SELECT cod_deficiencia FROM cadastro.deficiencia WHERE nm_deficiencia ILIKE 'Deficiência Física' ORDER BY cod_deficiencia LIMIT 1), 7) INTO v_def_fisica;
+    SELECT COALESCE((SELECT cod_deficiencia FROM cadastro.deficiencia WHERE nm_deficiencia ILIKE 'Deficiência Mental' ORDER BY cod_deficiencia LIMIT 1), 8) INTO v_def_mental;
+    SELECT COALESCE((SELECT cod_deficiencia FROM cadastro.deficiencia WHERE nm_deficiencia ILIKE 'Deficiência Múltipla' ORDER BY cod_deficiencia LIMIT 1), 9) INTO v_def_multipla;
+    SELECT COALESCE((SELECT cod_deficiencia FROM cadastro.deficiencia WHERE nm_deficiencia ILIKE 'Altas Habilidades/Superdotação' ORDER BY cod_deficiencia LIMIT 1), 14) INTO v_def_superdotado;
+
     FOR rec IN
         SELECT
             a.id_sislami_aluno,
             COALESCE(NULLIF(TRIM(a.nome), ''), 'ALUNO SISLAMI ' || a.id_sislami_aluno::text) AS nome,
             a.data_nascimento,
             CASE WHEN a.sexo IN ('M', 'F') THEN a.sexo ELSE NULL END AS sexo,
+            NULLIF(TRIM(a.cor_raca), '') AS cor_raca,
             NULLIF(regexp_replace(COALESCE(a.cpf, ''), '[^0-9]', '', 'g'), '') AS cpf_limpo,
+            NULLIF(regexp_replace(COALESCE(a.nis, ''), '[^0-9]', '', 'g'), '') AS nis_limpo,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_pis_pasep, ''), '[^0-9]', '', 'g'), '') AS pis_pasep_limpo,
             NULLIF(TRIM(a.nome_mae), '') AS nome_mae,
             NULLIF(TRIM(a.nome_pai), '') AS nome_pai,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_mae_cpf, ''), '[^0-9]', '', 'g'), '') AS cpf_mae_limpo,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_pai_cpf, ''), '[^0-9]', '', 'g'), '') AS cpf_pai_limpo,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_identidade, ''), '[^0-9A-Za-z]', '', 'g'), '') AS identidade_limpo,
+            NULLIF(TRIM(raw_ad.dc_identidade_orgao), '') AS identidade_orgao,
+            NULLIF(TRIM(raw_ad.sg_identidade_uf), '') AS identidade_uf,
+            sislami_migracao.parse_sislami_timestamp(NULLIF(TRIM(raw_ad.dt_identidade_emissao), ''))::date AS data_identidade_emissao,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_titulo_eleitor, ''), '[^0-9]', '', 'g'), '') AS titulo_eleitor_limpo,
+            NULLIF(regexp_replace(COALESCE(raw_ad.dc_titulo_eleitor_zona, ''), '[^0-9]', '', 'g'), '') AS titulo_eleitor_zona_limpo,
+            NULLIF(regexp_replace(COALESCE(raw_ad.dc_titulo_eleitor_secao, ''), '[^0-9]', '', 'g'), '') AS titulo_eleitor_secao_limpo,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_carteira_trabalho, ''), '[^0-9]', '', 'g'), '') AS carteira_trabalho_limpo,
+            NULLIF(TRIM(raw_ad.dc_carteira_trabalho_serie), '') AS carteira_trabalho_serie,
+            NULLIF(TRIM(raw_ad.sg_carteira_trabalho_uf), '') AS carteira_trabalho_uf,
+            NULLIF(TRIM(raw_ad.fl_deficiencia_mental), '') AS fl_deficiencia_mental,
+            NULLIF(TRIM(raw_ad.fl_deficiencia_visual), '') AS fl_deficiencia_visual,
+            NULLIF(TRIM(raw_ad.fl_deficiencia_auditiva), '') AS fl_deficiencia_auditiva,
+            NULLIF(TRIM(raw_ad.fl_deficiencia_fisica), '') AS fl_deficiencia_fisica,
+            NULLIF(TRIM(raw_ad.fl_deficiencia_multipla), '') AS fl_deficiencia_multipla,
+            NULLIF(TRIM(raw_ad.fl_deficiencia_neuromotora), '') AS fl_deficiencia_neuromotora,
+            NULLIF(TRIM(raw_ad.fl_deficiencia_superdotado), '') AS fl_deficiencia_superdotado,
+            sislami_migracao.parse_sislami_timestamp(NULLIF(TRIM(raw_ad.dt_certidao_nascimento), ''))::date AS data_certidao_nascimento,
+            NULLIF(regexp_replace(COALESCE(raw_ad.dc_certidao_nascimento_termo, ''), '[^0-9]', '', 'g'), '') AS certidao_termo_limpo,
+            NULLIF(TRIM(raw_ad.dc_certidao_nascimento_livro), '') AS certidao_livro,
+            NULLIF(regexp_replace(COALESCE(raw_ad.dc_certidao_nascimento_folha, ''), '[^0-9]', '', 'g'), '') AS certidao_folha_limpo,
+            NULLIF(TRIM(raw_ad.dc_certidao_nascimento_cartorio), '') AS certidao_cartorio,
+            NULLIF(TRIM(raw_ad.sg_certidao_nascimento_uf), '') AS certidao_uf,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_telefone_comercial, ''), '[^0-9]', '', 'g'), '') AS telefone_comercial_limpo,
+            NULLIF(TRIM(raw_ad.dc_ocupacao_aluno), '') AS ocupacao_aluno,
+            NULLIF(TRIM(raw_ad.dc_local_trabalho), '') AS local_trabalho,
+            sislami_migracao.parse_sislami_timestamp(NULLIF(TRIM(raw_ad.dt_inicio_trabalho), ''))::date AS data_inicio_trabalho,
+            NULLIF(TRIM(raw_ad.nm_responsavel), '') AS nome_responsavel,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_cns, ''), '[^0-9]', '', 'g'), '') AS cns_limpo,
+            NULLIF(TRIM(raw_ad.dc_nacionalidade), '') AS nacionalidade_bruta,
+            NULLIF(TRIM(raw_ad.tp_origem), '') AS tp_origem,
+            NULLIF(TRIM(raw_ad.tp_moradia), '') AS tp_moradia,
+            NULLIF(TRIM(raw_ad.tp_pai_escolaridade), '') AS tp_pai_escolaridade,
+            NULLIF(TRIM(raw_ad.tp_mae_escolaridade), '') AS tp_mae_escolaridade,
+            NULLIF(TRIM(raw_ad.dc_responsavel_profissao), '') AS profissao_responsavel,
+            NULLIF(TRIM(raw_ad.tp_sanguineo), '') AS tp_sanguineo,
+            NULLIF(TRIM(raw_ad.fl_bolsa_familia), '') AS fl_bolsa_familia,
+            NULLIF(TRIM(raw_ad.dc_problema_saude), '') AS problema_saude,
+            NULLIF(TRIM(raw_ad.dc_medicamento_utilizado), '') AS medicamento_utilizado,
+            NULLIF(TRIM(raw_ad.dc_alergia_medicamento), '') AS alergia_medicamento,
+            NULLIF(TRIM(raw_ad.dc_alergia_alimento), '') AS alergia_alimento,
+            NULLIF(TRIM(raw_ad.nm_pessoa_busca_aluno), '') AS nm_pessoa_busca_aluno,
+            NULLIF(TRIM(raw_ad.dc_grupo_social), '') AS grupo_social,
             NULLIF(TRIM(a.email), '') AS email,
-            NULLIF(TRIM(a.nome_social), '') AS nome_social
+            NULLIF(TRIM(a.nome_social), '') AS nome_social,
+            NULLIF(TRIM(a.logradouro), '') AS logradouro,
+            NULLIF(TRIM(a.numero), '') AS numero,
+            NULLIF(TRIM(a.complemento), '') AS complemento,
+            NULLIF(TRIM(a.bairro), '') AS bairro,
+            NULLIF(TRIM(a.cep), '') AS cep,
+            NULLIF(TRIM(raw_a.tp_localizacao_diferenciada), '') AS tp_localizacao_diferenciada
         FROM sislami_migracao.aluno a
+        LEFT JOIN sislami_raw.tb_aluno raw_a
+               ON NULLIF(TRIM(raw_a.id_aluno), '')::bigint = a.id_sislami_aluno
+        LEFT JOIN sislami_raw.tb_aluno_dado raw_ad
+               ON NULLIF(TRIM(raw_ad.id_aluno), '')::bigint = a.id_sislami_aluno
         WHERE a.id_sislami_aluno IS NOT NULL
           AND NOT EXISTS (
               SELECT 1
@@ -280,72 +591,729 @@ BEGIN
           )
         ORDER BY a.id_sislami_aluno
     LOOP
-        INSERT INTO cadastro.pessoa (
-            nome,
-            data_cad,
-            tipo,
-            email,
-            situacao,
+        v_cpf := CASE
+            WHEN rec.cpf_limpo IS NULL THEN NULL
+            ELSE NULLIF(rec.cpf_limpo, '')::numeric(11,0)
+        END;
+        v_nis := CASE
+            WHEN COALESCE(rec.nis_limpo, rec.pis_pasep_limpo) IS NULL THEN NULL
+            ELSE NULLIF(COALESCE(rec.nis_limpo, rec.pis_pasep_limpo), '')::numeric(11,0)
+        END;
+        v_cod_raca := CASE
+            WHEN rec.cor_raca IS NULL THEN NULL
+            WHEN rec.cor_raca ~ '^[1-6]$' THEN rec.cor_raca::int
+            WHEN upper(rec.cor_raca) IN ('B', 'BRANCA') THEN 1
+            WHEN upper(rec.cor_raca) IN ('P', 'PRETA') THEN 2
+            WHEN upper(rec.cor_raca) IN ('PARDA') THEN 3
+            WHEN upper(rec.cor_raca) IN ('A', 'AMARELA') THEN 4
+            WHEN upper(rec.cor_raca) IN ('I', 'INDIGENA', 'INDÍGENA') THEN 5
+            WHEN upper(rec.cor_raca) IN ('N', 'NAO_DECLARADA', 'NÃO_DECLARADA', 'NAO DECLARADA', 'NÃO DECLARADA') THEN 6
+            ELSE NULL
+        END;
+        v_localizacao_diferenciada := CASE
+            WHEN rec.tp_localizacao_diferenciada ~ '^[0-9]+$' THEN rec.tp_localizacao_diferenciada::int
+            ELSE NULL
+        END;
+        v_telefone_empresa := CASE
+            WHEN rec.telefone_comercial_limpo IS NULL THEN NULL
+            ELSE rec.telefone_comercial_limpo::numeric
+        END;
+        v_ddd_telefone_empresa := CASE
+            WHEN rec.telefone_comercial_limpo IS NOT NULL AND length(rec.telefone_comercial_limpo) >= 10
+                THEN substring(rec.telefone_comercial_limpo from 1 for 2)::numeric
+            ELSE NULL
+        END;
+        v_observacao_extra := NULLIF(
+            concat_ws(E'\n',
+                CASE WHEN rec.tp_origem IS NOT NULL THEN 'SISLAME tp_origem=' || rec.tp_origem END,
+                CASE WHEN rec.tp_moradia IS NOT NULL THEN 'SISLAME tp_moradia=' || rec.tp_moradia END,
+                CASE WHEN rec.tp_pai_escolaridade IS NOT NULL THEN 'SISLAME tp_pai_escolaridade=' || rec.tp_pai_escolaridade END,
+                CASE WHEN rec.tp_mae_escolaridade IS NOT NULL THEN 'SISLAME tp_mae_escolaridade=' || rec.tp_mae_escolaridade END,
+                CASE WHEN rec.profissao_responsavel IS NOT NULL THEN 'SISLAME profissao_responsavel=' || rec.profissao_responsavel END,
+                CASE WHEN rec.tp_sanguineo IS NOT NULL THEN 'SISLAME tp_sanguineo=' || rec.tp_sanguineo END,
+                CASE WHEN rec.fl_bolsa_familia IS NOT NULL THEN 'SISLAME bolsa_familia=' || rec.fl_bolsa_familia END,
+                CASE WHEN rec.problema_saude IS NOT NULL THEN 'SISLAME problema_saude=' || rec.problema_saude END,
+                CASE WHEN rec.medicamento_utilizado IS NOT NULL THEN 'SISLAME medicamento_utilizado=' || rec.medicamento_utilizado END,
+                CASE WHEN rec.alergia_medicamento IS NOT NULL THEN 'SISLAME alergia_medicamento=' || rec.alergia_medicamento END,
+                CASE WHEN rec.alergia_alimento IS NOT NULL THEN 'SISLAME alergia_alimento=' || rec.alergia_alimento END,
+                CASE WHEN rec.nm_pessoa_busca_aluno IS NOT NULL THEN 'SISLAME pessoa_busca_aluno=' || rec.nm_pessoa_busca_aluno END,
+                CASE WHEN rec.grupo_social IS NOT NULL THEN 'SISLAME grupo_social=' || rec.grupo_social END
+            ),
+            ''
+        );
+        v_nacionalidade := CASE
+            WHEN rec.nacionalidade_bruta IS NULL THEN NULL
+            WHEN rec.nacionalidade_bruta ~ '^[0-9]+$' THEN rec.nacionalidade_bruta::numeric
+            WHEN upper(rec.nacionalidade_bruta) IN ('BRASILEIRA', 'BRASILEIRO', 'BRASIL') THEN 1
+            ELSE NULL
+        END;
+        v_cpf_mae := CASE
+            WHEN rec.cpf_mae_limpo IS NULL THEN NULL
+            ELSE NULLIF(rec.cpf_mae_limpo, '')::numeric(11,0)
+        END;
+        v_cpf_pai := CASE
+            WHEN rec.cpf_pai_limpo IS NULL THEN NULL
+            ELSE NULLIF(rec.cpf_pai_limpo, '')::numeric(11,0)
+        END;
+
+        v_idpes := NULL;
+        IF v_cpf IS NOT NULL THEN
+            SELECT f.idpes INTO v_idpes
+            FROM cadastro.fisica f
+            WHERE f.cpf = v_cpf
+            ORDER BY f.idpes
+            LIMIT 1;
+        END IF;
+
+        IF v_idpes IS NULL THEN
+            INSERT INTO cadastro.pessoa (
+                nome,
+                data_cad,
+                tipo,
+                email,
+                situacao,
+                origem_gravacao,
+                operacao
+            ) VALUES (
+                LEFT(rec.nome, 150),
+                now(),
+                'F',
+                LEFT(rec.email, 100),
+                'A',
+                'M',
+                'I'
+            )
+            RETURNING idpes INTO v_idpes;
+
+            INSERT INTO cadastro.fisica (
+                idpes,
+                data_nasc,
+                sexo,
+                ideciv,
+                nome_mae,
+                nome_pai,
+                origem_gravacao,
+                data_cad,
+                operacao,
+                cpf,
+                nome_social,
+                nis_pis_pasep,
+                localizacao_diferenciada,
+                ocupacao,
+                local_trabalho,
+                data_admissao,
+                nome_responsavel,
+                sus,
+                telefone_empresa,
+                ddd_telefone_empresa,
+                observacao,
+                nacionalidade
+            ) VALUES (
+                v_idpes,
+                rec.data_nascimento,
+                rec.sexo,
+                7,
+                LEFT(rec.nome_mae, 150),
+                LEFT(rec.nome_pai, 150),
+                'M',
+                now(),
+                'I',
+                v_cpf,
+                LEFT(rec.nome_social, 150),
+                v_nis,
+                v_localizacao_diferenciada,
+                LEFT(rec.ocupacao_aluno, 150),
+                LEFT(rec.local_trabalho, 150),
+                rec.data_inicio_trabalho,
+                LEFT(rec.nome_responsavel, 150),
+                LEFT(rec.cns_limpo, 30),
+                v_telefone_empresa,
+                v_ddd_telefone_empresa,
+                v_observacao_extra,
+                v_nacionalidade
+            );
+        ELSE
+            UPDATE cadastro.pessoa
+               SET nome = COALESCE(NULLIF(LEFT(rec.nome, 150), ''), nome),
+                   email = COALESCE(NULLIF(LEFT(rec.email, 100), ''), email)
+             WHERE idpes = v_idpes;
+
+            UPDATE cadastro.fisica
+               SET data_nasc = COALESCE(rec.data_nascimento, data_nasc),
+                   sexo = COALESCE(rec.sexo, sexo),
+                   ideciv = 7,
+                   nome_mae = COALESCE(NULLIF(LEFT(rec.nome_mae, 150), ''), nome_mae),
+                   nome_pai = COALESCE(NULLIF(LEFT(rec.nome_pai, 150), ''), nome_pai),
+                   nome_social = COALESCE(NULLIF(LEFT(rec.nome_social, 150), ''), nome_social),
+                   nis_pis_pasep = COALESCE(v_nis, nis_pis_pasep),
+                   localizacao_diferenciada = COALESCE(v_localizacao_diferenciada, localizacao_diferenciada),
+                   ocupacao = COALESCE(NULLIF(LEFT(rec.ocupacao_aluno, 150), ''), ocupacao),
+                   local_trabalho = COALESCE(NULLIF(LEFT(rec.local_trabalho, 150), ''), local_trabalho),
+                   data_admissao = COALESCE(rec.data_inicio_trabalho, data_admissao),
+                   nome_responsavel = COALESCE(NULLIF(LEFT(rec.nome_responsavel, 150), ''), nome_responsavel),
+                   sus = COALESCE(NULLIF(LEFT(rec.cns_limpo, 30), ''), sus),
+                   telefone_empresa = COALESCE(v_telefone_empresa, telefone_empresa),
+                   ddd_telefone_empresa = COALESCE(v_ddd_telefone_empresa, ddd_telefone_empresa),
+                   nacionalidade = COALESCE(v_nacionalidade, nacionalidade),
+                   observacao = CASE
+                       WHEN v_observacao_extra IS NULL THEN observacao
+                       WHEN observacao IS NULL OR btrim(observacao) = '' THEN v_observacao_extra
+                       WHEN position(v_observacao_extra in observacao) > 0 THEN observacao
+                       ELSE observacao || E'\n' || v_observacao_extra
+                   END
+             WHERE idpes = v_idpes;
+        END IF;
+
+        IF v_cod_raca IS NOT NULL THEN
+            INSERT INTO cadastro.fisica_raca (ref_idpes, ref_cod_raca)
+            VALUES (v_idpes::int, v_cod_raca)
+            ON CONFLICT (ref_idpes) DO UPDATE
+               SET ref_cod_raca = EXCLUDED.ref_cod_raca;
+        END IF;
+
+        -- Endereco do aluno no cadastro (view cadastro.endereco_pessoa)
+        IF rec.logradouro IS NOT NULL OR rec.numero IS NOT NULL OR rec.bairro IS NOT NULL OR rec.cep IS NOT NULL THEN
+            SELECT php.place_id
+              INTO v_place_id
+              FROM person_has_place php
+             WHERE php.person_id = v_idpes::integer
+               AND php.type = 1
+             ORDER BY php.id DESC
+             LIMIT 1;
+
+            IF v_place_id IS NULL THEN
+                INSERT INTO places (
+                    address, number, complement, neighborhood, postal_code, created_at, updated_at
+                ) VALUES (
+                    LEFT(rec.logradouro, 255),
+                    LEFT(rec.numero, 20),
+                    LEFT(rec.complemento, 150),
+                    LEFT(rec.bairro, 150),
+                    LEFT(regexp_replace(COALESCE(rec.cep, ''), '[^0-9]', '', 'g'), 10),
+                    now(),
+                    now()
+                )
+                RETURNING id INTO v_place_id;
+
+                INSERT INTO person_has_place (
+                    person_id, place_id, type, created_at, updated_at
+                ) VALUES (
+                    v_idpes::integer, v_place_id, 1, now(), now()
+                )
+                ON CONFLICT (person_id, type) DO UPDATE
+                   SET place_id = EXCLUDED.place_id,
+                       updated_at = now();
+            ELSE
+                UPDATE places
+                   SET address = COALESCE(NULLIF(LEFT(rec.logradouro, 255), ''), address),
+                       number = COALESCE(NULLIF(LEFT(rec.numero, 20), ''), number),
+                       complement = COALESCE(NULLIF(LEFT(rec.complemento, 150), ''), complement),
+                       neighborhood = COALESCE(NULLIF(LEFT(rec.bairro, 150), ''), neighborhood),
+                       postal_code = COALESCE(NULLIF(LEFT(regexp_replace(COALESCE(rec.cep, ''), '[^0-9]', '', 'g'), 10), ''), postal_code),
+                       updated_at = now()
+                 WHERE id = v_place_id;
+            END IF;
+        END IF;
+
+        v_idorg_rg := NULL;
+        IF rec.identidade_orgao IS NOT NULL THEN
+            SELECT o.idorg_rg
+              INTO v_idorg_rg
+              FROM cadastro.orgao_emissor_rg o
+             WHERE upper(trim(o.sigla)) = upper(trim(rec.identidade_orgao))
+                OR upper(trim(o.descricao)) = upper(trim(rec.identidade_orgao))
+             ORDER BY
+                CASE WHEN upper(trim(o.sigla)) = upper(trim(rec.identidade_orgao)) THEN 0 ELSE 1 END,
+                o.idorg_rg
+             LIMIT 1;
+        END IF;
+
+        INSERT INTO cadastro.documento (
+            idpes,
+            rg,
+            data_exp_rg,
+            sigla_uf_exp_rg,
+            num_cart_trabalho,
+            serie_cart_trabalho,
+            sigla_uf_cart_trabalho,
+            num_tit_eleitor,
+            zona_tit_eleitor,
+            secao_tit_eleitor,
+            data_emissao_cert_civil,
+            num_termo,
+            num_livro,
+            num_folha,
+            sigla_uf_cert_civil,
+            cartorio_cert_civil,
+            certidao_nascimento,
+            idorg_exp_rg,
             origem_gravacao,
+            data_cad,
             operacao
         ) VALUES (
-            LEFT(rec.nome, 150),
-            now(),
-            'F',
-            LEFT(rec.email, 100),
-            'A',
+            v_idpes,
+            LEFT(rec.identidade_limpo, 20),
+            rec.data_identidade_emissao,
+            LEFT(rec.identidade_uf, 2),
+            LEFT(rec.carteira_trabalho_limpo, 20),
+            LEFT(rec.carteira_trabalho_serie, 15),
+            LEFT(rec.carteira_trabalho_uf, 2),
+            LEFT(rec.titulo_eleitor_limpo, 20),
+            LEFT(rec.titulo_eleitor_zona_limpo, 10),
+            LEFT(rec.titulo_eleitor_secao_limpo, 10),
+            rec.data_certidao_nascimento,
+            CASE WHEN rec.certidao_termo_limpo ~ '^[0-9]+$' THEN rec.certidao_termo_limpo::numeric ELSE NULL END,
+            LEFT(rec.certidao_livro, 8),
+            CASE WHEN rec.certidao_folha_limpo ~ '^[0-9]+$' THEN rec.certidao_folha_limpo::numeric ELSE NULL END,
+            LEFT(rec.certidao_uf, 2),
+            LEFT(rec.certidao_cartorio, 200),
+            LEFT(COALESCE(rec.certidao_termo_limpo, rec.certidao_livro, rec.certidao_folha_limpo), 50),
+            v_idorg_rg,
             'M',
+            now(),
             'I'
         )
-        RETURNING idpes INTO v_idpes;
+        ON CONFLICT (idpes) DO UPDATE
+           SET rg = COALESCE(NULLIF(EXCLUDED.rg, ''), cadastro.documento.rg),
+               data_exp_rg = COALESCE(EXCLUDED.data_exp_rg, cadastro.documento.data_exp_rg),
+               sigla_uf_exp_rg = COALESCE(NULLIF(EXCLUDED.sigla_uf_exp_rg, ''), cadastro.documento.sigla_uf_exp_rg),
+               num_cart_trabalho = COALESCE(NULLIF(EXCLUDED.num_cart_trabalho, ''), cadastro.documento.num_cart_trabalho),
+               serie_cart_trabalho = COALESCE(NULLIF(EXCLUDED.serie_cart_trabalho, ''), cadastro.documento.serie_cart_trabalho),
+               sigla_uf_cart_trabalho = COALESCE(NULLIF(EXCLUDED.sigla_uf_cart_trabalho, ''), cadastro.documento.sigla_uf_cart_trabalho),
+               num_tit_eleitor = COALESCE(NULLIF(EXCLUDED.num_tit_eleitor, ''), cadastro.documento.num_tit_eleitor),
+               zona_tit_eleitor = COALESCE(NULLIF(EXCLUDED.zona_tit_eleitor, ''), cadastro.documento.zona_tit_eleitor),
+               secao_tit_eleitor = COALESCE(NULLIF(EXCLUDED.secao_tit_eleitor, ''), cadastro.documento.secao_tit_eleitor),
+               data_emissao_cert_civil = COALESCE(EXCLUDED.data_emissao_cert_civil, cadastro.documento.data_emissao_cert_civil),
+               num_termo = COALESCE(EXCLUDED.num_termo, cadastro.documento.num_termo),
+               num_livro = COALESCE(NULLIF(EXCLUDED.num_livro, ''), cadastro.documento.num_livro),
+               num_folha = COALESCE(EXCLUDED.num_folha, cadastro.documento.num_folha),
+               sigla_uf_cert_civil = COALESCE(NULLIF(EXCLUDED.sigla_uf_cert_civil, ''), cadastro.documento.sigla_uf_cert_civil),
+               cartorio_cert_civil = COALESCE(NULLIF(EXCLUDED.cartorio_cert_civil, ''), cadastro.documento.cartorio_cert_civil),
+               certidao_nascimento = COALESCE(NULLIF(EXCLUDED.certidao_nascimento, ''), cadastro.documento.certidao_nascimento),
+               idorg_exp_rg = COALESCE(EXCLUDED.idorg_exp_rg, cadastro.documento.idorg_exp_rg),
+               data_rev = now(),
+               operacao = 'A';
 
+        -- Deficiencias: sincroniza flags do SISLAME para o cadastro.fisica_deficiencia
+        DELETE FROM cadastro.fisica_deficiencia
+         WHERE ref_idpes = v_idpes::int
+           AND ref_cod_deficiencia IN (v_def_visual, v_def_auditiva, v_def_fisica, v_def_mental, v_def_multipla, v_def_superdotado);
+
+        IF upper(COALESCE(rec.fl_deficiencia_visual, '0')) IN ('1', 'S', 'SIM', 'T', 'TRUE') THEN
+            INSERT INTO cadastro.fisica_deficiencia (ref_idpes, ref_cod_deficiencia)
+            VALUES (v_idpes::int, v_def_visual)
+            ON CONFLICT DO NOTHING;
+        END IF;
+
+        IF upper(COALESCE(rec.fl_deficiencia_auditiva, '0')) IN ('1', 'S', 'SIM', 'T', 'TRUE') THEN
+            INSERT INTO cadastro.fisica_deficiencia (ref_idpes, ref_cod_deficiencia)
+            VALUES (v_idpes::int, v_def_auditiva)
+            ON CONFLICT DO NOTHING;
+        END IF;
+
+        IF upper(COALESCE(rec.fl_deficiencia_fisica, '0')) IN ('1', 'S', 'SIM', 'T', 'TRUE')
+           OR upper(COALESCE(rec.fl_deficiencia_neuromotora, '0')) IN ('1', 'S', 'SIM', 'T', 'TRUE') THEN
+            INSERT INTO cadastro.fisica_deficiencia (ref_idpes, ref_cod_deficiencia)
+            VALUES (v_idpes::int, v_def_fisica)
+            ON CONFLICT DO NOTHING;
+        END IF;
+
+        IF upper(COALESCE(rec.fl_deficiencia_mental, '0')) IN ('1', 'S', 'SIM', 'T', 'TRUE') THEN
+            INSERT INTO cadastro.fisica_deficiencia (ref_idpes, ref_cod_deficiencia)
+            VALUES (v_idpes::int, v_def_mental)
+            ON CONFLICT DO NOTHING;
+        END IF;
+
+        IF upper(COALESCE(rec.fl_deficiencia_multipla, '0')) IN ('1', 'S', 'SIM', 'T', 'TRUE') THEN
+            INSERT INTO cadastro.fisica_deficiencia (ref_idpes, ref_cod_deficiencia)
+            VALUES (v_idpes::int, v_def_multipla)
+            ON CONFLICT DO NOTHING;
+        END IF;
+
+        IF upper(COALESCE(rec.fl_deficiencia_superdotado, '0')) IN ('1', 'S', 'SIM', 'T', 'TRUE') THEN
+            INSERT INTO cadastro.fisica_deficiencia (ref_idpes, ref_cod_deficiencia)
+            VALUES (v_idpes::int, v_def_superdotado)
+            ON CONFLICT DO NOTHING;
+        END IF;
+
+        SELECT cod_aluno INTO v_cod_aluno
+        FROM pmieducar.aluno
+        WHERE ref_idpes = v_idpes
+        ORDER BY cod_aluno
+        LIMIT 1;
+
+        IF v_cod_aluno IS NULL THEN
+            INSERT INTO pmieducar.aluno (
+                ref_idpes,
+                data_cadastro,
+                ativo,
+                nm_mae,
+                nm_pai
+            ) VALUES (
+                v_idpes,
+                now(),
+                1,
+                LEFT(rec.nome_mae, 255),
+                LEFT(rec.nome_pai, 255)
+            )
+            RETURNING cod_aluno INTO v_cod_aluno;
+        ELSE
+            UPDATE pmieducar.aluno
+               SET nm_mae = COALESCE(NULLIF(LEFT(rec.nome_mae, 255), ''), nm_mae),
+                   nm_pai = COALESCE(NULLIF(LEFT(rec.nome_pai, 255), ''), nm_pai)
+             WHERE cod_aluno = v_cod_aluno;
+        END IF;
+
+        v_idpes_mae := NULL;
+        IF NULLIF(LEFT(rec.nome_mae, 150), '') IS NOT NULL OR v_cpf_mae IS NOT NULL THEN
+            IF v_cpf_mae IS NOT NULL THEN
+                SELECT f2.idpes INTO v_idpes_mae
+                FROM cadastro.fisica f2
+                WHERE f2.cpf = v_cpf_mae
+                ORDER BY f2.idpes
+                LIMIT 1;
+            END IF;
+
+            IF v_idpes_mae IS NULL AND NULLIF(LEFT(rec.nome_mae, 150), '') IS NOT NULL THEN
+                SELECT p.idpes INTO v_idpes_mae
+                FROM cadastro.pessoa p
+                JOIN cadastro.fisica f2 ON f2.idpes = p.idpes
+                WHERE p.tipo = 'F'
+                  AND lower(trim(p.nome)) = lower(trim(LEFT(rec.nome_mae, 150)))
+                ORDER BY p.idpes
+                LIMIT 1;
+            END IF;
+
+            IF v_idpes_mae IS NULL THEN
+                INSERT INTO cadastro.pessoa (
+                    nome, data_cad, tipo, situacao, origem_gravacao, operacao
+                ) VALUES (
+                    COALESCE(LEFT(rec.nome_mae, 150), 'MAE SISLAME ' || rec.id_sislami_aluno::text),
+                    now(), 'F', 'A', 'M', 'I'
+                )
+                RETURNING idpes INTO v_idpes_mae;
+
+                INSERT INTO cadastro.fisica (
+                    idpes, sexo, ideciv, origem_gravacao, data_cad, operacao, cpf
+                ) VALUES (
+                    v_idpes_mae, 'F', 7, 'M', now(), 'I', v_cpf_mae
+                );
+            ELSIF v_cpf_mae IS NOT NULL THEN
+                UPDATE cadastro.fisica
+                   SET cpf = COALESCE(cpf, v_cpf_mae)
+                 WHERE idpes = v_idpes_mae;
+            END IF;
+        END IF;
+
+        v_idpes_pai := NULL;
+        IF NULLIF(LEFT(rec.nome_pai, 150), '') IS NOT NULL OR v_cpf_pai IS NOT NULL THEN
+            IF v_cpf_pai IS NOT NULL THEN
+                SELECT f2.idpes INTO v_idpes_pai
+                FROM cadastro.fisica f2
+                WHERE f2.cpf = v_cpf_pai
+                ORDER BY f2.idpes
+                LIMIT 1;
+            END IF;
+
+            IF v_idpes_pai IS NULL AND NULLIF(LEFT(rec.nome_pai, 150), '') IS NOT NULL THEN
+                SELECT p.idpes INTO v_idpes_pai
+                FROM cadastro.pessoa p
+                JOIN cadastro.fisica f2 ON f2.idpes = p.idpes
+                WHERE p.tipo = 'F'
+                  AND lower(trim(p.nome)) = lower(trim(LEFT(rec.nome_pai, 150)))
+                ORDER BY p.idpes
+                LIMIT 1;
+            END IF;
+
+            IF v_idpes_pai IS NULL THEN
+                INSERT INTO cadastro.pessoa (
+                    nome, data_cad, tipo, situacao, origem_gravacao, operacao
+                ) VALUES (
+                    COALESCE(LEFT(rec.nome_pai, 150), 'PAI SISLAME ' || rec.id_sislami_aluno::text),
+                    now(), 'F', 'A', 'M', 'I'
+                )
+                RETURNING idpes INTO v_idpes_pai;
+
+                INSERT INTO cadastro.fisica (
+                    idpes, sexo, ideciv, origem_gravacao, data_cad, operacao, cpf
+                ) VALUES (
+                    v_idpes_pai, 'M', 7, 'M', now(), 'I', v_cpf_pai
+                );
+            ELSIF v_cpf_pai IS NOT NULL THEN
+                UPDATE cadastro.fisica
+                   SET cpf = COALESCE(cpf, v_cpf_pai)
+                 WHERE idpes = v_idpes_pai;
+            END IF;
+        END IF;
+
+        UPDATE cadastro.fisica
+           SET idpes_mae = COALESCE(v_idpes_mae, idpes_mae),
+               idpes_pai = COALESCE(v_idpes_pai, idpes_pai),
+               nome_mae = COALESCE(NULLIF(LEFT(rec.nome_mae, 150), ''), nome_mae),
+               nome_pai = COALESCE(NULLIF(LEFT(rec.nome_pai, 150), ''), nome_pai)
+         WHERE idpes = v_idpes;
+
+        INSERT INTO sislami_migracao.mapa_aluno (id_sislami_aluno, idpes, cod_aluno)
+        VALUES (rec.id_sislami_aluno, v_idpes, v_cod_aluno);
+    END LOOP;
+
+    -- Backfill de nomes de pai/mae para alunos previamente mapeados
+    UPDATE cadastro.fisica f
+       SET nome_mae = COALESCE(NULLIF(LEFT(a.nome_mae, 150), ''), f.nome_mae),
+           nome_pai = COALESCE(NULLIF(LEFT(a.nome_pai, 150), ''), f.nome_pai)
+      FROM sislami_migracao.mapa_aluno ma
+      JOIN sislami_migracao.aluno a
+        ON a.id_sislami_aluno = ma.id_sislami_aluno
+     WHERE f.idpes = ma.idpes;
+
+    UPDATE pmieducar.aluno pa
+       SET nm_mae = COALESCE(NULLIF(LEFT(a.nome_mae, 255), ''), pa.nm_mae),
+           nm_pai = COALESCE(NULLIF(LEFT(a.nome_pai, 255), ''), pa.nm_pai)
+      FROM sislami_migracao.mapa_aluno ma
+      JOIN sislami_migracao.aluno a
+        ON a.id_sislami_aluno = ma.id_sislami_aluno
+     WHERE pa.cod_aluno = ma.cod_aluno;
+
+    -- Codigo INEP do aluno (TB_ALUNO.CD_INEP -> modules.educacenso_cod_aluno)
+    INSERT INTO modules.educacenso_cod_aluno (
+        cod_aluno,
+        cod_aluno_inep,
+        nome_inep,
+        fonte,
+        created_at,
+        updated_at
+    )
+    SELECT
+        src.cod_aluno,
+        src.cod_aluno_inep,
+        src.nome_inep,
+        'SISLAME' AS fonte,
+        now() AS created_at,
+        now() AS updated_at
+    FROM (
+        SELECT DISTINCT ON (ma.cod_aluno, inep.cod_aluno_inep)
+            ma.cod_aluno,
+            inep.cod_aluno_inep,
+            LEFT(COALESCE(NULLIF(TRIM(ta.nm_aluno), ''), 'ALUNO SISLAME'), 255) AS nome_inep
+        FROM sislami_migracao.mapa_aluno ma
+        JOIN sislami_raw.tb_aluno ta
+          ON NULLIF(TRIM(ta.id_aluno), '')::bigint = ma.id_sislami_aluno
+        CROSS JOIN LATERAL (
+            SELECT NULLIF(regexp_replace(COALESCE(TRIM(ta.cd_inep), ''), '[^0-9]', '', 'g'), '')::bigint AS cod_aluno_inep
+        ) inep
+        WHERE inep.cod_aluno_inep IS NOT NULL
+        ORDER BY
+            ma.cod_aluno,
+            inep.cod_aluno_inep,
+            (NULLIF(TRIM(ta.nm_aluno), '') IS NOT NULL) DESC,
+            ma.id_sislami_aluno
+    ) src
+    ON CONFLICT (cod_aluno, cod_aluno_inep) DO UPDATE
+       SET nome_inep = EXCLUDED.nome_inep,
+           fonte = EXCLUDED.fonte,
+           updated_at = now();
+
+    -- Backfill: cria pai/mae como pessoa/fisica e vincula na fisica do aluno
+    FOR rec IN
+        SELECT
+            ma.idpes AS idpes_aluno,
+            NULLIF(LEFT(a.nome_mae, 150), '') AS nome_mae,
+            NULLIF(LEFT(a.nome_pai, 150), '') AS nome_pai,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_mae_cpf, ''), '[^0-9]', '', 'g'), '') AS cpf_mae_limpo,
+            NULLIF(regexp_replace(COALESCE(raw_ad.nu_pai_cpf, ''), '[^0-9]', '', 'g'), '') AS cpf_pai_limpo
+        FROM sislami_migracao.mapa_aluno ma
+        JOIN sislami_migracao.aluno a
+          ON a.id_sislami_aluno = ma.id_sislami_aluno
+        LEFT JOIN sislami_raw.tb_aluno raw_a
+               ON NULLIF(TRIM(raw_a.id_aluno), '')::bigint = a.id_sislami_aluno
+        LEFT JOIN sislami_raw.tb_aluno_dado raw_ad
+               ON NULLIF(TRIM(raw_ad.id_aluno), '')::bigint = a.id_sislami_aluno
+    LOOP
+        v_cpf_mae := CASE
+            WHEN rec.cpf_mae_limpo IS NULL THEN NULL
+            ELSE NULLIF(rec.cpf_mae_limpo, '')::numeric(11,0)
+        END;
+        v_cpf_pai := CASE
+            WHEN rec.cpf_pai_limpo IS NULL THEN NULL
+            ELSE NULLIF(rec.cpf_pai_limpo, '')::numeric(11,0)
+        END;
+
+        v_idpes_mae := NULL;
+        IF rec.nome_mae IS NOT NULL OR v_cpf_mae IS NOT NULL THEN
+            IF v_cpf_mae IS NOT NULL THEN
+                SELECT f2.idpes INTO v_idpes_mae
+                FROM cadastro.fisica f2
+                WHERE f2.cpf = v_cpf_mae
+                ORDER BY f2.idpes
+                LIMIT 1;
+            END IF;
+
+            IF v_idpes_mae IS NULL AND rec.nome_mae IS NOT NULL THEN
+                SELECT p.idpes INTO v_idpes_mae
+                FROM cadastro.pessoa p
+                JOIN cadastro.fisica f2 ON f2.idpes = p.idpes
+                WHERE p.tipo = 'F'
+                  AND lower(trim(p.nome)) = lower(trim(rec.nome_mae))
+                ORDER BY p.idpes
+                LIMIT 1;
+            END IF;
+
+            IF v_idpes_mae IS NULL THEN
+                INSERT INTO cadastro.pessoa (
+                    nome, data_cad, tipo, situacao, origem_gravacao, operacao
+                ) VALUES (
+                    COALESCE(rec.nome_mae, 'MAE SISLAME ' || rec.idpes_aluno::text), now(), 'F', 'A', 'M', 'I'
+                )
+                RETURNING idpes INTO v_idpes_mae;
+
+                INSERT INTO cadastro.fisica (
+                    idpes, sexo, ideciv, origem_gravacao, data_cad, operacao, cpf
+                ) VALUES (
+                    v_idpes_mae, 'F', 7, 'M', now(), 'I', v_cpf_mae
+                );
+            ELSIF v_cpf_mae IS NOT NULL THEN
+                UPDATE cadastro.fisica
+                   SET cpf = COALESCE(cpf, v_cpf_mae)
+                 WHERE idpes = v_idpes_mae;
+            END IF;
+        END IF;
+
+        v_idpes_pai := NULL;
+        IF rec.nome_pai IS NOT NULL OR v_cpf_pai IS NOT NULL THEN
+            IF v_cpf_pai IS NOT NULL THEN
+                SELECT f2.idpes INTO v_idpes_pai
+                FROM cadastro.fisica f2
+                WHERE f2.cpf = v_cpf_pai
+                ORDER BY f2.idpes
+                LIMIT 1;
+            END IF;
+
+            IF v_idpes_pai IS NULL AND rec.nome_pai IS NOT NULL THEN
+                SELECT p.idpes INTO v_idpes_pai
+                FROM cadastro.pessoa p
+                JOIN cadastro.fisica f2 ON f2.idpes = p.idpes
+                WHERE p.tipo = 'F'
+                  AND lower(trim(p.nome)) = lower(trim(rec.nome_pai))
+                ORDER BY p.idpes
+                LIMIT 1;
+            END IF;
+
+            IF v_idpes_pai IS NULL THEN
+                INSERT INTO cadastro.pessoa (
+                    nome, data_cad, tipo, situacao, origem_gravacao, operacao
+                ) VALUES (
+                    COALESCE(rec.nome_pai, 'PAI SISLAME ' || rec.idpes_aluno::text), now(), 'F', 'A', 'M', 'I'
+                )
+                RETURNING idpes INTO v_idpes_pai;
+
+                INSERT INTO cadastro.fisica (
+                    idpes, sexo, ideciv, origem_gravacao, data_cad, operacao, cpf
+                ) VALUES (
+                    v_idpes_pai, 'M', 7, 'M', now(), 'I', v_cpf_pai
+                );
+            ELSIF v_cpf_pai IS NOT NULL THEN
+                UPDATE cadastro.fisica
+                   SET cpf = COALESCE(cpf, v_cpf_pai)
+                 WHERE idpes = v_idpes_pai;
+            END IF;
+        END IF;
+
+        UPDATE cadastro.fisica
+           SET idpes_mae = COALESCE(v_idpes_mae, idpes_mae),
+               idpes_pai = COALESCE(v_idpes_pai, idpes_pai)
+         WHERE idpes = rec.idpes_aluno;
+    END LOOP;
+
+    -- Servidor: pessoa + fisica
+    FOR rec IN
+        SELECT
+            NULLIF(TRIM(f.id_funcionario), '')::bigint AS id_funcionario,
+            COALESCE(NULLIF(TRIM(f.nm_funcionario), ''), 'SERVIDOR SISLAMI ' || NULLIF(TRIM(f.id_funcionario), '')) AS nome,
+            sislami_migracao.parse_sislami_timestamp(NULLIF(TRIM(f.dt_nascimento), ''))::date AS data_nascimento,
+            CASE WHEN NULLIF(TRIM(f.tp_sexo), '') IN ('M', 'F') THEN NULLIF(TRIM(f.tp_sexo), '') ELSE NULL END AS sexo,
+            NULLIF(TRIM(f.nm_mae), '') AS nome_mae,
+            NULLIF(TRIM(f.nm_pai), '') AS nome_pai,
+            NULLIF(regexp_replace(COALESCE(fd.nu_cpf, f.nu_cpf_importacao, ''), '[^0-9]', '', 'g'), '') AS cpf_limpo,
+            COALESCE(NULLIF(TRIM(fd.ed_email), ''), NULLIF(TRIM(f.ed_email), '')) AS email
+        FROM sislami_raw.tb_funcionario f
+        LEFT JOIN sislami_raw.tb_funcionario_dado fd
+               ON NULLIF(TRIM(fd.id_funcionario), '') = NULLIF(TRIM(f.id_funcionario), '')
+        WHERE NULLIF(TRIM(f.id_funcionario), '') IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM sislami_migracao.mapa_servidor ms
+              WHERE ms.id_sislami_funcionario = NULLIF(TRIM(f.id_funcionario), '')::bigint
+          )
+        ORDER BY NULLIF(TRIM(f.id_funcionario), '')::bigint
+    LOOP
         v_cpf := CASE
             WHEN rec.cpf_limpo IS NULL THEN NULL
             ELSE NULLIF(rec.cpf_limpo, '')::numeric(11,0)
         END;
 
-        INSERT INTO cadastro.fisica (
-            idpes,
-            data_nasc,
-            sexo,
-            nome_mae,
-            nome_pai,
-            origem_gravacao,
-            data_cad,
-            operacao,
-            cpf,
-            nome_social
-        ) VALUES (
-            v_idpes,
-            rec.data_nascimento,
-            rec.sexo,
-            LEFT(rec.nome_mae, 150),
-            LEFT(rec.nome_pai, 150),
-            'M',
-            now(),
-            'I',
-            v_cpf,
-            LEFT(rec.nome_social, 150)
-        );
+        v_idpes := NULL;
+        IF v_cpf IS NOT NULL THEN
+            SELECT f.idpes INTO v_idpes
+            FROM cadastro.fisica f
+            WHERE f.cpf = v_cpf
+            ORDER BY f.idpes
+            LIMIT 1;
+        END IF;
 
-        INSERT INTO pmieducar.aluno (
-            ref_idpes,
-            data_cadastro,
-            ativo,
-            nm_mae,
-            nm_pai
-        ) VALUES (
-            v_idpes,
-            now(),
-            1,
-            LEFT(rec.nome_mae, 255),
-            LEFT(rec.nome_pai, 255)
-        )
-        RETURNING cod_aluno INTO v_cod_aluno;
+        IF v_idpes IS NULL THEN
+            INSERT INTO cadastro.pessoa (
+                nome, data_cad, tipo, email, situacao, origem_gravacao, operacao
+            ) VALUES (
+                LEFT(rec.nome, 150), now(), 'F', LEFT(rec.email, 100), 'A', 'M', 'I'
+            )
+            RETURNING idpes INTO v_idpes;
 
-        INSERT INTO sislami_migracao.mapa_aluno (id_sislami_aluno, idpes, cod_aluno)
-        VALUES (rec.id_sislami_aluno, v_idpes, v_cod_aluno);
+            INSERT INTO cadastro.fisica (
+                idpes, data_nasc, sexo, nome_mae, nome_pai, origem_gravacao, data_cad, operacao, cpf
+            ) VALUES (
+                v_idpes, rec.data_nascimento, rec.sexo, LEFT(rec.nome_mae, 150), LEFT(rec.nome_pai, 150), 'M', now(), 'I', v_cpf
+            );
+        ELSE
+            UPDATE cadastro.pessoa
+               SET nome = COALESCE(NULLIF(LEFT(rec.nome, 150), ''), nome),
+                   email = COALESCE(NULLIF(LEFT(rec.email, 100), ''), email)
+             WHERE idpes = v_idpes;
+
+            UPDATE cadastro.fisica
+               SET data_nasc = COALESCE(rec.data_nascimento, data_nasc),
+                   sexo = COALESCE(rec.sexo, sexo),
+                   nome_mae = COALESCE(NULLIF(LEFT(rec.nome_mae, 150), ''), nome_mae),
+                   nome_pai = COALESCE(NULLIF(LEFT(rec.nome_pai, 150), ''), nome_pai)
+             WHERE idpes = v_idpes;
+        END IF;
+
+        INSERT INTO sislami_migracao.mapa_servidor (id_sislami_funcionario, idpes)
+        VALUES (rec.id_funcionario, v_idpes);
     END LOOP;
+
+    -- Servidor: vinculo por instituicao
+    INSERT INTO pmieducar.servidor (
+        cod_servidor, ref_cod_instituicao, carga_horaria, data_cadastro, ativo
+    )
+    SELECT DISTINCT
+        ms.idpes::integer AS cod_servidor,
+        mi.cod_instituicao AS ref_cod_instituicao,
+        40 AS carga_horaria,
+        now() AS data_cadastro,
+        1 AS ativo
+    FROM sislami_raw.tb_funcionario_instituicao fi
+    JOIN sislami_migracao.mapa_servidor ms
+      ON ms.id_sislami_funcionario = NULLIF(TRIM(fi.id_funcionario), '')::bigint
+    JOIN sislami_migracao.mapa_instituicao mi
+      ON mi.id_sislami_instituicao = NULLIF(TRIM(fi.id_instituicao), '')::int
+    WHERE NULLIF(TRIM(fi.id_funcionario), '') IS NOT NULL
+      AND NULLIF(TRIM(fi.id_instituicao), '') IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pmieducar.servidor ps
+          WHERE ps.cod_servidor = ms.idpes::integer
+            AND ps.ref_cod_instituicao = mi.cod_instituicao
+      );
 
     -- Matricula basica por vinculo aluno x instituicao
     FOR rec IN
@@ -402,49 +1370,82 @@ BEGIN
 
     -- Curso (1 por instituicao SISLAMI)
     FOR rec IN
+        WITH primeira_etapa AS (
+            SELECT
+                NULLIF(TRIM(t.id_instituicao), '')::int AS id_instituicao,
+                MIN(NULLIF(TRIM(te.id_etapa), '')::int) AS id_etapa
+            FROM sislami_raw.tb_turma t
+            JOIN sislami_raw.tb_turma_etapa te
+              ON NULLIF(TRIM(te.id_turma), '') = NULLIF(TRIM(t.id_turma), '')
+            WHERE NULLIF(TRIM(t.id_instituicao), '') IS NOT NULL
+              AND NULLIF(TRIM(te.id_etapa), '') IS NOT NULL
+            GROUP BY NULLIF(TRIM(t.id_instituicao), '')::int
+        )
         SELECT
             mi.id_sislami_instituicao,
             mi.cod_instituicao,
-            COALESCE(NULLIF(TRIM(ti.nm_instituicao_reduzido), ''), NULLIF(TRIM(ti.nm_instituicao), ''), 'CURSO SISLAMI') AS nm_base
+            COALESCE(
+                NULLIF(TRIM(tte.dc_tipo_ensino), ''),
+                NULLIF(TRIM(tte.dc_tipo_ensino_reduzido), ''),
+                'Importação'
+            ) AS nm_base
         FROM sislami_migracao.mapa_instituicao mi
-        LEFT JOIN sislami_raw.tb_instituicao ti
-               ON NULLIF(TRIM(ti.id_instituicao), '')::int = mi.id_sislami_instituicao
+        LEFT JOIN primeira_etapa pe
+               ON pe.id_instituicao = mi.id_sislami_instituicao
+        LEFT JOIN sislami_raw.tb_etapa e
+               ON NULLIF(TRIM(e.id_etapa), '')::int = pe.id_etapa
+        LEFT JOIN sislami_raw.tb_nivel nv
+               ON NULLIF(TRIM(nv.id_nivel), '')::int = NULLIF(TRIM(e.id_nivel), '')::int
+        LEFT JOIN sislami_raw.tb_tipo_ensino tte
+               ON NULLIF(TRIM(tte.id_tipo_ensino), '')::int = NULLIF(TRIM(nv.id_tipo_ensino), '')::int
         WHERE NOT EXISTS (
             SELECT 1 FROM sislami_migracao.mapa_curso mc
             WHERE mc.id_sislami_instituicao = mi.id_sislami_instituicao
         )
     LOOP
-        INSERT INTO pmieducar.curso (
-            ref_usuario_cad,
-            ref_cod_tipo_regime,
-            ref_cod_nivel_ensino,
-            ref_cod_tipo_ensino,
-            nm_curso,
-            sgl_curso,
-            qtd_etapas,
-            carga_horaria,
-            data_cadastro,
-            ativo,
-            ref_cod_instituicao,
-            padrao_ano_escolar
-        ) VALUES (
-            v_user_id_cad,
-            v_tipo_regime,
-            v_nivel_ensino,
-            v_tipo_ensino,
-            LEFT(rec.nm_base || ' - SISLAMI', 255),
-            LEFT('SL' || rec.id_sislami_instituicao::text, 15),
-            9,
-            800,
-            now(),
-            1,
-            rec.cod_instituicao,
-            1
-        )
-        RETURNING cod_curso INTO v_cod_curso;
+        SELECT c.cod_curso
+          INTO v_cod_curso
+          FROM pmieducar.curso c
+         WHERE c.ref_cod_instituicao = rec.cod_instituicao
+           AND lower(trim(c.nm_curso)) = lower(trim(LEFT(rec.nm_base, 255)))
+         ORDER BY c.cod_curso
+         LIMIT 1;
+
+        IF v_cod_curso IS NULL THEN
+            INSERT INTO pmieducar.curso (
+                ref_usuario_cad,
+                ref_cod_tipo_regime,
+                ref_cod_nivel_ensino,
+                ref_cod_tipo_ensino,
+                nm_curso,
+                sgl_curso,
+                qtd_etapas,
+                carga_horaria,
+                data_cadastro,
+                ativo,
+                ref_cod_instituicao,
+                padrao_ano_escolar
+            ) VALUES (
+                v_user_id_cad,
+                v_tipo_regime,
+                v_nivel_ensino,
+                v_tipo_ensino,
+                LEFT(rec.nm_base, 255),
+                LEFT('SL' || rec.id_sislami_instituicao::text, 15),
+                9,
+                800,
+                now(),
+                1,
+                rec.cod_instituicao,
+                1
+            )
+            RETURNING cod_curso INTO v_cod_curso;
+        END IF;
 
         INSERT INTO sislami_migracao.mapa_curso (id_sislami_instituicao, cod_curso)
-        VALUES (rec.id_sislami_instituicao, v_cod_curso);
+        VALUES (rec.id_sislami_instituicao, v_cod_curso)
+        ON CONFLICT (id_sislami_instituicao) DO UPDATE
+           SET cod_curso = EXCLUDED.cod_curso;
     END LOOP;
 
     -- Serie (por instituicao + etapa)
@@ -478,32 +1479,45 @@ BEGIN
         )
         ORDER BY eu.id_instituicao, eu.id_etapa
     LOOP
-        INSERT INTO pmieducar.serie (
-            ref_usuario_cad,
-            ref_cod_curso,
-            nm_serie,
-            etapa_curso,
-            concluinte,
-            carga_horaria,
-            data_cadastro,
-            ativo
-        ) VALUES (
-            v_user_id_cad,
-            rec.cod_curso,
-            LEFT(rec.nm_serie, 255),
-            1,
-            0,
-            rec.carga,
-            now(),
-            1
-        )
-        RETURNING cod_serie INTO v_cod_serie;
+        SELECT s.cod_serie
+          INTO v_cod_serie
+          FROM pmieducar.serie s
+         WHERE s.ref_cod_curso = rec.cod_curso
+           AND lower(trim(s.nm_serie)) = lower(trim(LEFT(rec.nm_serie, 255)))
+         ORDER BY s.cod_serie
+         LIMIT 1;
+
+        IF v_cod_serie IS NULL THEN
+            INSERT INTO pmieducar.serie (
+                ref_usuario_cad,
+                ref_cod_curso,
+                nm_serie,
+                etapa_curso,
+                concluinte,
+                carga_horaria,
+                data_cadastro,
+                ativo
+            ) VALUES (
+                v_user_id_cad,
+                rec.cod_curso,
+                LEFT(rec.nm_serie, 255),
+                1,
+                0,
+                rec.carga,
+                now(),
+                1
+            )
+            RETURNING cod_serie INTO v_cod_serie;
+        END IF;
 
         INSERT INTO sislami_migracao.mapa_serie (
             id_sislami_instituicao, id_sislami_etapa, cod_serie, cod_curso
         ) VALUES (
             rec.id_instituicao, rec.id_etapa, v_cod_serie, rec.cod_curso
-        );
+        )
+        ON CONFLICT (id_sislami_instituicao, id_sislami_etapa) DO UPDATE
+           SET cod_serie = EXCLUDED.cod_serie,
+               cod_curso = EXCLUDED.cod_curso;
     END LOOP;
 
     -- Vinculos escola_curso e escola_serie
@@ -615,6 +1629,25 @@ BEGIN
         VALUES (rec.id_turma, v_cod_turma, rec.cod_serie, rec.cod_escola);
     END LOOP;
 
+    -- Normalizacao de legado: garantir referencias na instituicao 1.
+    UPDATE pmieducar.escola e
+       SET ref_cod_instituicao = v_instituicao_base
+      FROM sislami_migracao.mapa_escola me
+     WHERE e.cod_escola = me.cod_escola
+       AND e.ref_cod_instituicao IS DISTINCT FROM v_instituicao_base;
+
+    UPDATE pmieducar.curso c
+       SET ref_cod_instituicao = v_instituicao_base
+      FROM sislami_migracao.mapa_curso mc
+     WHERE c.cod_curso = mc.cod_curso
+       AND c.ref_cod_instituicao IS DISTINCT FROM v_instituicao_base;
+
+    UPDATE pmieducar.turma t
+       SET ref_cod_instituicao = v_instituicao_base
+      FROM sislami_migracao.mapa_turma mt
+     WHERE t.cod_turma = mt.cod_turma
+       AND t.ref_cod_instituicao IS DISTINCT FROM v_instituicao_base;
+
     -- Matricula por aluno_etapa (mais completa para notas/parecer/historico)
     FOR rec IN
         SELECT
@@ -686,7 +1719,42 @@ BEGIN
         );
     END LOOP;
 
-    -- Enturmacao
+    -- Enturmacao (fonte principal: TB_ALUNO_ETAPA_TURMA)
+    INSERT INTO pmieducar.matricula_turma (
+        ref_cod_matricula,
+        ref_cod_turma,
+        sequencial,
+        ref_usuario_cad,
+        data_cadastro,
+        ativo,
+        data_enturmacao
+    )
+    SELECT
+        mm.cod_matricula,
+        mt.cod_turma,
+        COALESCE(NULLIF(TRIM(aet.nu_ordem), '')::int, 1) AS sequencial,
+        v_user_id_cad,
+        now(),
+        1,
+        COALESCE(
+            sislami_migracao.parse_sislami_timestamp(NULLIF(TRIM(aet.dt_enturmacao), ''))::date,
+            current_date
+        ) AS data_enturmacao
+    FROM sislami_raw.tb_aluno_etapa_turma aet
+    JOIN sislami_migracao.mapa_aluno_etapa_matricula mm
+      ON mm.id_sislami_aluno_etapa = NULLIF(TRIM(aet.id_aluno_etapa), '')::bigint
+    JOIN sislami_migracao.mapa_turma mt
+      ON mt.id_sislami_turma = NULLIF(TRIM(aet.id_turma), '')::int
+    LEFT JOIN pmieducar.matricula_turma pmt
+      ON pmt.ref_cod_matricula = mm.cod_matricula
+     AND pmt.ref_cod_turma = mt.cod_turma
+     AND pmt.sequencial = COALESCE(NULLIF(TRIM(aet.nu_ordem), '')::int, 1)
+    WHERE NULLIF(TRIM(aet.id_aluno_etapa), '') IS NOT NULL
+      AND NULLIF(TRIM(aet.id_turma), '') IS NOT NULL
+      AND COALESCE(NULLIF(TRIM(aet.fl_excluido), '')::int, 0) = 0
+      AND pmt.id IS NULL;
+
+    -- Enturmacao de fallback: quando nao houver registro em TB_ALUNO_ETAPA_TURMA
     INSERT INTO pmieducar.matricula_turma (
         ref_cod_matricula,
         ref_cod_turma,
@@ -709,9 +1777,8 @@ BEGIN
       ON mt.id_sislami_turma = mm.id_sislami_turma
     LEFT JOIN pmieducar.matricula_turma pmt
       ON pmt.ref_cod_matricula = mm.cod_matricula
-     AND pmt.ref_cod_turma = mt.cod_turma
-     AND pmt.sequencial = 1
-    WHERE pmt.id IS NULL;
+    WHERE mm.id_sislami_turma IS NOT NULL
+      AND pmt.id IS NULL;
 
     -- Componente curricular (por instituicao + item pedagogico)
     FOR rec IN
@@ -733,24 +1800,57 @@ BEGIN
                 AND mc.id_sislami_instituicao = NULLIF(TRIM(t.id_instituicao), '')::int
           )
     LOOP
-        INSERT INTO modules.componente_curricular (
-            instituicao_id, area_conhecimento_id, nome, abreviatura, tipo_base, codigo_educacenso
-        ) VALUES (
-            rec.id_instituicao,
-            v_area_conhecimento,
-            LEFT(rec.nome, 500),
-            LEFT(rec.nome, 25),
-            1,
-            NULL
-        )
-        RETURNING id INTO v_cod_turma; -- reutilizacao da variavel para id de componente
+        SELECT cc.id
+          INTO v_cod_turma -- reutilizacao da variavel para id de componente
+          FROM modules.componente_curricular cc
+         WHERE cc.instituicao_id = rec.id_instituicao
+           AND lower(regexp_replace(trim(cc.nome), '\s+', ' ', 'g')) =
+               lower(regexp_replace(trim(LEFT(rec.nome, 500)), '\s+', ' ', 'g'))
+         ORDER BY cc.id
+         LIMIT 1;
+
+        IF v_cod_turma IS NULL THEN
+            INSERT INTO modules.componente_curricular (
+                instituicao_id, area_conhecimento_id, nome, abreviatura, tipo_base, codigo_educacenso
+            ) VALUES (
+                rec.id_instituicao,
+                v_area_conhecimento,
+                LEFT(rec.nome, 500),
+                LEFT(rec.nome, 25),
+                1,
+                NULL
+            )
+            RETURNING id INTO v_cod_turma;
+        END IF;
 
         INSERT INTO sislami_migracao.mapa_componente_curricular (
             id_sislami_programa_item, id_sislami_instituicao, componente_curricular_id
         ) VALUES (
             rec.id_programa_item, rec.id_instituicao, v_cod_turma
-        );
+        )
+        ON CONFLICT (id_sislami_programa_item, id_sislami_instituicao) DO UPDATE
+           SET componente_curricular_id = EXCLUDED.componente_curricular_id;
     END LOOP;
+
+    -- Normalizacao pos-carga: consolidar duplicidades por nome+instituicao no mapa
+    -- (evita recriacao em execucoes futuras quando houver variacao de espacos/caixa)
+    UPDATE sislami_migracao.mapa_componente_curricular mc
+       SET componente_curricular_id = base.id_keep
+      FROM modules.componente_curricular cdup
+      JOIN (
+          SELECT
+              c.instituicao_id,
+              lower(regexp_replace(trim(c.nome), '\s+', ' ', 'g')) AS nome_norm,
+              MIN(c.id) AS id_keep
+          FROM modules.componente_curricular c
+          GROUP BY
+              c.instituicao_id,
+              lower(regexp_replace(trim(c.nome), '\s+', ' ', 'g'))
+      ) base
+        ON cdup.instituicao_id = base.instituicao_id
+       AND lower(regexp_replace(trim(cdup.nome), '\s+', ' ', 'g')) = base.nome_norm
+     WHERE cdup.id = mc.componente_curricular_id
+       AND mc.componente_curricular_id <> base.id_keep;
 
     -- Relaciona componente x turma
     INSERT INTO modules.componente_curricular_turma (
@@ -941,7 +2041,20 @@ BEGIN
             NULLIF(TRIM(h.id_historico), '')::bigint AS id_historico,
             ma.cod_aluno,
             COALESCE(NULLIF(TRIM(h.nu_ano_conclusao), '')::int, v_ano_letivo) AS ano,
-            COALESCE(NULLIF(REPLACE(REPLACE(h.vl_carga_horaria, ':', ''), '.', ''), '')::double precision, 0) AS carga,
+            CASE
+                WHEN NULLIF(TRIM(h.vl_carga_horaria), '') IS NULL THEN 0
+                WHEN TRIM(h.vl_carga_horaria) ~ '^[0-9]{1,3}(\.[0-9]{3})+(,[0-9]+)?$'
+                    THEN REPLACE(REPLACE(TRIM(h.vl_carga_horaria), '.', ''), ',', '.')::double precision
+                WHEN TRIM(h.vl_carga_horaria) ~ '^[0-9]+,[0-9]+$'
+                    THEN REPLACE(TRIM(h.vl_carga_horaria), ',', '.')::double precision
+                WHEN TRIM(h.vl_carga_horaria) ~ '^[0-9]+:[0-9]+$'
+                    THEN REPLACE(TRIM(h.vl_carga_horaria), ':', '.')::double precision
+                WHEN TRIM(h.vl_carga_horaria) ~ '^[0-9]+\.[0-9]+$'
+                    THEN TRIM(h.vl_carga_horaria)::double precision
+                WHEN TRIM(h.vl_carga_horaria) ~ '^[0-9]+$'
+                    THEN TRIM(h.vl_carga_horaria)::double precision
+                ELSE 0
+            END AS carga,
             COALESCE(NULLIF(TRIM(h.qt_dia_letivo), '')::int, 0) AS dias_letivos,
             COALESCE(NULLIF(TRIM(h.dc_observacao), ''), 'IMPORTADO SISLAMI') AS obs,
             COALESCE(NULLIF(TRIM(he.nm_escola), ''), 'ESCOLA SISLAMI') AS escola,
@@ -1012,13 +2125,158 @@ BEGIN
         COALESCE(NULLIF(TRIM(hi.dc_resultado), ''), 'S/N') AS nota,
         COALESCE(NULLIF(TRIM(hi.qt_falta), '')::int, 0) AS faltas,
         COALESCE(NULLIF(TRIM(hi.vl_ordem), '')::int, 1) AS ordenamento,
-        COALESCE(NULLIF(REPLACE(hi.vl_carga_horaria, ':', ''), '')::int, 0) AS carga_horaria_disciplina
+        CASE
+            WHEN NULLIF(TRIM(hi.vl_carga_horaria), '') IS NULL THEN 0
+            WHEN TRIM(hi.vl_carga_horaria) ~ '^[0-9]{1,3}(\.[0-9]{3})+(,[0-9]+)?$'
+                THEN ROUND(REPLACE(REPLACE(TRIM(hi.vl_carga_horaria), '.', ''), ',', '.')::numeric)::int
+            WHEN TRIM(hi.vl_carga_horaria) ~ '^[0-9]+,[0-9]+$'
+                THEN ROUND(REPLACE(TRIM(hi.vl_carga_horaria), ',', '.')::numeric)::int
+            WHEN TRIM(hi.vl_carga_horaria) ~ '^[0-9]+:[0-9]+$'
+                THEN ROUND(REPLACE(TRIM(hi.vl_carga_horaria), ':', '.')::numeric)::int
+            WHEN TRIM(hi.vl_carga_horaria) ~ '^[0-9]+\.[0-9]+$'
+                THEN ROUND(TRIM(hi.vl_carga_horaria)::numeric)::int
+            WHEN TRIM(hi.vl_carga_horaria) ~ '^[0-9]+$'
+                THEN TRIM(hi.vl_carga_horaria)::int
+            ELSE 0
+        END AS carga_horaria_disciplina
     FROM sislami_raw.tb_historico_item hi
     JOIN sislami_migracao.mapa_historico_escolar mh
       ON mh.id_sislami_historico = NULLIF(TRIM(hi.id_historico), '')::bigint
     LEFT JOIN sislami_raw.tb_historico_disciplina d
       ON NULLIF(TRIM(d.id_disciplina), '')::int = NULLIF(TRIM(hi.id_disciplina), '')::int
     ON CONFLICT (sequencial, ref_ref_cod_aluno, ref_sequencial) DO NOTHING;
+END;
+$$;
+
+-- Tabelas de mapeamento padronizadas (map_*) para auditoria/integração externa
+CREATE TABLE IF NOT EXISTS sislami_migracao.map_aluno (
+    id_sislami bigint PRIMARY KEY,
+    id_ieducar integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sislami_migracao.map_escola (
+    id_sislami bigint PRIMARY KEY,
+    id_ieducar integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sislami_migracao.map_instituicao (
+    id_sislami bigint PRIMARY KEY,
+    id_ieducar integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sislami_migracao.map_curso (
+    id_sislami bigint PRIMARY KEY,
+    id_ieducar integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sislami_migracao.map_serie (
+    id_sislami bigint PRIMARY KEY,
+    id_ieducar integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sislami_migracao.map_turma (
+    id_sislami bigint PRIMARY KEY,
+    id_ieducar integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sislami_migracao.map_matricula (
+    id_sislami bigint PRIMARY KEY,
+    id_ieducar integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sislami_migracao.map_professor (
+    id_sislami bigint PRIMARY KEY,
+    id_ieducar integer NOT NULL
+);
+
+INSERT INTO sislami_migracao.map_aluno (id_sislami, id_ieducar)
+SELECT id_sislami_aluno, cod_aluno
+FROM sislami_migracao.mapa_aluno
+ON CONFLICT (id_sislami) DO UPDATE
+SET id_ieducar = EXCLUDED.id_ieducar;
+
+INSERT INTO sislami_migracao.map_escola (id_sislami, id_ieducar)
+SELECT id_sislami_instituicao, cod_escola
+FROM sislami_migracao.mapa_escola
+ON CONFLICT (id_sislami) DO UPDATE
+SET id_ieducar = EXCLUDED.id_ieducar;
+
+INSERT INTO sislami_migracao.map_instituicao (id_sislami, id_ieducar)
+SELECT id_sislami_instituicao, cod_instituicao
+FROM sislami_migracao.mapa_instituicao
+ON CONFLICT (id_sislami) DO UPDATE
+SET id_ieducar = EXCLUDED.id_ieducar;
+
+INSERT INTO sislami_migracao.map_curso (id_sislami, id_ieducar)
+SELECT id_sislami_instituicao, cod_curso
+FROM sislami_migracao.mapa_curso
+ON CONFLICT (id_sislami) DO UPDATE
+SET id_ieducar = EXCLUDED.id_ieducar;
+
+INSERT INTO sislami_migracao.map_serie (id_sislami, id_ieducar)
+SELECT ((id_sislami_instituicao::bigint * 1000000) + id_sislami_etapa::bigint) AS id_sislami,
+       cod_serie
+FROM sislami_migracao.mapa_serie
+ON CONFLICT (id_sislami) DO UPDATE
+SET id_ieducar = EXCLUDED.id_ieducar;
+
+INSERT INTO sislami_migracao.map_turma (id_sislami, id_ieducar)
+SELECT id_sislami_turma, cod_turma
+FROM sislami_migracao.mapa_turma
+ON CONFLICT (id_sislami) DO UPDATE
+SET id_ieducar = EXCLUDED.id_ieducar;
+
+INSERT INTO sislami_migracao.map_matricula (id_sislami, id_ieducar)
+SELECT id_sislami_aluno_etapa, cod_matricula
+FROM sislami_migracao.mapa_aluno_etapa_matricula
+ON CONFLICT (id_sislami) DO UPDATE
+SET id_ieducar = EXCLUDED.id_ieducar;
+
+INSERT INTO sislami_migracao.map_professor (id_sislami, id_ieducar)
+SELECT id_sislami_funcionario, idpes::integer
+FROM sislami_migracao.mapa_servidor
+ON CONFLICT (id_sislami) DO UPDATE
+SET id_ieducar = EXCLUDED.id_ieducar;
+
+-- Validacoes de consistencia (regra 7)
+DO $$
+DECLARE
+    v_raw_alunos bigint;
+    v_final_alunos bigint;
+    v_raw_matriculas bigint;
+    v_final_matriculas bigint;
+    v_dup_cpf bigint;
+BEGIN
+    SELECT count(*) INTO v_raw_alunos
+    FROM sislami_raw.tb_aluno
+    WHERE NULLIF(TRIM(id_aluno), '') IS NOT NULL;
+
+    SELECT count(*) INTO v_final_alunos
+    FROM pmieducar.aluno;
+
+    SELECT count(*) INTO v_raw_matriculas
+    FROM sislami_raw.tb_aluno_etapa
+    WHERE NULLIF(TRIM(id_aluno_etapa), '') IS NOT NULL;
+
+    SELECT count(*) INTO v_final_matriculas
+    FROM pmieducar.matricula;
+
+    SELECT count(*) INTO v_dup_cpf
+    FROM (
+        SELECT f.cpf
+        FROM cadastro.fisica f
+        WHERE f.cpf IS NOT NULL
+        GROUP BY f.cpf
+        HAVING count(*) > 1
+    ) d;
+
+    RAISE NOTICE 'Validacao: alunos raw=% final=%', v_raw_alunos, v_final_alunos;
+    RAISE NOTICE 'Validacao: matriculas raw=% final=%', v_raw_matriculas, v_final_matriculas;
+    RAISE NOTICE 'Validacao: CPFs duplicados em cadastro.fisica=%', v_dup_cpf;
+
+    IF v_dup_cpf > 0 THEN
+        RAISE WARNING 'Foram encontrados % CPFs duplicados em cadastro.fisica. Revise deduplicacao antes de publicar em producao.', v_dup_cpf;
+    END IF;
 END;
 $$;
 
