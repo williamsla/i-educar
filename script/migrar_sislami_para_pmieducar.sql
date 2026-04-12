@@ -146,6 +146,8 @@ DECLARE
     v_cod_raca integer;
     v_nis numeric(11,0);
     v_localizacao_diferenciada integer;
+    v_zona_localizacao_censo integer;
+    v_idmun_nascimento numeric(6,0);
     v_place_id integer;
     v_cod_curso integer;
     v_cod_serie integer;
@@ -584,7 +586,9 @@ BEGIN
             NULLIF(TRIM(a.complemento), '') AS complemento,
             NULLIF(TRIM(a.bairro), '') AS bairro,
             NULLIF(TRIM(a.cep), '') AS cep,
-            NULLIF(TRIM(raw_a.tp_localizacao_diferenciada), '') AS tp_localizacao_diferenciada
+            NULLIF(regexp_replace(COALESCE(raw_a.id_censo_municipio, ''), '[^0-9]', '', 'g'), '') AS id_censo_municipio_limpo,
+            NULLIF(TRIM(raw_a.tp_localizacao_diferenciada), '') AS tp_localizacao_diferenciada,
+            NULLIF(TRIM(raw_ad.tp_localizacao_residencia), '') AS tp_localizacao_residencia
         FROM sislami_migracao.aluno a
         LEFT JOIN sislami_raw.tb_aluno raw_a
                ON NULLIF(TRIM(raw_a.id_aluno), '')::bigint = a.id_sislami_aluno
@@ -621,6 +625,16 @@ BEGIN
         v_localizacao_diferenciada := CASE
             WHEN rec.tp_localizacao_diferenciada ~ '^[0-9]+$' THEN rec.tp_localizacao_diferenciada::int
             ELSE NULL
+        END;
+        v_zona_localizacao_censo := CASE
+            WHEN rec.tp_localizacao_residencia IN ('1', '2') THEN rec.tp_localizacao_residencia::int
+            WHEN upper(rec.tp_localizacao_residencia) IN ('URBANA', 'URBANO') THEN 1
+            WHEN upper(rec.tp_localizacao_residencia) IN ('RURAL') THEN 2
+            ELSE NULL
+        END;
+        v_idmun_nascimento := CASE
+            WHEN rec.id_censo_municipio_limpo IS NULL OR length(rec.id_censo_municipio_limpo) > 6 THEN NULL
+            ELSE rec.id_censo_municipio_limpo::numeric(6,0)
         END;
         v_telefone_empresa := CASE
             WHEN rec.telefone_comercial_limpo IS NULL OR length(rec.telefone_comercial_limpo) > 11 THEN NULL
@@ -707,6 +721,8 @@ BEGIN
                 nome_social,
                 nis_pis_pasep,
                 localizacao_diferenciada,
+                zona_localizacao_censo,
+                idmun_nascimento,
                 ocupacao,
                 local_trabalho,
                 data_admissao,
@@ -730,6 +746,8 @@ BEGIN
                 LEFT(rec.nome_social, 150),
                 v_nis,
                 v_localizacao_diferenciada,
+                v_zona_localizacao_censo,
+                v_idmun_nascimento,
                 LEFT(rec.ocupacao_aluno, 150),
                 LEFT(rec.local_trabalho, 150),
                 rec.data_inicio_trabalho,
@@ -755,6 +773,8 @@ BEGIN
                    nome_social = COALESCE(NULLIF(LEFT(rec.nome_social, 150), ''), nome_social),
                    nis_pis_pasep = COALESCE(v_nis, nis_pis_pasep),
                    localizacao_diferenciada = COALESCE(v_localizacao_diferenciada, localizacao_diferenciada),
+                   zona_localizacao_censo = COALESCE(v_zona_localizacao_censo, zona_localizacao_censo),
+                   idmun_nascimento = COALESCE(v_idmun_nascimento, idmun_nascimento),
                    ocupacao = COALESCE(NULLIF(LEFT(rec.ocupacao_aluno, 150), ''), ocupacao),
                    local_trabalho = COALESCE(NULLIF(LEFT(rec.local_trabalho, 150), ''), local_trabalho),
                    data_admissao = COALESCE(rec.data_inicio_trabalho, data_admissao),
@@ -1558,12 +1578,19 @@ BEGIN
             ai.id_sislami_instituicao,
             ma.cod_aluno,
             me.cod_escola,
+            serie_escola.cod_serie AS cod_serie,
             COALESCE(EXTRACT(YEAR FROM ai.data_inicio)::int, v_ano_letivo) AS ano_letivo
         FROM sislami_migracao.aluno_instituicao ai
         JOIN sislami_migracao.mapa_aluno ma
           ON ma.id_sislami_aluno = ai.id_sislami_aluno
         JOIN sislami_migracao.mapa_escola me
           ON me.id_sislami_instituicao = ai.id_sislami_instituicao
+        LEFT JOIN LATERAL (
+            SELECT MIN(t.ref_ref_cod_serie) AS cod_serie
+            FROM pmieducar.turma t
+            WHERE t.ref_ref_cod_escola = me.cod_escola
+              AND t.ref_ref_cod_serie IS NOT NULL
+        ) serie_escola ON TRUE
         WHERE NOT EXISTS (
             SELECT 1
             FROM sislami_migracao.mapa_matricula mm
@@ -1581,6 +1608,7 @@ BEGIN
     LOOP
         INSERT INTO pmieducar.matricula (
             ref_ref_cod_escola,
+            ref_ref_cod_serie,
             ref_usuario_cad,
             ref_cod_aluno,
             aprovado,
@@ -1590,6 +1618,7 @@ BEGIN
             ultima_matricula
         ) VALUES (
             rec.cod_escola,
+            rec.cod_serie,
             v_user_id_cad,
             rec.cod_aluno,
             0,
@@ -2061,6 +2090,32 @@ BEGIN
        AND t.ref_ref_cod_serie IS NOT NULL
        AND (m.ref_ref_cod_serie IS NULL OR m.ref_ref_cod_serie <> t.ref_ref_cod_serie);
 
+    -- Backfill da serie na matricula via aluno_etapa -> etapa -> mapa_serie
+    UPDATE pmieducar.matricula m
+       SET ref_ref_cod_serie = ms.cod_serie
+      FROM sislami_migracao.mapa_aluno_etapa_matricula mm
+      JOIN sislami_raw.tb_aluno_etapa ae
+        ON NULLIF(TRIM(ae.id_aluno_etapa), '')::bigint = mm.id_sislami_aluno_etapa
+      JOIN sislami_migracao.mapa_serie ms
+        ON ms.id_sislami_instituicao = NULLIF(TRIM(ae.id_instituicao), '')::int
+       AND ms.id_sislami_etapa = NULLIF(TRIM(ae.id_etapa), '')::int
+     WHERE mm.cod_matricula = m.cod_matricula
+       AND m.ref_ref_cod_serie IS NULL;
+
+    -- Backfill final da serie na matricula por escola (fallback)
+    UPDATE pmieducar.matricula m
+       SET ref_ref_cod_serie = serie_escola.cod_serie
+      FROM (
+          SELECT
+              t.ref_ref_cod_escola AS cod_escola,
+              MIN(t.ref_ref_cod_serie) AS cod_serie
+          FROM pmieducar.turma t
+          WHERE t.ref_ref_cod_serie IS NOT NULL
+          GROUP BY t.ref_ref_cod_escola
+      ) serie_escola
+     WHERE m.ref_ref_cod_serie IS NULL
+       AND m.ref_ref_cod_escola = serie_escola.cod_escola;
+
     -- Componente curricular (por instituicao + item pedagogico)
     FOR rec IN
         SELECT DISTINCT
@@ -2347,29 +2402,18 @@ BEGIN
                 WHEN NULLIF(TRIM(h.qt_falta_total), '') ~ '^[0-9]+$' THEN NULLIF(TRIM(h.qt_falta_total), '')::int
                 ELSE 0
             END AS faltas_globalizadas,
-            NULLIF(
-                concat_ws(E'\n',
-                    NULLIF(TRIM(h.dc_observacao), ''),
-                    CASE WHEN NULLIF(TRIM(h.dc_observacao_ef), '') IS NOT NULL THEN 'OBS EF: ' || TRIM(h.dc_observacao_ef) END,
-                    CASE WHEN NULLIF(TRIM(h.dc_observacao_em), '') IS NOT NULL THEN 'OBS EM: ' || TRIM(h.dc_observacao_em) END,
-                    CASE WHEN NULLIF(TRIM(h.tp_origem_dados), '') IS NOT NULL THEN 'origem_dados=' || TRIM(h.tp_origem_dados) END,
-                    CASE WHEN NULLIF(TRIM(h.vl_resultado), '') IS NOT NULL THEN 'resultado=' || TRIM(h.vl_resultado) END,
-                    CASE WHEN NULLIF(TRIM(h.id_resultado_final), '') IS NOT NULL THEN 'id_resultado_final=' || TRIM(h.id_resultado_final) END,
-                    CASE WHEN NULLIF(TRIM(h.id_lei), '') IS NOT NULL THEN 'id_lei=' || TRIM(h.id_lei) END,
-                    CASE WHEN NULLIF(TRIM(h.id_aluno_etapa), '') IS NOT NULL THEN 'id_aluno_etapa=' || TRIM(h.id_aluno_etapa) END,
-                    CASE WHEN NULLIF(TRIM(h.dt_conclusao), '') IS NOT NULL THEN 'dt_conclusao=' || TRIM(h.dt_conclusao) END,
-                    CASE WHEN NULLIF(TRIM(h.dt_registro), '') IS NOT NULL THEN 'dt_registro=' || TRIM(h.dt_registro) END,
-                    CASE WHEN NULLIF(TRIM(h.nm_responsavel_registro), '') IS NOT NULL THEN 'responsavel_registro=' || TRIM(h.nm_responsavel_registro) END
-                ),
-                ''
-            ) AS obs,
+            NULLIF(TRIM(h.dc_observacao), '') AS obs,
             COALESCE(NULLIF(TRIM(he.nm_escola), ''), 'ESCOLA SISLAMI') AS escola,
             COALESCE(NULLIF(TRIM(he.nm_municipio), ''), 'NAO INFORMADO') AS cidade,
             COALESCE(NULLIF(TRIM(he.sg_uf), ''), 'AL') AS uf,
             LEFT(COALESCE(NULLIF(TRIM(h.nu_registro), ''), NULLIF(TRIM(h.id_historico), ''), 'SISLAME'), 50) AS registro,
             LEFT(NULLIF(TRIM(h.nu_livro_registro), ''), 50) AS livro,
             LEFT(NULLIF(TRIM(h.nu_folha_registro), ''), 50) AS folha,
-            COALESCE(NULLIF(TRIM(et.dc_etapa), ''), 'SISLAMI') AS nm_serie,
+            COALESCE(
+                NULLIF(TRIM(et_h.dc_etapa), ''),
+                NULLIF(TRIM(et_ae.dc_etapa), ''),
+                NULLIF(TRIM(ps_hist.nm_serie), '')
+            ) AS nm_serie,
             me.cod_escola AS ref_cod_escola,
             v_instituicao_base AS ref_cod_instituicao,
             CASE
@@ -2390,8 +2434,17 @@ BEGIN
           ON me.id_sislami_instituicao = NULLIF(TRIM(h.id_instituicao), '')::int
         LEFT JOIN sislami_raw.tb_historico_escola he
           ON NULLIF(TRIM(he.id_escola), '')::int = NULLIF(TRIM(h.id_escola), '')::int
-        LEFT JOIN sislami_raw.tb_etapa et
-          ON NULLIF(TRIM(et.id_etapa), '')::int = NULLIF(TRIM(h.id_etapa), '')::int
+        LEFT JOIN sislami_raw.tb_etapa et_h
+          ON NULLIF(TRIM(et_h.id_etapa), '')::int = NULLIF(TRIM(h.id_etapa), '')::int
+        LEFT JOIN sislami_raw.tb_aluno_etapa ae_hist
+          ON NULLIF(TRIM(ae_hist.id_aluno_etapa), '')::bigint = NULLIF(TRIM(h.id_aluno_etapa), '')::bigint
+        LEFT JOIN sislami_raw.tb_etapa et_ae
+          ON NULLIF(TRIM(et_ae.id_etapa), '')::int = NULLIF(TRIM(ae_hist.id_etapa), '')::int
+        LEFT JOIN sislami_migracao.mapa_serie ms_hist
+          ON ms_hist.id_sislami_instituicao = NULLIF(TRIM(ae_hist.id_instituicao), '')::int
+         AND ms_hist.id_sislami_etapa = NULLIF(TRIM(ae_hist.id_etapa), '')::int
+        LEFT JOIN pmieducar.serie ps_hist
+          ON ps_hist.cod_serie = ms_hist.cod_serie
         WHERE NULLIF(TRIM(h.id_historico), '') IS NOT NULL
           AND NOT EXISTS (
               SELECT 1
