@@ -1,0 +1,96 @@
+version: '3.8'
+
+# docker-compose -f docker-compose.multicidade.yml up -d --build
+
+x-app-base: &app-base
+  build:
+    context: docker/php
+    args:
+      PHP_VERSION: 8.4
+      COMPOSER_VERSION: 2.8
+      HOST_UID: ${HOST_UID:-1001}
+      HOST_GID: ${HOST_GID:-1001}
+  image: php:8.4-ieducar
+  working_dir: /var/www/ieducar
+  volumes:
+    - ./:/var/www/ieducar
+  extra_hosts:
+    - host.docker.internal:host-gateway
+
+services:
+  php_cidade1:
+    <<: *app-base
+    container_name: ieducar-php-cidade1
+    entrypoint: ["sh", "/usr/local/bin/entrypoint.sh"]
+    depends_on:
+      - redis_cidade1
+    volumes:
+      - ./:/var/www/ieducar
+      - ./.env.cidade1.example:/var/www/ieducar/.env:ro
+
+  fpm_cidade1:
+    <<: *app-base
+    container_name: ieducar-fpm-cidade1
+    depends_on:
+      - redis_cidade1
+    volumes:
+      - ./:/var/www/ieducar
+      - ./.env.cidade1.example:/var/www/ieducar/.env:ro
+
+  nginx_cidade1:
+    image: nginx:1.28-alpine
+    container_name: ieducar-nginx-cidade1
+    depends_on:
+      - fpm_cidade1
+    working_dir: /var/www/ieducar
+    volumes:
+      - ./:/var/www/ieducar
+      - ./docker/nginx/conf.d/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+      - ./docker/nginx/conf.d/default-cidade1.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8081:80"
+
+  redis_cidade1:
+    image: redis:8-alpine
+    container_name: ieducar-redis-cidade1
+    ports:
+      - "6381:6379"
+
+  php_cidade2:
+    <<: *app-base
+    container_name: ieducar-php-cidade2
+    entrypoint: ["sh", "/usr/local/bin/entrypoint.sh"]
+    depends_on:
+      - redis_cidade2
+    volumes:
+      - ./:/var/www/ieducar
+      - ./.env.cidade2.example:/var/www/ieducar/.env:ro
+
+  fpm_cidade2:
+    <<: *app-base
+    container_name: ieducar-fpm-cidade2
+    depends_on:
+      - redis_cidade2
+    volumes:
+      - ./:/var/www/ieducar
+      - ./.env.cidade2.example:/var/www/ieducar/.env:ro
+
+  nginx_cidade2:
+    image: nginx:1.28-alpine
+    container_name: ieducar-nginx-cidade2
+    depends_on:
+      - fpm_cidade2
+    working_dir: /var/www/ieducar
+    volumes:
+      - ./:/var/www/ieducar
+      - ./docker/nginx/conf.d/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+      - ./docker/nginx/conf.d/default-cidade2.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8082:80"
+
+  redis_cidade2:
+    image: redis:8-alpine
+    container_name: ieducar-redis-cidade2
+    ports:
+      - "6382:6379"
+
