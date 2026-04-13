@@ -149,6 +149,7 @@ DECLARE
     v_zona_localizacao_censo integer;
     v_idmun_nascimento numeric(6,0);
     v_place_id integer;
+    v_city_id integer;
     v_cod_curso integer;
     v_cod_serie integer;
     v_cod_turma integer;
@@ -588,12 +589,24 @@ BEGIN
             NULLIF(TRIM(a.cep), '') AS cep,
             NULLIF(regexp_replace(COALESCE(raw_a.id_censo_municipio, ''), '[^0-9]', '', 'g'), '') AS id_censo_municipio_limpo,
             NULLIF(TRIM(raw_a.tp_localizacao_diferenciada), '') AS tp_localizacao_diferenciada,
-            NULLIF(TRIM(raw_ad.tp_localizacao_residencia), '') AS tp_localizacao_residencia
+            NULLIF(TRIM(raw_ad.tp_localizacao_residencia), '') AS tp_localizacao_residencia,
+            COALESCE(NULLIF(TRIM(cm_nasc.dc_censo_municipio), ''), NULLIF(TRIM(raw_a.ed_municipio), ''), NULLIF(TRIM(a.municipio), '')) AS municipio_nascimento_nome,
+            COALESCE(NULLIF(TRIM(cu_nasc.dc_censo_sigla), ''), NULLIF(TRIM(raw_a.ed_uf), ''), NULLIF(TRIM(a.uf), '')) AS uf_nascimento,
+            COALESCE(NULLIF(TRIM(a.municipio), ''), NULLIF(TRIM(raw_a.ed_municipio), ''), NULLIF(TRIM(cm_end.dc_censo_municipio), '')) AS municipio_endereco_nome,
+            COALESCE(NULLIF(TRIM(a.uf), ''), NULLIF(TRIM(raw_a.ed_uf), ''), NULLIF(TRIM(cu_end.dc_censo_sigla), '')) AS uf_endereco
         FROM sislami_migracao.aluno a
         LEFT JOIN sislami_raw.tb_aluno raw_a
                ON NULLIF(TRIM(raw_a.id_aluno), '')::bigint = a.id_sislami_aluno
         LEFT JOIN sislami_raw.tb_aluno_dado raw_ad
                ON NULLIF(TRIM(raw_ad.id_aluno), '')::bigint = a.id_sislami_aluno
+        LEFT JOIN sislami_raw.tb_censo_municipio cm_nasc
+               ON NULLIF(TRIM(cm_nasc.id_censo_municipio), '')::int = NULLIF(TRIM(raw_a.id_censo_municipio), '')::int
+        LEFT JOIN sislami_raw.tb_censo_uf cu_nasc
+               ON NULLIF(TRIM(cu_nasc.id_censo_uf), '')::int = NULLIF(TRIM(raw_a.id_censo_uf), '')::int
+        LEFT JOIN sislami_raw.tb_censo_municipio cm_end
+               ON NULLIF(TRIM(cm_end.id_censo_municipio), '')::int = NULLIF(TRIM(raw_a.id_censo_municipio_endereco), '')::int
+        LEFT JOIN sislami_raw.tb_censo_uf cu_end
+               ON NULLIF(TRIM(cu_end.id_censo_uf), '')::int = NULLIF(TRIM(raw_a.id_censo_uf), '')::int
         WHERE a.id_sislami_aluno IS NOT NULL
           AND NOT EXISTS (
               SELECT 1
@@ -636,6 +649,28 @@ BEGIN
             WHEN rec.id_censo_municipio_limpo IS NULL OR length(rec.id_censo_municipio_limpo) > 6 THEN NULL
             ELSE rec.id_censo_municipio_limpo::numeric(6,0)
         END;
+
+        IF rec.municipio_nascimento_nome IS NOT NULL THEN
+            SELECT m.idmun::numeric(6,0)
+              INTO v_idmun_nascimento
+              FROM public.municipio m
+             WHERE lower(unaccent(trim(m.nome))) = lower(unaccent(trim(rec.municipio_nascimento_nome)))
+               AND (
+                   rec.uf_nascimento IS NULL
+                   OR upper(trim(m.sigla_uf)) = upper(trim(rec.uf_nascimento))
+               )
+             ORDER BY m.idmun
+             LIMIT 1;
+
+            IF v_idmun_nascimento IS NULL THEN
+                SELECT m.idmun::numeric(6,0)
+                  INTO v_idmun_nascimento
+                  FROM public.municipio m
+                 WHERE lower(unaccent(trim(m.nome))) = lower(unaccent(trim(rec.municipio_nascimento_nome)))
+                 ORDER BY m.idmun
+                 LIMIT 1;
+            END IF;
+        END IF;
         v_telefone_empresa := CASE
             WHEN rec.telefone_comercial_limpo IS NULL OR length(rec.telefone_comercial_limpo) > 11 THEN NULL
             ELSE rec.telefone_comercial_limpo::numeric
@@ -801,6 +836,32 @@ BEGIN
 
         -- Endereco do aluno no cadastro (view cadastro.endereco_pessoa)
         IF rec.logradouro IS NOT NULL OR rec.numero IS NOT NULL OR rec.bairro IS NOT NULL OR rec.cep IS NOT NULL THEN
+            v_city_id := NULL;
+            IF rec.municipio_endereco_nome IS NOT NULL THEN
+                SELECT c.id
+                  INTO v_city_id
+                  FROM public.cities c
+                  LEFT JOIN public.states s ON s.id = c.state_id
+                 WHERE lower(unaccent(trim(c.name))) = lower(unaccent(trim(rec.municipio_endereco_nome)))
+                   AND c.deleted_at IS NULL
+                   AND (
+                       rec.uf_endereco IS NULL
+                       OR upper(trim(s.abbreviation)) = upper(trim(rec.uf_endereco))
+                   )
+                 ORDER BY c.id
+                 LIMIT 1;
+
+                IF v_city_id IS NULL THEN
+                    SELECT c.id
+                      INTO v_city_id
+                      FROM public.cities c
+                     WHERE lower(unaccent(trim(c.name))) = lower(unaccent(trim(rec.municipio_endereco_nome)))
+                       AND c.deleted_at IS NULL
+                     ORDER BY c.id
+                     LIMIT 1;
+                END IF;
+            END IF;
+
             SELECT php.place_id
               INTO v_place_id
               FROM person_has_place php
@@ -811,8 +872,9 @@ BEGIN
 
             IF v_place_id IS NULL THEN
                 INSERT INTO places (
-                    address, number, complement, neighborhood, postal_code, created_at, updated_at
+                    city_id, address, number, complement, neighborhood, postal_code, created_at, updated_at
                 ) VALUES (
+                    v_city_id,
                     LEFT(rec.logradouro, 255),
                     LEFT(rec.numero, 20),
                     LEFT(rec.complemento, 150),
@@ -833,7 +895,8 @@ BEGIN
                        updated_at = now();
             ELSE
                 UPDATE places
-                   SET address = COALESCE(NULLIF(LEFT(rec.logradouro, 255), ''), address),
+                   SET city_id = COALESCE(v_city_id, city_id),
+                       address = COALESCE(NULLIF(LEFT(rec.logradouro, 255), ''), address),
                        number = COALESCE(NULLIF(LEFT(rec.numero, 20), ''), number),
                        complement = COALESCE(NULLIF(LEFT(rec.complemento, 150), ''), complement),
                        neighborhood = COALESCE(NULLIF(LEFT(rec.bairro, 150), ''), neighborhood),
@@ -1570,75 +1633,126 @@ BEGIN
             AND sf.ref_cod_funcao = mf.cod_funcao
       );
 
-    -- Matricula basica por vinculo aluno x instituicao
-    -- Fallback somente para casos sem registro em TB_ALUNO_ETAPA
-    FOR rec IN
-        SELECT
-            ai.id_sislami_aluno,
-            ai.id_sislami_instituicao,
-            ma.cod_aluno,
-            me.cod_escola,
-            serie_escola.cod_serie AS cod_serie,
-            COALESCE(EXTRACT(YEAR FROM ai.data_inicio)::int, v_ano_letivo) AS ano_letivo
-        FROM sislami_migracao.aluno_instituicao ai
-        JOIN sislami_migracao.mapa_aluno ma
-          ON ma.id_sislami_aluno = ai.id_sislami_aluno
-        JOIN sislami_migracao.mapa_escola me
-          ON me.id_sislami_instituicao = ai.id_sislami_instituicao
-        LEFT JOIN LATERAL (
-            SELECT MIN(t.ref_ref_cod_serie) AS cod_serie
-            FROM pmieducar.turma t
-            WHERE t.ref_ref_cod_escola = me.cod_escola
-              AND t.ref_ref_cod_serie IS NOT NULL
-        ) serie_escola ON TRUE
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM sislami_migracao.mapa_matricula mm
-            WHERE mm.id_sislami_aluno = ai.id_sislami_aluno
-              AND mm.id_sislami_instituicao = ai.id_sislami_instituicao
-        )
-          AND NOT EXISTS (
-              SELECT 1
-              FROM sislami_raw.tb_aluno_etapa ae
-              WHERE NULLIF(TRIM(ae.id_aluno), '')::bigint = ai.id_sislami_aluno
-                AND NULLIF(TRIM(ae.id_instituicao), '')::int = ai.id_sislami_instituicao
-                AND NULLIF(TRIM(ae.id_aluno_etapa), '') IS NOT NULL
-          )
-        ORDER BY ai.id_sislami_aluno, ai.id_sislami_instituicao
-    LOOP
-        INSERT INTO pmieducar.matricula (
-            ref_ref_cod_escola,
-            ref_ref_cod_serie,
-            ref_usuario_cad,
-            ref_cod_aluno,
-            aprovado,
-            data_cadastro,
-            ativo,
-            ano,
-            ultima_matricula
-        ) VALUES (
-            rec.cod_escola,
-            rec.cod_serie,
-            v_user_id_cad,
-            rec.cod_aluno,
-            0,
-            now(),
-            1,
-            rec.ano_letivo,
-            1
-        )
-        RETURNING cod_matricula INTO v_cod_matricula;
+    -- Alocacao do servidor nas escolas/turmas (TB_FUNCIONARIO_TURMA)
+    INSERT INTO pmieducar.servidor_alocacao (
+        ref_ref_cod_instituicao,
+        ref_usuario_cad,
+        ref_cod_escola,
+        ref_cod_servidor,
+        data_cadastro,
+        ativo,
+        carga_horaria,
+        ref_cod_servidor_funcao,
+        ano
+    )
+    SELECT DISTINCT
+        pt.ref_cod_instituicao AS ref_ref_cod_instituicao,
+        v_user_id_cad AS ref_usuario_cad,
+        pt.ref_ref_cod_escola AS ref_cod_escola,
+        ms.idpes::integer AS ref_cod_servidor,
+        now() AS data_cadastro,
+        1 AS ativo,
+        interval '40:00' AS carga_horaria,
+        sf.cod_servidor_funcao AS ref_cod_servidor_funcao,
+        pt.ano
+    FROM sislami_raw.tb_funcionario_turma ft
+    JOIN sislami_migracao.mapa_servidor ms
+      ON ms.id_sislami_funcionario = NULLIF(TRIM(ft.id_funcionario), '')::bigint
+    JOIN sislami_migracao.mapa_turma mt
+      ON mt.id_sislami_turma = NULLIF(TRIM(ft.id_turma), '')::int
+    JOIN pmieducar.turma pt
+      ON pt.cod_turma = mt.cod_turma
+    LEFT JOIN LATERAL (
+        SELECT MIN(sf.cod_servidor_funcao) AS cod_servidor_funcao
+        FROM pmieducar.servidor_funcao sf
+        WHERE sf.ref_ref_cod_instituicao = pt.ref_cod_instituicao
+          AND sf.ref_cod_servidor = ms.idpes::integer
+    ) sf ON TRUE
+    WHERE NULLIF(TRIM(ft.id_funcionario), '') IS NOT NULL
+      AND NULLIF(TRIM(ft.id_turma), '') IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pmieducar.servidor_alocacao sa
+          WHERE sa.ref_ref_cod_instituicao = pt.ref_cod_instituicao
+            AND sa.ref_cod_servidor = ms.idpes::integer
+            AND sa.ref_cod_escola = pt.ref_ref_cod_escola
+            AND COALESCE(sa.ano, pt.ano) = pt.ano
+            AND COALESCE(sa.ref_cod_servidor_funcao, -1) = COALESCE(sf.cod_servidor_funcao, -1)
+      );
 
-        INSERT INTO sislami_migracao.mapa_matricula (
-            id_sislami_aluno,
-            id_sislami_instituicao,
-            cod_matricula
-        ) VALUES (
-            rec.id_sislami_aluno,
-            rec.id_sislami_instituicao,
-            v_cod_matricula
-        );
-    END LOOP;
+    -- Vinculo do professor em disciplina/componente por turma
+    INSERT INTO pmieducar.servidor_disciplina (
+        ref_cod_disciplina,
+        ref_ref_cod_instituicao,
+        ref_cod_servidor,
+        ref_cod_curso,
+        ref_cod_funcao
+    )
+    SELECT DISTINCT
+        mc.componente_curricular_id AS ref_cod_disciplina,
+        mi.cod_instituicao AS ref_ref_cod_instituicao,
+        ms.idpes::integer AS ref_cod_servidor,
+        pt.ref_cod_curso AS ref_cod_curso,
+        sf.cod_servidor_funcao AS ref_cod_funcao
+    FROM sislami_raw.tb_trabalho_funcionario tf
+    JOIN sislami_raw.tb_trabalho tr
+      ON NULLIF(TRIM(tr.id_trabalho), '')::bigint = NULLIF(TRIM(tf.id_trabalho), '')::bigint
+    JOIN sislami_raw.tb_programacao_pedagogica pp
+      ON NULLIF(TRIM(pp.id_programacao_pedagogica), '')::bigint = NULLIF(TRIM(tr.id_programacao_pedagogica), '')::bigint
+    JOIN sislami_raw.tb_turma t
+      ON NULLIF(TRIM(t.id_turma), '')::int = NULLIF(TRIM(pp.id_turma), '')::int
+    JOIN sislami_migracao.mapa_servidor ms
+      ON ms.id_sislami_funcionario = NULLIF(TRIM(tf.id_funcionario), '')::bigint
+    JOIN sislami_migracao.mapa_instituicao mi
+      ON mi.id_sislami_instituicao = NULLIF(TRIM(t.id_instituicao), '')::int
+    JOIN sislami_migracao.mapa_turma mt
+      ON mt.id_sislami_turma = NULLIF(TRIM(pp.id_turma), '')::int
+    JOIN pmieducar.turma pt
+      ON pt.cod_turma = mt.cod_turma
+    JOIN sislami_migracao.mapa_componente_curricular mc
+      ON mc.id_sislami_programa_item = NULLIF(TRIM(pp.id_programa_pedagogico_item), '')::int
+     AND mc.id_sislami_instituicao = NULLIF(TRIM(t.id_instituicao), '')::int
+    JOIN LATERAL (
+        SELECT MIN(sf.cod_servidor_funcao) AS cod_servidor_funcao
+        FROM pmieducar.servidor_funcao sf
+        WHERE sf.ref_ref_cod_instituicao = mi.cod_instituicao
+          AND sf.ref_cod_servidor = ms.idpes::integer
+    ) sf ON TRUE
+    WHERE NULLIF(TRIM(tf.id_funcionario), '') IS NOT NULL
+      AND NULLIF(TRIM(pp.id_programa_pedagogico_item), '') IS NOT NULL
+      AND sf.cod_servidor_funcao IS NOT NULL
+      AND pt.ref_cod_curso IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pmieducar.servidor_disciplina sd
+          WHERE sd.ref_cod_disciplina = mc.componente_curricular_id
+            AND sd.ref_ref_cod_instituicao = mi.cod_instituicao
+            AND sd.ref_cod_servidor = ms.idpes::integer
+            AND sd.ref_cod_curso = pt.ref_cod_curso
+            AND sd.ref_cod_funcao = sf.cod_servidor_funcao
+      );
+
+    -- Cursos ministrados pelo professor
+    INSERT INTO pmieducar.servidor_curso_ministra (
+        ref_cod_curso,
+        ref_ref_cod_instituicao,
+        ref_cod_servidor
+    )
+    SELECT DISTINCT
+        sd.ref_cod_curso,
+        sd.ref_ref_cod_instituicao,
+        sd.ref_cod_servidor
+    FROM pmieducar.servidor_disciplina sd
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM pmieducar.servidor_curso_ministra scm
+        WHERE scm.ref_cod_curso = sd.ref_cod_curso
+          AND scm.ref_ref_cod_instituicao = sd.ref_ref_cod_instituicao
+          AND scm.ref_cod_servidor = sd.ref_cod_servidor
+    );
+
+    -- Nao gerar matricula por TB_ALUNO_INSTITUICAO.
+    -- Regra 1:1 com TB_ALUNO_ETAPA (22202), sem fallback.
 
     -- Curso (1 por instituicao SISLAMI)
     FOR rec IN
@@ -1928,14 +2042,19 @@ BEGIN
             NULLIF(TRIM(ae.id_instituicao), '')::int AS id_instituicao,
             aet_sel.id_turma,
             mt_sel.cod_serie,
+            serie_nome.cod_serie AS cod_serie_por_nome,
+            curso_sel.cod_curso,
             ma.cod_aluno,
             me.cod_escola,
+            sislami_migracao.parse_sislami_timestamp(NULLIF(TRIM(ae.dt_matricula), '')) AS data_matricula,
             COALESCE(NULLIF(TRIM(ae.nu_ano_administrativo), '')::int, v_ano_letivo) AS ano_letivo
         FROM sislami_raw.tb_aluno_etapa ae
         JOIN sislami_migracao.mapa_aluno ma
           ON ma.id_sislami_aluno = NULLIF(TRIM(ae.id_aluno), '')::bigint
         JOIN sislami_migracao.mapa_escola me
           ON me.id_sislami_instituicao = NULLIF(TRIM(ae.id_instituicao), '')::int
+        LEFT JOIN sislami_raw.tb_etapa et_ae
+          ON NULLIF(TRIM(et_ae.id_etapa), '')::int = NULLIF(TRIM(ae.id_etapa), '')::int
         LEFT JOIN LATERAL (
             SELECT
                 NULLIF(TRIM(aet.id_turma), '')::int AS id_turma
@@ -1950,6 +2069,24 @@ BEGIN
         ) aet_sel ON TRUE
         LEFT JOIN sislami_migracao.mapa_turma mt_sel
           ON mt_sel.id_sislami_turma = aet_sel.id_turma
+        LEFT JOIN LATERAL (
+            SELECT s.cod_serie
+              FROM pmieducar.serie s
+              JOIN pmieducar.curso c
+                ON c.cod_curso = s.ref_cod_curso
+             WHERE c.ref_cod_instituicao = v_instituicao_base
+               AND lower(regexp_replace(trim(s.nm_serie), '\s+', ' ', 'g')) =
+                   lower(regexp_replace(trim(COALESCE(et_ae.dc_etapa, '')), '\s+', ' ', 'g'))
+             ORDER BY s.cod_serie
+             LIMIT 1
+        ) serie_nome ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT s.ref_cod_curso AS cod_curso
+            FROM pmieducar.serie s
+            WHERE s.cod_serie = COALESCE(mt_sel.cod_serie, serie_nome.cod_serie)
+            ORDER BY s.cod_serie
+            LIMIT 1
+        ) curso_sel ON TRUE
         WHERE NULLIF(TRIM(ae.id_aluno_etapa), '') IS NOT NULL
           AND NOT EXISTS (
               SELECT 1
@@ -1961,20 +2098,24 @@ BEGIN
         INSERT INTO pmieducar.matricula (
             ref_ref_cod_escola,
             ref_ref_cod_serie,
+            ref_cod_curso,
             ref_usuario_cad,
             ref_cod_aluno,
             aprovado,
             data_cadastro,
+            data_matricula,
             ativo,
             ano,
             ultima_matricula
         ) VALUES (
             rec.cod_escola,
-            rec.cod_serie,
+            COALESCE(rec.cod_serie, rec.cod_serie_por_nome),
+            rec.cod_curso,
             v_user_id_cad,
             rec.cod_aluno,
             0,
             now(),
+            rec.data_matricula,
             1,
             rec.ano_letivo,
             1
@@ -2115,6 +2256,48 @@ BEGIN
       ) serie_escola
      WHERE m.ref_ref_cod_serie IS NULL
        AND m.ref_ref_cod_escola = serie_escola.cod_escola;
+
+    -- Backfill do curso na matricula a partir da serie
+    UPDATE pmieducar.matricula m
+       SET ref_cod_curso = s.ref_cod_curso
+      FROM pmieducar.serie s
+     WHERE s.cod_serie = m.ref_ref_cod_serie
+       AND s.ref_cod_curso IS NOT NULL
+       AND (m.ref_cod_curso IS NULL OR m.ref_cod_curso <> s.ref_cod_curso);
+
+    -- Backfill da data_matricula por TB_ALUNO_ETAPA
+    UPDATE pmieducar.matricula m
+       SET data_matricula = COALESCE(
+           sislami_migracao.parse_sislami_timestamp(NULLIF(TRIM(ae.dt_matricula), '')),
+           data_matricula
+       )
+      FROM sislami_migracao.mapa_aluno_etapa_matricula mm
+      JOIN sislami_raw.tb_aluno_etapa ae
+        ON NULLIF(TRIM(ae.id_aluno_etapa), '')::bigint = mm.id_sislami_aluno_etapa
+     WHERE mm.cod_matricula = m.cod_matricula
+       AND (m.data_matricula IS NULL OR NULLIF(TRIM(ae.dt_matricula), '') IS NOT NULL);
+
+    -- Backfill adicional da serie por nome da etapa no i-Educar
+    UPDATE pmieducar.matricula m
+       SET ref_ref_cod_serie = s_match.cod_serie
+      FROM sislami_migracao.mapa_aluno_etapa_matricula mm
+      JOIN sislami_raw.tb_aluno_etapa ae
+        ON NULLIF(TRIM(ae.id_aluno_etapa), '')::bigint = mm.id_sislami_aluno_etapa
+      JOIN sislami_raw.tb_etapa et_ae
+        ON NULLIF(TRIM(et_ae.id_etapa), '')::int = NULLIF(TRIM(ae.id_etapa), '')::int
+      JOIN LATERAL (
+          SELECT s.cod_serie
+            FROM pmieducar.serie s
+            JOIN pmieducar.curso c
+              ON c.cod_curso = s.ref_cod_curso
+           WHERE c.ref_cod_instituicao = v_instituicao_base
+             AND lower(regexp_replace(trim(s.nm_serie), '\s+', ' ', 'g')) =
+                 lower(regexp_replace(trim(COALESCE(et_ae.dc_etapa, '')), '\s+', ' ', 'g'))
+           ORDER BY s.cod_serie
+           LIMIT 1
+      ) s_match ON TRUE
+     WHERE m.cod_matricula = mm.cod_matricula
+       AND m.ref_ref_cod_serie IS NULL;
 
     -- Componente curricular (por instituicao + item pedagogico)
     FOR rec IN
