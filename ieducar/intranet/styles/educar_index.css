@@ -1,0 +1,353 @@
+/* Estilos Globais e Layout */
+/* Garantindo que o fundo da página seja branco e removendo o padding superior do container para "elevar" o título */
+body {
+    background-color: white; /* Fundo branco para toda a página */
+    margin: 0;
+    padding: 0;
+}
+
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 15px 20px 30px 20px; /* Reduzindo o padding superior para elevar o título */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    background-color: white; /* Fundo branco para o container de conteúdo */
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+/* Seção de Boas-vindas */
+.welcome-section {
+    margin-bottom: 20px; /* Reduzindo a margem inferior para aproximar dos cards */
+}
+
+.welcome-section h1 {
+    color: #333;
+    font-size: 28px;
+    margin-bottom: 0;
+    font-weight: 700;
+}
+
+.welcome-section p {
+    color: #666;
+    font-size: 16px;
+    margin-top: 5px;
+}
+
+/* Grid de Cards de Acesso Rápido */
+.cards-grid {
+    display: grid;
+    /* 4 colunas no desktop, ajustando para 250px min para caber mais */
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+/* Estilo do Card */
+.card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+    padding: 0;
+    border: none;
+    height: fit-content;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+}
+
+/* Cabeçalho do Card */
+.card-header {
+    background: white;
+    color: #333;
+    padding: 20px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.card-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Ícone do Card (Ajustado para o estilo da imagem) */
+.card-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e6f0ff;
+    flex-shrink: 0;
+}
+
+.card-icon {
+    font-size: 24px;
+    color: #007bff;
+}
+
+/* Ícones específicos para replicar a imagem */
+.icon-matriculas { background-color: #e6f0ff; }
+.icon-matriculas .card-icon { color: #007bff; } /* Azul */
+
+.icon-turmas { background-color: #e0f7e9; }
+.icon-turmas .card-icon { color: #28a745; } /* Verde */
+
+.icon-boletins { background-color: #e0f7e9; }
+.icon-boletins .card-icon { color: #28a745; } /* Verde */
+
+.icon-documentos { background-color: #f5e6ff; }
+.icon-documentos .card-icon { color: #6f42c1; } /* Roxo */
+
+.icon-declaracoes { background-color: #fff3e6; }
+.icon-declaracoes .card-icon { color: #fd7e14; } /* Laranja */
+
+.icon-movimentacao { background-color: #e6f0ff; }
+.icon-movimentacao .card-icon { color: #007bff; } /* Azul */
+
+.card-content {
+    padding: 0;
+}
+
+.card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Estilo dos Itens da Lista */
+.card li {
+    padding: 10px 20px;
+    color: #555;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.card li:last-child {
+    border-bottom: none;
+}
+
+.card li:hover {
+    background-color: #f9f9f9;
+}
+
+/* Bullet Point (o ponto da imagem) */
+.item-bullet {
+    color: #4285f4;
+    font-weight: bold;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Estilos para a seção de turmas no card */
+.turmas-summary {
+    margin-bottom: 15px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #e9ecef;
+}
+
+.turmas-number {
+    display: block;
+    font-size: 28px;
+    font-weight: bold;
+    color: #2c3e50;
+    line-height: 1.2;
+    margin-bottom: 4px;
+}
+
+.turmas-label {
+    display: block;
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Seção de Resumo Rápido */
+.quick-summary-section {
+    margin-top: 40px;
+}
+
+.quick-summary-section h2 {
+    color: #333;
+    font-size: 22px;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+/* Grid de Resumo */
+.summary-grid {
+    display: grid;
+    /* 3 colunas no desktop */
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+/* Item de Resumo (Card) */
+.summary-item {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+    padding: 20px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 100px;
+    transition: all 0.2s ease-in-out;
+}
+
+.summary-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+}
+
+.summary-label {
+    color: #666;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 10px; /* Corrigido: mantido espaço entre label e número */
+}
+
+.summary-number-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.summary-number {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.summary-alunos {
+    color: #007bff;
+}
+
+.summary-turmas {
+    color: #28a745;
+}
+
+.summary-documentos {
+    color: #dc3545;
+}
+
+/* Estilo do Alerta de Documentos Pendentes */
+.alert-pending {
+    display: flex;
+    align-items: center;
+    color: #fd7e14;
+    font-size: 14px;
+    font-weight: 600;
+    gap: 5px;
+    margin-left: 10px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    background-color: #fff3e6;
+}
+
+.alert-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+/* Responsividade */
+@media (max-width: 992px) {
+    .cards-grid {
+        /* 3 colunas em tablets */
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 15px 15px 20px 15px; /* Ajuste de padding para mobile */
+    }
+    
+    .cards-grid {
+        grid-template-columns: 1fr; /* 1 coluna em mobile */
+        gap: 15px;
+    }
+    
+    .summary-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .welcome-section h1 {
+        font-size: 24px;
+    }
+    
+    .summary-number {
+        font-size: 32px;
+    }
+    
+    .turmas-number {
+        font-size: 24px;
+    }
+    
+    .turmas-label {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-container {
+        padding: 10px 10px 15px 10px;
+    }
+    
+    .welcome-section h1 {
+        font-size: 22px;
+    }
+    
+    .card-header h2 {
+        font-size: 16px;
+    }
+    
+    .summary-number {
+        font-size: 28px;
+    }
+    
+    .card li {
+        font-size: 13px;
+        padding: 8px 15px;
+    }
+    
+    .turmas-number {
+        font-size: 22px;
+    }
+    
+    .turmas-label {
+        font-size: 10px;
+    }
+}
+
+/* Estilos para links dentro dos cards quando aplicável */
+.card a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.card a:hover {
+    text-decoration: none;
+}
