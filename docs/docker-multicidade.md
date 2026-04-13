@@ -76,3 +76,49 @@ Duplique os blocos `*_cidade2` no `docker-compose.multicidade.yml`, renomeando p
 - banco (ex.: `ieducar_cidade3`)
 - arquivo `.env` (ex.: `.env.cidade3.example`)
 - `fastcgi_pass` no Nginx (`fpm_cidade3:9000`)
+
+## 6) Instalar pacote externo (ex.: relatórios)
+
+Para pacotes externos em multicidade, use esta regra:
+
+- instalacao de codigo (git/composer/publish) = 1 vez no projeto
+- comandos que alteram banco = 1 vez por cidade
+
+### Exemplo: `portabilis/i-educar-reports-package`
+
+1) Baixe o pacote na pasta correta:
+
+```bash
+git clone https://github.com/portabilis/i-educar-reports-package.git packages/portabilis/i-educar-reports-package
+```
+
+2) Ative o plug-and-play (uma vez):
+
+```bash
+docker-compose -f docker-compose.multicidade.yml exec php_cidade1 composer plug-and-play
+```
+
+3) Rode a instalacao no banco de cada cidade:
+
+```bash
+docker-compose -f docker-compose.multicidade.yml exec php_cidade1 php artisan community:reports:install
+docker-compose -f docker-compose.multicidade.yml exec php_cidade2 php artisan community:reports:install
+```
+
+4) Publique assets (uma vez):
+
+```bash
+docker-compose -f docker-compose.multicidade.yml exec php_cidade1 php artisan vendor:publish --tag=reports-assets --ansi
+```
+
+5) Limpe cache por cidade:
+
+```bash
+docker-compose -f docker-compose.multicidade.yml exec php_cidade1 php artisan optimize:clear
+docker-compose -f docker-compose.multicidade.yml exec php_cidade2 php artisan optimize:clear
+```
+
+Observacoes:
+
+- A imagem PHP deste projeto ja instala `openjdk8`, necessario para os relatórios.
+- O pacote oficial: [portabilis/i-educar-reports-package](https://github.com/portabilis/i-educar-reports-package).

@@ -1545,6 +1545,87 @@ BEGIN
             AND ps.ref_cod_instituicao = mi.cod_instituicao
       );
 
+    -- Escolaridade do servidor
+    -- Fonte:
+    --   - TB_FUNCIONARIO_DADO.tp_escolaridade
+    --   - TB_FUNCIONARIO_CENSO_SUPERIOR (ate 3 cursos)
+    --   - TB_FUNCIONARIO_CENSO_POS_GRADUACAO
+    WITH base AS (
+        SELECT
+            ps.cod_servidor,
+            ps.ref_cod_instituicao,
+            CASE
+                WHEN fd.tp_escolaridade ~ '^[0-9]+$' THEN fd.tp_escolaridade::int
+                ELSE NULL
+            END AS tipo_ensino_medio_cursado
+        FROM pmieducar.servidor ps
+        JOIN sislami_migracao.mapa_servidor ms
+          ON ms.idpes::integer = ps.cod_servidor
+        LEFT JOIN sislami_raw.tb_funcionario_dado fd
+          ON NULLIF(TRIM(fd.id_funcionario), '')::bigint = ms.id_sislami_funcionario
+    ),
+    superior_ranked AS (
+        SELECT
+            ms.idpes::integer AS cod_servidor,
+            ROW_NUMBER() OVER (
+                PARTITION BY ms.idpes::integer
+                ORDER BY
+                    CASE
+                        WHEN upper(NULLIF(TRIM(cs.tp_situacao_curso_superior), '')) = 'C' THEN 0
+                        WHEN upper(NULLIF(TRIM(cs.tp_situacao_curso_superior), '')) = 'A' THEN 1
+                        ELSE 2
+                    END,
+                    NULLIF(TRIM(cs.id_censo_ensino_superior), '')::int
+            ) AS rn,
+            CASE
+                WHEN upper(NULLIF(TRIM(cs.tp_situacao_curso_superior), '')) = 'A' THEN 1
+                WHEN upper(NULLIF(TRIM(cs.tp_situacao_curso_superior), '')) = 'C' THEN 2
+                ELSE NULL
+            END AS situacao_curso_superior,
+            NULL::int AS codigo_curso_superior
+        FROM sislami_raw.tb_funcionario_censo_superior cs
+        JOIN sislami_migracao.mapa_servidor ms
+          ON ms.id_sislami_funcionario = NULLIF(TRIM(cs.id_funcionario), '')::bigint
+        WHERE NULLIF(TRIM(cs.id_funcionario), '') IS NOT NULL
+    ),
+    superior AS (
+        SELECT
+            cod_servidor,
+            MAX(CASE WHEN rn = 1 THEN situacao_curso_superior END) AS situacao_curso_superior_1,
+            MAX(CASE WHEN rn = 1 THEN codigo_curso_superior END) AS codigo_curso_superior_1,
+            MAX(CASE WHEN rn = 2 THEN situacao_curso_superior END) AS situacao_curso_superior_2,
+            MAX(CASE WHEN rn = 2 THEN codigo_curso_superior END) AS codigo_curso_superior_2,
+            MAX(CASE WHEN rn = 3 THEN situacao_curso_superior END) AS situacao_curso_superior_3,
+            MAX(CASE WHEN rn = 3 THEN codigo_curso_superior END) AS codigo_curso_superior_3
+        FROM superior_ranked
+        WHERE rn <= 3
+        GROUP BY cod_servidor
+    ),
+    pos AS (
+        SELECT
+            ms.idpes::integer AS cod_servidor,
+            ARRAY_AGG(DISTINCT NULLIF(TRIM(cp.tp_pos_graduacao), '')::int ORDER BY NULLIF(TRIM(cp.tp_pos_graduacao), '')::int) AS pos_graduacao
+        FROM sislami_raw.tb_funcionario_censo_pos_graduacao cp
+        JOIN sislami_migracao.mapa_servidor ms
+          ON ms.id_sislami_funcionario = NULLIF(TRIM(cp.id_funcionario), '')::bigint
+        WHERE NULLIF(TRIM(cp.id_funcionario), '') IS NOT NULL
+          AND NULLIF(TRIM(cp.tp_pos_graduacao), '') ~ '^[0-9]+$'
+        GROUP BY ms.idpes::integer
+    )
+    UPDATE pmieducar.servidor ps
+       SET tipo_ensino_medio_cursado = COALESCE(base.tipo_ensino_medio_cursado, ps.tipo_ensino_medio_cursado),
+           situacao_curso_superior_1 = COALESCE(superior.situacao_curso_superior_1, ps.situacao_curso_superior_1),
+           situacao_curso_superior_2 = COALESCE(superior.situacao_curso_superior_2, ps.situacao_curso_superior_2),
+           situacao_curso_superior_3 = COALESCE(superior.situacao_curso_superior_3, ps.situacao_curso_superior_3),
+           pos_graduacao = COALESCE(pos.pos_graduacao, ps.pos_graduacao)
+      FROM base
+      LEFT JOIN superior
+        ON superior.cod_servidor = base.cod_servidor
+      LEFT JOIN pos
+        ON pos.cod_servidor = base.cod_servidor
+     WHERE ps.cod_servidor = base.cod_servidor
+       AND ps.ref_cod_instituicao = base.ref_cod_instituicao;
+
     -- Funcao (TB_FUNCIONARIO_FUNCAO -> pmieducar.funcao)
     FOR rec IN
         SELECT
