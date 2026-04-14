@@ -3,6 +3,15 @@ set -eu
 
 cd /var/www/ieducar
 
+ensure_laravel_runtime_dirs() {
+  mkdir -p \
+    storage/logs \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache
+}
+
 clone_or_update_repo() {
   repo_url="$1"
   target_dir="$2"
@@ -16,12 +25,32 @@ clone_or_update_repo() {
   fi
 }
 
+strip_sudo_from_script() {
+  script_path="$1"
+  if [ -f "$script_path" ]; then
+    sed -i 's/^[[:space:]]*sudo[[:space:]]\+//g' "$script_path"
+  fi
+}
+
+run_if_exists() {
+  script_path="$1"
+  if [ -f "$script_path" ]; then
+    chmod +x "$script_path"
+    sh "$script_path"
+    return 0
+  fi
+
+  return 1
+}
+
 require_git_token() {
   if [ -z "${GIT_TOKEN:-}" ]; then
     echo "ERRO: GIT_TOKEN nao definido para repositorio privado." >&2
     exit 1
   fi
 }
+
+ensure_laravel_runtime_dirs
 
 installed_any_package=0
 
@@ -72,8 +101,9 @@ if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
     "packages/despesas-escolar" \
     "${PACKAGE_REF_DESPESAS:-}"
 
-  chmod +x packages/despesas-escolar/install.sh
-  sh packages/despesas-escolar/install.sh
+  strip_sudo_from_script "packages/despesas-escolar/install.sh"
+  ensure_laravel_runtime_dirs
+  run_if_exists "packages/despesas-escolar/install.sh"
   installed_any_package=1
 fi
 
@@ -84,12 +114,19 @@ if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
     "packages/merenda" \
     "${PACKAGE_REF_MERENDA:-}"
 
-  chmod +x packages/merenda/merenda-escolar/instalar_modulo.sh
-  sh packages/merenda/merenda-escolar/instalar_modulo.sh
+  strip_sudo_from_script "packages/merenda/merenda-escolar/instalar_modulo.sh"
+  strip_sudo_from_script "packages/merenda/install.sh"
+  ensure_laravel_runtime_dirs
+  if ! run_if_exists "packages/merenda/merenda-escolar/instalar_modulo.sh"; then
+    if ! run_if_exists "packages/merenda/install.sh"; then
+      echo "AVISO: script de instalacao da merenda nao encontrado no repositorio." >&2
+    fi
+  fi
   installed_any_package=1
 fi
 
 if [ "$installed_any_package" = "1" ]; then
-  composer plug-and-play:update
-  composer dump-autoload -o
+  ensure_laravel_runtime_dirs
+  composer plug-and-play:update --no-dev
+  composer dump-autoload -o --no-dev
 fi
