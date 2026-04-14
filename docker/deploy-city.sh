@@ -73,12 +73,17 @@ fi
 
 if [ "${images_changed}" = "true" ]; then
   echo ">> Nova imagem detectada. Executando pos-deploy da cidade ${CITY_INDEX}"
-  compose exec "${php_service}" composer plug-and-play:update
-  compose exec "${php_service}" php artisan community:reports:link
-  compose exec "${php_service}" php artisan community:reports:install
+  compose exec "${php_service}" composer plug-and-play:update --no-dev
+  if compose exec "${php_service}" sh -lc "php artisan list --raw | awk '{print \$1}' | grep -q '^community:reports:install$'"; then
+    compose exec "${php_service}" php artisan community:reports:link
+    compose exec "${php_service}" php artisan community:reports:install
+  else
+    echo ">> Comandos community:reports nao encontrados. Etapa de relatorios ignorada."
+  fi
   compose exec "${php_service}" php artisan storage:link
   compose exec "${php_service}" php artisan migrate --force
-  compose exec "${php_service}" composer dump-autoload -o
+  compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi
+  compose exec "${php_service}" composer dump-autoload -o --no-dev
   compose exec "${php_service}" php artisan optimize:clear
 else
   echo ">> Imagens inalteradas. Pos-deploy ignorado."
