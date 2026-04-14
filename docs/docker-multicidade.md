@@ -273,3 +273,51 @@ docker-compose --env-file docker/.env.registry -f docker-compose.multicidade.reg
 ```
 
 Pacotes que criam tabelas/estrutura continuam exigindo migration por cidade.
+
+### 8.6 Deploy automatico por cidade (quando imagem muda)
+
+Para automatizar o momento certo, use:
+
+- `docker/deploy-city.sh`
+
+Esse script:
+
+- faz `pull` da cidade
+- recria os servicos da cidade
+- compara hash das imagens antiga/nova
+- se mudou imagem, executa automaticamente:
+  - `composer plug-and-play:update`
+  - `php artisan community:reports:link`
+  - `php artisan community:reports:install`
+  - `php artisan storage:link`
+  - `php artisan migrate --force`
+  - `composer dump-autoload -o`
+  - `php artisan optimize:clear`
+
+Exemplo (cidade1):
+
+```bash
+CITY_INDEX=1 ENV_FILE=docker/.env.registry COMPOSE_FILE=docker-compose.multicidade.registry.yml ./docker/deploy-city.sh
+```
+
+Para forcar o pos-deploy mesmo sem mudanca de imagem:
+
+```bash
+CITY_INDEX=1 FORCE_POST_DEPLOY=true ENV_FILE=docker/.env.registry COMPOSE_FILE=docker-compose.multicidade.registry.yml ./docker/deploy-city.sh
+```
+
+### 8.7 Deploy em lote (todas as cidades)
+
+Para atualizar todas as cidades de uma vez:
+
+```bash
+ENV_FILE=docker/.env.registry COMPOSE_FILE=docker-compose.multicidade.registry.yml ./docker/deploy-all-cities.sh
+```
+
+O script detecta automaticamente os servicos `php_cidadeN` existentes no compose e executa `deploy-city.sh` para cada indice.
+
+Para limitar a lista:
+
+```bash
+CITY_INDEXES=1,2,3 ENV_FILE=docker/.env.registry COMPOSE_FILE=docker-compose.multicidade.registry.yml ./docker/deploy-all-cities.sh
+```

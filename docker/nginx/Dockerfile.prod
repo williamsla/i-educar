@@ -8,3 +8,8 @@ COPY . /var/www/ieducar
 
 COPY docker/nginx/conf.d/nginx.conf /etc/nginx/conf.d/nginx.conf
 COPY docker/nginx/templates/default.template.conf /etc/nginx/templates/default.template.conf
+COPY docker/nginx/entrypoint.prod.sh /usr/local/bin/entrypoint.prod.sh
+
+RUN chmod +x /usr/local/bin/entrypoint.prod.sh
+
+ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.prod.sh"]

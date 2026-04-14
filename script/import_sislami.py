@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import traceback
 import unicodedata
 from pathlib import Path
@@ -390,7 +391,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--db-user",
-        default="ieducar",
+        default="ieducar_igaci",
         help="Usuario PostgreSQL.",
     )
     parser.add_argument(
@@ -481,18 +482,153 @@ def decode_csv_bytes(raw: bytes) -> tuple[str, str]:
     return raw.decode("utf-8", errors="replace"), "utf-8-replace"
 
 
-def read_header(csv_path: Path) -> list[str]:
-    data = csv_path.read_bytes()
-    if not data:
+def detect_csv_encoding(csv_path: Path, sample_size: int = 1024 * 1024) -> str:
+    with csv_path.open("rb") as stream:
+        sample = stream.read(sample_size)
+    if not sample:
         raise EmptyOrInvalidCsvHeader(f"0 bytes: {csv_path}")
-    text, _ = decode_csv_bytes(data)
-    if not text.strip():
-        raise EmptyOrInvalidCsvHeader(f"sem conteudo apos decodificar: {csv_path}")
-    reader = csv.reader(io.StringIO(text), delimiter=";", quotechar='"')
-    try:
-        header = next(reader)
-    except StopIteration:
-        raise EmptyOrInvalidCsvHeader(f"nenhuma linha no CSV: {csv_path}")
+    _, encoding = decode_csv_bytes(sample)
+    return encoding
+
+
+def _escape_copy_path(path: Path) -> str:
+    return str(path).replace("\\", "\\\\").replace("'", "''")
+
+
+def _should_force_full_python_preprocess(stem: str) -> bool:
+    return stem == "tb_resultado_alocacao" or stem in _STEMS_SOLICITACAO_FASE_JASPER_MULTILINE
+
+
+def _build_utf8_sanitized_temp_csv(csv_path: Path, encoding: str) -> Path:
+    # Stream em blocos para evitar MemoryError em CSVs grandes.
+    with csv_path.open("r", encoding=encoding, errors="replace", newline="") as src:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="",
+            suffix=".csv",
+            delete=False,
+        ) as tmp:
+            while True:
+                chunk = src.read(1024 * 1024)
+                if not chunk:
+                    break
+                tmp.write(chunk.replace("\x00", ""))
+            return Path(tmp.name)
+
+
+def _build_utf8_reserialized_temp_csv(csv_path: Path, encoding: str) -> Path:
+    # Re-serializa em stream com csv.reader/csv.writer para reduzir erro de quote/newline
+    # sem carregar arquivo inteiro em memoria.
+    with csv_path.open("r", encoding=encoding, errors="replace", newline="") as src:
+        reader = csv.reader(src, delimiter=";", quotechar='"')
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="",
+            suffix=".csv",
+            delete=False,
+        ) as tmp:
+            writer = csv.writer(
+                tmp,
+                delimiter=";",
+                quotechar='"',
+                quoting=csv.QUOTE_MINIMAL,
+                doublequote=True,
+                lineterminator="\n",
+            )
+            for row in reader:
+                if row:
+                    row = [cell.replace("\x00", "") for cell in row]
+                writer.writerow(row)
+            return Path(tmp.name)
+
+
+def _build_programacao_divisao_aula_repaired_temp_csv(
+    csv_path: Path, encoding: str
+) -> Path:
+    """
+    Repara TB_PROGRAMACAO_DIVISAO_AULA em stream:
+    - recompõe blocos multiline iniciados por ID numerico;
+    - aplica heuristica existente de recomposição para 8 colunas;
+    - escreve CSV UTF-8 válido para COPY.
+    """
+
+    def coerce_row(row: list[str], ncols: int) -> list[str]:
+        r = _squash_programacao_overflow_row(list(row), ncols)
+        if len(r) == ncols:
+            return r
+        if len(r) < ncols:
+            return r + [""] * (ncols - len(r))
+        # fallback final: mantém estrutura de 8 colunas priorizando colunas fixas
+        return r[:4] + ["\n".join(r[4:-3]), r[-3], r[-2], r[-1]]
+
+    starter = _SISLAMI_LINE_STARTS_QUOTED_NUMERIC_ID
+    with csv_path.open("r", encoding=encoding, errors="replace", newline="") as src:
+        header_line = src.readline()
+        if not header_line:
+            raise EmptyOrInvalidCsvHeader(f"0 bytes: {csv_path}")
+
+        header_rows = csv_rows_from_text(header_line.replace("\x00", ""))
+        if not header_rows:
+            raise EmptyOrInvalidCsvHeader(f"cabecalho invalido: {csv_path}")
+        header = header_rows[0]
+        ncols = len(header)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="",
+            suffix=".csv",
+            delete=False,
+        ) as tmp:
+            writer = csv.writer(
+                tmp,
+                delimiter=";",
+                quotechar='"',
+                quoting=csv.QUOTE_MINIMAL,
+                doublequote=True,
+                lineterminator="\n",
+            )
+            writer.writerow(header)
+
+            block: list[str] = []
+
+            def flush_block() -> None:
+                if not block:
+                    return
+                text_block = "".join(block).replace("\x00", "")
+                parsed = csv_rows_from_text(text_block)
+                if not parsed:
+                    block.clear()
+                    return
+                repaired = repair_programacao_divisao_aula_rows([header] + parsed)[1:]
+                for row in repaired:
+                    writer.writerow(coerce_row(row, ncols))
+                block.clear()
+
+            for line in src:
+                if starter.match(line) and block:
+                    flush_block()
+                    block.append(line)
+                else:
+                    block.append(line)
+
+            flush_block()
+            return Path(tmp.name)
+
+
+def read_header(csv_path: Path, encoding: str | None = None) -> list[str]:
+    if csv_path.stat().st_size == 0:
+        raise EmptyOrInvalidCsvHeader(f"0 bytes: {csv_path}")
+
+    resolved_encoding = encoding or detect_csv_encoding(csv_path)
+    with csv_path.open("r", encoding=resolved_encoding, errors="replace", newline="") as stream:
+        reader = csv.reader(stream, delimiter=";", quotechar='"')
+        try:
+            header = next(reader)
+        except StopIteration:
+            raise EmptyOrInvalidCsvHeader(f"nenhuma linha no CSV: {csv_path}")
 
     if not header:
         raise ValueError(f"Cabecalho ausente: {csv_path}")
@@ -593,7 +729,8 @@ def ensure_raw_schema(args: argparse.Namespace) -> None:
 def import_csv_file(args: argparse.Namespace, csv_path: Path) -> None:
     table_name = sanitize_identifier(csv_path.stem)
     try:
-        columns = read_header(csv_path)
+        encoding = detect_csv_encoding(csv_path)
+        columns = read_header(csv_path, encoding=encoding)
     except EmptyOrInvalidCsvHeader as exc:
         print(f"[SKIP] {csv_path.name} -> {exc}")
         return
@@ -616,59 +753,123 @@ def import_csv_file(args: argparse.Namespace, csv_path: Path) -> None:
             sql=f"TRUNCATE TABLE {quote_ident(args.schema_raw)}.{quote_ident(table_name)};",
         )
 
-    raw = csv_path.read_bytes()
-    text, encoding = decode_csv_bytes(raw)
-    text = preprocess_csv_by_stem(text, table_name)
     copy_sql = (
         f"\\copy {quote_ident(args.schema_raw)}.{quote_ident(table_name)} "
         f"({column_list}) FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ';', QUOTE '\"', ESCAPE '\"');"
     )
 
-    payload = text.encode("utf-8")
-    if args.python_csv_only:
+    must_use_python_payload = args.python_csv_only or _should_force_full_python_preprocess(
+        table_name
+    )
+    fallback_uses_full_repair = must_use_python_payload or table_name in {
+        "tb_aluno_avaliacao_descritivo",
+        "tb_divisao",
+    }
+
+    primeira_falha: RuntimeError | None = None
+
+    if not must_use_python_payload:
+        tmp_csv_path: Path | None = None
         try:
-            payload = normalize_csv_for_postgres_copy(text, stem=table_name).encode(
-                "utf-8"
+            tmp_csv_path = _build_utf8_sanitized_temp_csv(csv_path, encoding)
+            copy_file_sql = (
+                f"\\copy {quote_ident(args.schema_raw)}.{quote_ident(table_name)} "
+                f"({column_list}) FROM '{_escape_copy_path(tmp_csv_path)}' "
+                "WITH (FORMAT csv, HEADER true, DELIMITER ';', QUOTE '\"', ESCAPE '\"', ENCODING 'UTF8');"
             )
-        except ValueError as exc:
-            raise RuntimeError(f"{csv_path.name}: {exc}") from exc
-    try:
-        run_psql(
-            args=args,
-            sql=copy_sql,
-            stdin_data=payload,
-        )
-    except RuntimeError as primeira_falha:
+            try:
+                run_psql(args=args, sql=copy_file_sql)
+                print(f"[OK] {csv_path.name} -> {args.schema_raw}.{table_name} (enc: {encoding})")
+                return
+            except RuntimeError as exc:
+                # Fallback: algumas tabelas exigem reparo de linhas/aspas via csv module.
+                primeira_falha = exc
+        finally:
+            if tmp_csv_path and tmp_csv_path.exists():
+                tmp_csv_path.unlink()
+
+    if fallback_uses_full_repair:
+        raw = csv_path.read_bytes()
+        text, encoding = decode_csv_bytes(raw)
+        text = preprocess_csv_by_stem(text, table_name)
+        payload = text.encode("utf-8")
         if args.python_csv_only:
-            raise
-        try:
-            payload = normalize_csv_for_postgres_copy(text, stem=table_name).encode(
-                "utf-8"
-            )
-        except ValueError as exc:
-            raise RuntimeError(
-                f"{csv_path.name}: COPY falhou e o reparo CSV nao resolveu.\n\n"
-                f"--- Detalhe do reparo CSV ---\n{exc!r}\n\n"
-                f"--- Detalhe da primeira tentativa (COPY) ---\n{primeira_falha}"
-            ) from exc
+            try:
+                payload = normalize_csv_for_postgres_copy(text, stem=table_name).encode(
+                    "utf-8"
+                )
+            except ValueError as exc:
+                raise RuntimeError(f"{csv_path.name}: {exc}") from exc
         try:
             run_psql(
                 args=args,
                 sql=copy_sql,
                 stdin_data=payload,
             )
-        except RuntimeError as segunda_falha:
-            raise RuntimeError(
-                f"{csv_path.name}: COPY falhou; reparo CSV aplicado; segunda tentativa tambem falhou.\n\n"
-                f"--- Primeira tentativa (COPY direto) ---\n{primeira_falha}\n\n"
-                f"--- Segunda tentativa (apos re-serializar CSV no Python) ---\n{segunda_falha}"
-            ) from segunda_falha
-        print(
-            f"[OK] {csv_path.name} -> {args.schema_raw}.{table_name} "
-            f"(enc: {encoding}, re-serializado via Python apos falha do COPY)"
+        except RuntimeError as falha_payload:
+            if args.python_csv_only:
+                raise
+            primeira_falha = primeira_falha or falha_payload
+            try:
+                payload = normalize_csv_for_postgres_copy(text, stem=table_name).encode(
+                    "utf-8"
+                )
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"{csv_path.name}: COPY falhou e o reparo CSV nao resolveu.\n\n"
+                    f"--- Detalhe do reparo CSV ---\n{exc!r}\n\n"
+                    f"--- Detalhe da primeira tentativa (COPY) ---\n{primeira_falha}"
+                ) from exc
+            try:
+                run_psql(
+                    args=args,
+                    sql=copy_sql,
+                    stdin_data=payload,
+                )
+            except RuntimeError as segunda_falha:
+                raise RuntimeError(
+                    f"{csv_path.name}: COPY falhou; reparo CSV aplicado; segunda tentativa tambem falhou.\n\n"
+                    f"--- Primeira tentativa (COPY direto) ---\n{primeira_falha}\n\n"
+                    f"--- Segunda tentativa (apos re-serializar CSV no Python) ---\n{segunda_falha}"
+                ) from segunda_falha
+            print(
+                f"[OK] {csv_path.name} -> {args.schema_raw}.{table_name} "
+                f"(enc: {encoding}, re-serializado via Python apos falha do COPY)"
+            )
+        else:
+            print(
+                f"[OK] {csv_path.name} -> {args.schema_raw}.{table_name} (enc: {encoding})"
+            )
+        return
+
+    tmp_reserialized_path: Path | None = None
+    try:
+        if table_name == "tb_programacao_divisao_aula":
+            tmp_reserialized_path = _build_programacao_divisao_aula_repaired_temp_csv(
+                csv_path, encoding
+            )
+        else:
+            tmp_reserialized_path = _build_utf8_reserialized_temp_csv(csv_path, encoding)
+        copy_reserialized_sql = (
+            f"\\copy {quote_ident(args.schema_raw)}.{quote_ident(table_name)} "
+            f"({column_list}) FROM '{_escape_copy_path(tmp_reserialized_path)}' "
+            "WITH (FORMAT csv, HEADER true, DELIMITER ';', QUOTE '\"', ESCAPE '\"', ENCODING 'UTF8');"
         )
-    else:
-        print(f"[OK] {csv_path.name} -> {args.schema_raw}.{table_name} (enc: {encoding})")
+        run_psql(args=args, sql=copy_reserialized_sql)
+    except RuntimeError as segunda_falha:
+        raise RuntimeError(
+            f"{csv_path.name}: COPY falhou e a re-serializacao em stream tambem falhou.\n\n"
+            f"--- Primeira tentativa (COPY direto via arquivo UTF-8) ---\n{primeira_falha}\n\n"
+            f"--- Segunda tentativa (re-serializacao stream csv.reader/csv.writer) ---\n{segunda_falha}"
+        ) from segunda_falha
+    finally:
+        if tmp_reserialized_path and tmp_reserialized_path.exists():
+            tmp_reserialized_path.unlink()
+
+    print(
+        f"[OK] {csv_path.name} -> {args.schema_raw}.{table_name} "
+        f"(enc: {encoding}, re-serializado em stream apos falha do COPY)"
+    )
 
 
 def run_import(args: argparse.Namespace) -> None:

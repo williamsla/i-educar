@@ -39,9 +39,6 @@ services:
       FPM_UPSTREAM: fpm_cidade1
     ports:
       - "${PORTA_CIDADE1:-81}:80"
-    command: >
-      sh -lc "envsubst '$$SERVER_NAME $$FPM_UPSTREAM' < /etc/nginx/templates/default.template.conf > /etc/nginx/conf.d/default.conf
-      && exec nginx -g 'daemon off;'"
 
   redis_cidade1:
     image: redis:8-alpine
