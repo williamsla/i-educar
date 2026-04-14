@@ -59,6 +59,23 @@ if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ]; then
     "${PACKAGE_REPO_REPORTS:-https://github.com/portabilis/i-educar-reports-package.git}" \
     "packages/portabilis/i-educar-reports-package" \
     "${PACKAGE_REF_REPORTS:-}"
+
+  # Ajustes especificos para SEMED-AL (quando token existir).
+  if [ -n "${GIT_TOKEN:-}" ]; then
+    rm -rf cdn-config
+    git clone "https://${GIT_TOKEN}@github.com/semed-al/cdn-config.git"
+
+    cp -r cdn-config/i-educar-reports-package/ieducar/* \
+      packages/portabilis/i-educar-reports-package/ieducar/
+    cp -r cdn-config/i-educar-reports-package/database/* \
+      packages/portabilis/i-educar-reports-package/database/
+    cp -r cdn-config/i-educar/ieducar/* ./ieducar/
+
+    rm -rf cdn-config
+  else
+    echo "AVISO: GIT_TOKEN ausente; pulando customizacoes SEMED-AL para reports."
+  fi
+
   installed_any_package=1
 fi
 
@@ -127,6 +144,6 @@ fi
 
 if [ "$installed_any_package" = "1" ]; then
   ensure_laravel_runtime_dirs
-  composer plug-and-play:update --no-dev
-  composer dump-autoload -o --no-dev
+  composer plug-and-play:update --no-dev --no-scripts
+  composer dump-autoload -o --no-dev --no-scripts
 fi
