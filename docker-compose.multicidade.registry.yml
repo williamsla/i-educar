@@ -48,39 +48,3 @@ services:
     container_name: ieducar-redis-${CIDADE1_SLUG:-cidade1}-prod
     restart: unless-stopped
 
-  php_cidade2:
-    <<: *app-image
-    container_name: ieducar-php-${CIDADE2_SLUG:-cidade2}-prod
-    env_file:
-      - ${ENV_CIDADE2_FILE:-.env.cidade2}
-    depends_on:
-      - redis_cidade2
-    command: ["sh", "-lc", "sleep infinity"]
-
-  fpm_cidade2:
-    <<: *app-image
-    container_name: ieducar-fpm-${CIDADE2_SLUG:-cidade2}-prod
-    env_file:
-      - ${ENV_CIDADE2_FILE:-.env.cidade2}
-    depends_on:
-      - redis_cidade2
-    command: ["php-fpm", "-F"]
-
-  nginx_cidade2:
-    <<: *nginx-image
-    container_name: ieducar-nginx-${CIDADE2_SLUG:-cidade2}-prod
-    depends_on:
-      - fpm_cidade2
-    environment:
-      SERVER_NAME: ${SERVER_NAME_CIDADE2:-ieducar.cidade2.local}
-      FPM_UPSTREAM: fpm_cidade2
-    ports:
-      - "${PORTA_CIDADE2:-82}:80"
-    command: >
-      sh -lc "envsubst '$$SERVER_NAME $$FPM_UPSTREAM' < /etc/nginx/templates/default.template.conf > /etc/nginx/conf.d/default.conf
-      && exec nginx -g 'daemon off;'"
-
-  redis_cidade2:
-    image: redis:8-alpine
-    container_name: ieducar-redis-${CIDADE2_SLUG:-cidade2}-prod
-    restart: unless-stopped
