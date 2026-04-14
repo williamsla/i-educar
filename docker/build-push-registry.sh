@@ -21,10 +21,21 @@ EOF
 
 APP_IMAGE="${REGISTRY_HOST}/${REGISTRY_NAMESPACE}/ieducar-app:${IMAGE_TAG}"
 NGINX_IMAGE="${REGISTRY_HOST}/${REGISTRY_NAMESPACE}/ieducar-nginx:${IMAGE_TAG}"
+PLATFORM="${PLATFORM:-linux/amd64}"
 
-echo ">> Build app: ${APP_IMAGE}"
-docker build \
+if ! docker buildx version >/dev/null 2>&1; then
+  echo "ERRO: docker buildx nao encontrado. Instale/ative o buildx." >&2
+  exit 1
+fi
+
+if ! docker buildx inspect >/dev/null 2>&1; then
+  docker buildx create --use --name ieducar-builder >/dev/null
+fi
+
+echo ">> Build+push app via buildx: ${APP_IMAGE}"
+docker buildx build \
   -f docker/php/Dockerfile.prod \
+  --platform "${PLATFORM}" \
   --build-arg ENABLE_PACKAGE_REPORTS="${ENABLE_PACKAGE_REPORTS:-false}" \
   --build-arg ENABLE_PACKAGE_EDUCACENSO="${ENABLE_PACKAGE_EDUCACENSO:-false}" \
   --build-arg ENABLE_PACKAGE_TRANSPORTE="${ENABLE_PACKAGE_TRANSPORTE:-false}" \
@@ -39,19 +50,16 @@ docker build \
   --build-arg PACKAGE_REF_MERENDA="${PACKAGE_REF_MERENDA:-}" \
   --build-arg GIT_TOKEN="${GIT_TOKEN:-}" \
   -t "${APP_IMAGE}" \
+  --push \
   .
 
-echo ">> Build nginx: ${NGINX_IMAGE}"
-docker build \
+echo ">> Build+push nginx via buildx: ${NGINX_IMAGE}"
+docker buildx build \
   -f docker/nginx/Dockerfile.prod \
+  --platform "${PLATFORM}" \
   -t "${NGINX_IMAGE}" \
+  --push \
   .
-
-echo ">> Push app"
-docker push "${APP_IMAGE}"
-
-echo ">> Push nginx"
-docker push "${NGINX_IMAGE}"
 
 echo "OK"
 echo "APP_IMAGE=${APP_IMAGE}"
