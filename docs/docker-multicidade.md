@@ -256,7 +256,7 @@ Se habilitar `ENABLE_PACKAGE_DESPESAS=true` ou `ENABLE_PACKAGE_MERENDA=true`, de
 cp docker/.env.registry.example docker/.env.registry
 ```
 
-Edite `docker/.env.registry` com namespace/tag reais e dominios das cidades.
+Edite `docker/.env.registry` com namespace/tag reais, dominios das cidades e os slugs de nome dos containers (`CIDADE1_SLUG`, `CIDADE2_SLUG`).
 
 ### 8.4 Deploy puxando imagens do registry
 
