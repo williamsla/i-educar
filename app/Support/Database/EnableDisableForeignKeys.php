@@ -14,7 +14,8 @@ trait EnableDisableForeignKeys
      */
     protected function disableForeignKeys($table)
     {
-        DB::statement("ALTER TABLE {$table} DISABLE TRIGGER ALL;");
+        // "ALL" requires superuser in PostgreSQL because it includes system triggers.
+        DB::statement("ALTER TABLE {$table} DISABLE TRIGGER USER;");
     }
 
     /**
@@ -25,6 +26,6 @@ trait EnableDisableForeignKeys
      */
     protected function enableForeignKeys($table)
     {
-        DB::statement("ALTER TABLE {$table} ENABLE TRIGGER ALL;");
+        DB::statement("ALTER TABLE {$table} ENABLE TRIGGER USER;");
     }
 }

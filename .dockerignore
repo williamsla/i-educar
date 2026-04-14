@@ -1,0 +1,17 @@
+.git
+.github
+.cursor
+node_modules
+vendor
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+tests
+import
+backup
+*.zip
+.env
+.env.*
+docker-compose*.yml
+docs

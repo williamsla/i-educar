@@ -35,6 +35,37 @@ Campos principais:
 docker-compose -f docker-compose.multicidade.yml up -d --build
 ```
 
+```bash
+mkdir -p vendor
+chmod -R 777 vendor
+chmod -R 777 storage bootstrap/cache
+```
+
+Criar key do laravel e alterar .env manualmente 
+```bash
+docker compose exec php_igaci php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"
+
+KEY=saida anterior
+
+cd /var/www
+
+chown -R 33:33 .
+# 33 = www-data (padrão PHP-FPM)
+
+cd /var/www
+
+chown -R 33:33 ieducar
+chmod -R 775 ieducar
+chmod -R 775 /var/www/ieducar/storage
+chmod -R 775 /var/www/ieducar/bootstrap/cache
+
+mkdir -p /var/www/ieducar/storage/logs 
+chown -R www-data:www-data /var/www/ieducar/storage /var/www/ieducar/bootstrap/cache
+chmod -R ug+rwX /var/www/ieducar/storage /var/www/ieducar/bootstrap/cache
+
+```
+
+
 Aplicacoes:
 
 - Cidade 1: `http://localhost:8081`
@@ -122,3 +153,123 @@ Observacoes:
 
 - A imagem PHP deste projeto ja instala `openjdk8`, necessario para os relatórios.
 - O pacote oficial: [portabilis/i-educar-reports-package](https://github.com/portabilis/i-educar-reports-package).
+
+## 7) Produção sem bind mount (imagem com código)
+
+Para produção, use:
+
+- `docker-compose.multicidade.prod.yml`
+- `docker/php/Dockerfile.prod`
+- `docker/nginx/Dockerfile.prod`
+
+Nesta estrategia o código vai dentro das imagens e nao e montado via volume.
+
+### 7.1 Preparar envs de produção
+
+Crie os arquivos reais (nao usar `*.example` em produção):
+
+```bash
+cp .env.cidade1.example .env.cidade1
+cp .env.cidade2.example .env.cidade2
+```
+
+Edite os dois arquivos com:
+
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+- `APP_URL` correto por cidade
+- `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
+- `SESSION_COOKIE` e `REDIS_PREFIX` unicos por cidade
+
+### 7.2 Build e subida
+
+```bash
+docker-compose -f docker-compose.multicidade.prod.yml up -d --build
+```
+
+Se quiser apontar arquivos diferentes:
+
+```bash
+ENV_CIDADE1_FILE=.env.cidade1 ENV_CIDADE2_FILE=.env.cidade2 docker-compose -f docker-compose.multicidade.prod.yml up -d --build
+```
+
+### 7.3 Comandos por cidade (migracao e cache)
+
+```bash
+docker-compose -f docker-compose.multicidade.prod.yml exec php_cidade1 php artisan migrate --force
+docker-compose -f docker-compose.multicidade.prod.yml exec php_cidade2 php artisan migrate --force
+
+docker-compose -f docker-compose.multicidade.prod.yml exec php_cidade1 php artisan optimize:clear
+docker-compose -f docker-compose.multicidade.prod.yml exec php_cidade2 php artisan optimize:clear
+```
+
+### 7.4 Observações
+
+- Mudou o código? precisa rebuild de imagem (`up -d --build`).
+- O `vendor:publish` continua sendo 1 vez por release; comandos que alteram banco continuam 1 vez por cidade.
+
+## 8) Publicar no Registry (Magalu) e fazer deploy por imagem
+
+Objetivo: buildar imagens, enviar para o registry e subir com compose usando apenas `image:`.
+
+Arquivos usados:
+
+- `docker/build-push-registry.sh`
+- `docker/.env.registry.example`
+- `docker-compose.multicidade.registry.yml`
+
+### 8.1 Login no registry
+
+```bash
+docker login registry.magalu.cloud
+```
+
+Use usuario/token do seu projeto no Container Registry da Magalu.
+
+### 8.2 Build e push das imagens
+
+```bash
+REGISTRY_HOST=registry.magalu.cloud \
+REGISTRY_NAMESPACE=seu-projeto \
+IMAGE_TAG=2.10.0 \
+./docker/build-push-registry.sh
+```
+
+Para incluir pacotes extras ja na imagem:
+
+```bash
+REGISTRY_HOST=registry.magalu.cloud \
+REGISTRY_NAMESPACE=seu-projeto \
+IMAGE_TAG=2.10.0 \
+ENABLE_PACKAGE_REPORTS=true \
+ENABLE_PACKAGE_EDUCACENSO=true \
+ENABLE_PACKAGE_TRANSPORTE=true \
+ENABLE_PACKAGE_PRE_MATRICULA=true \
+./docker/build-push-registry.sh
+```
+
+Se habilitar `ENABLE_PACKAGE_DESPESAS=true` ou `ENABLE_PACKAGE_MERENDA=true`, defina tambem `GIT_TOKEN`.
+
+### 8.3 Preparar variaveis de deploy
+
+```bash
+cp docker/.env.registry.example docker/.env.registry
+```
+
+Edite `docker/.env.registry` com namespace/tag reais e dominios das cidades.
+
+### 8.4 Deploy puxando imagens do registry
+
+```bash
+docker-compose --env-file docker/.env.registry -f docker-compose.multicidade.registry.yml pull
+docker-compose --env-file docker/.env.registry -f docker-compose.multicidade.registry.yml up -d
+```
+
+### 8.5 Migrations por cidade
+
+```bash
+docker-compose --env-file docker/.env.registry -f docker-compose.multicidade.registry.yml exec php_cidade1 php artisan migrate --force
+docker-compose --env-file docker/.env.registry -f docker-compose.multicidade.registry.yml exec php_cidade2 php artisan migrate --force
+```
+
+Pacotes que criam tabelas/estrutura continuam exigindo migration por cidade.

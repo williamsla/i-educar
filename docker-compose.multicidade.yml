@@ -22,6 +22,7 @@ services:
     <<: *app-base
     container_name: ieducar-php-cidade1
     entrypoint: ["sh", "/usr/local/bin/entrypoint.sh"]
+    user: "1000:1000"
     depends_on:
       - redis_cidade1
     volumes:
@@ -31,6 +32,7 @@ services:
   fpm_cidade1:
     <<: *app-base
     container_name: ieducar-fpm-cidade1
+    user: "1000:1000"
     depends_on:
       - redis_cidade1
     volumes:

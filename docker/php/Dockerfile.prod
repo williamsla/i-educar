@@ -1,0 +1,107 @@
+ARG PHP_VERSION=8.4
+ARG COMPOSER_VERSION=2.8
+ARG ENABLE_PACKAGE_REPORTS=false
+ARG ENABLE_PACKAGE_EDUCACENSO=false
+ARG ENABLE_PACKAGE_TRANSPORTE=false
+ARG ENABLE_PACKAGE_PRE_MATRICULA=false
+ARG ENABLE_PACKAGE_DESPESAS=false
+ARG ENABLE_PACKAGE_MERENDA=false
+ARG PACKAGE_REF_REPORTS=
+ARG PACKAGE_REF_EDUCACENSO=
+ARG PACKAGE_REF_TRANSPORTE=
+ARG PACKAGE_REF_PRE_MATRICULA=
+ARG PACKAGE_REF_DESPESAS=
+ARG PACKAGE_REF_MERENDA=
+ARG GIT_TOKEN=
+
+FROM composer:${COMPOSER_VERSION} AS vendor
+
+WORKDIR /var/www/ieducar
+
+COPY . /var/www/ieducar
+
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts
+
+FROM php:${PHP_VERSION}-fpm-alpine
+
+LABEL maintainer="Portabilis <contato@portabilis.com.br>"
+
+ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV COMPOSER_PROCESS_TIMEOUT=900
+ENV COMPOSER_DISABLE_XDEBUG_WARN=1
+
+COPY --from=composer:2.8 /usr/bin/composer /usr/local/bin/composer
+
+RUN apk add --no-cache \
+    libc-dev \
+    libpng-dev \
+    libzip-dev \
+    linux-headers \
+    openjdk8 \
+    postgresql17-client \
+    postgresql-dev \
+    ttf-dejavu \
+    unzip \
+    openssh \
+    git \
+    gettext \
+    nodejs \
+    npm \
+    yarn
+
+RUN apk add --no-cache --virtual .phpize_deps $PHPIZE_DEPS
+
+RUN pecl install redis && docker-php-ext-enable redis
+
+RUN docker-php-ext-install \
+    bcmath \
+    gd \
+    pcntl \
+    pdo \
+    pdo_pgsql \
+    pgsql \
+    zip \
+    ftp
+
+RUN docker-php-ext-enable \
+    bcmath \
+    gd \
+    pcntl \
+    pdo \
+    pdo_pgsql \
+    pgsql \
+    zip \
+    ftp
+
+RUN apk del .phpize_deps
+
+COPY --from=vendor --chown=www-data:www-data /var/www/ieducar /var/www/ieducar
+COPY docker/php/entrypoint.prod.sh /usr/local/bin/entrypoint.prod.sh
+COPY docker/php/install-extra-packages.sh /usr/local/bin/install-extra-packages.sh
+
+RUN chmod +x /usr/local/bin/entrypoint.prod.sh /usr/local/bin/install-extra-packages.sh \
+    && ENABLE_PACKAGE_REPORTS=${ENABLE_PACKAGE_REPORTS} \
+    ENABLE_PACKAGE_EDUCACENSO=${ENABLE_PACKAGE_EDUCACENSO} \
+    ENABLE_PACKAGE_TRANSPORTE=${ENABLE_PACKAGE_TRANSPORTE} \
+    ENABLE_PACKAGE_PRE_MATRICULA=${ENABLE_PACKAGE_PRE_MATRICULA} \
+    ENABLE_PACKAGE_DESPESAS=${ENABLE_PACKAGE_DESPESAS} \
+    ENABLE_PACKAGE_MERENDA=${ENABLE_PACKAGE_MERENDA} \
+    PACKAGE_REF_REPORTS=${PACKAGE_REF_REPORTS} \
+    PACKAGE_REF_EDUCACENSO=${PACKAGE_REF_EDUCACENSO} \
+    PACKAGE_REF_TRANSPORTE=${PACKAGE_REF_TRANSPORTE} \
+    PACKAGE_REF_PRE_MATRICULA=${PACKAGE_REF_PRE_MATRICULA} \
+    PACKAGE_REF_DESPESAS=${PACKAGE_REF_DESPESAS} \
+    PACKAGE_REF_MERENDA=${PACKAGE_REF_MERENDA} \
+    GIT_TOKEN=${GIT_TOKEN} \
+    /usr/local/bin/install-extra-packages.sh \
+    && rm -f /usr/local/bin/install-extra-packages.sh
+
+WORKDIR /var/www/ieducar
+
+ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.prod.sh"]
+CMD ["php-fpm", "-F"]
