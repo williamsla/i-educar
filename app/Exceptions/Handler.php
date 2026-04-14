@@ -48,7 +48,13 @@ class Handler extends ExceptionHandler
                     'action' => $this->getAction(),
                 ];
 
-                app(Tracker::class)->notify($e, $data);
+                try {
+                    if (app()->bound(Tracker::class)) {
+                        app(Tracker::class)->notify($e, $data);
+                    }
+                } catch (Throwable $trackingException) {
+                    // Nao interrompe o fluxo original caso o tracker falhe durante o bootstrap.
+                }
             }
         });
     }
