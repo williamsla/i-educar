@@ -99,12 +99,26 @@ class FileService
 
                 break;
             case 's3':
-                $url = implode('/', array_slice(explode('/', $url), 3));
+                $url = $this->getS3KeyFromUrl($url);
 
                 break;
         }
 
         Storage::delete($url);
+    }
+
+    private function getS3KeyFromUrl(string $url): string
+    {
+        $urlWithoutQuery = preg_replace('/\?.*/', '', $url);
+        $path = (string) parse_url($urlWithoutQuery, PHP_URL_PATH);
+        $key = ltrim($path, '/');
+        $bucket = (string) config('filesystems.disks.s3.bucket');
+
+        if ($bucket !== '' && str_starts_with($key, $bucket . '/')) {
+            $key = substr($key, strlen($bucket) + 1);
+        }
+
+        return $key;
     }
 
     public function upload($uploadFile)
