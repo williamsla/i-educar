@@ -23,6 +23,9 @@ clone_or_update_repo() {
   if [ -n "$repo_ref" ]; then
     git -C "$target_dir" checkout "$repo_ref"
   fi
+
+  # Evita erros de "dubious ownership" em runtime (composer/git)
+  rm -rf "$target_dir/.git"
 }
 
 strip_sudo_from_script() {

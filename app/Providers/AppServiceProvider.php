@@ -7,6 +7,7 @@ use App\Providers\Postgres\DatabaseServiceProvider;
 use App\Services\CacheManager;
 use App\Services\StudentUnificationService;
 use Exception;
+use iEducar\Modules\ErrorTracking\EmailTracker;
 use iEducar\Modules\ErrorTracking\HoneyBadgerTracker;
 use iEducar\Modules\ErrorTracking\Tracker;
 use iEducar\Support\Navigation\Breadcrumb;
@@ -108,7 +109,13 @@ class AppServiceProvider extends ServiceProvider
             $this->app->register(TelescopeServiceProvider::class);
         }
 
-        $this->app->bind(Tracker::class, HoneyBadgerTracker::class);
+        $this->app->bind(Tracker::class, function () {
+            if (class_exists(\Honeybadger\Honeybadger::class)) {
+                return new HoneyBadgerTracker();
+            }
+
+            return new EmailTracker();
+        });
 
         $this->app->bind(LegacyInstitution::class, function () {
             return LegacyInstitution::query()->where('ativo', 1)->firstOrFail();
