@@ -13,19 +13,7 @@ ARG PACKAGE_REF_PRE_MATRICULA=
 ARG PACKAGE_REF_DESPESAS=
 ARG PACKAGE_REF_MERENDA=
 ARG GIT_TOKEN=
-
-FROM composer:${COMPOSER_VERSION} AS vendor
-
-WORKDIR /var/www/ieducar
-
-COPY . /var/www/ieducar
-
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --prefer-dist \
-    --optimize-autoloader \
-    --no-scripts
+FROM composer:${COMPOSER_VERSION} AS composer_bin
 
 FROM php:${PHP_VERSION}-fpm-alpine
 
@@ -35,7 +23,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV COMPOSER_PROCESS_TIMEOUT=900
 ENV COMPOSER_DISABLE_XDEBUG_WARN=1
 
-COPY --from=composer:2.8 /usr/bin/composer /usr/local/bin/composer
+COPY --from=composer_bin /usr/bin/composer /usr/local/bin/composer
 
 RUN apk add --no-cache \
     libc-dev \
@@ -80,7 +68,17 @@ RUN docker-php-ext-enable \
 
 RUN apk del .phpize_deps
 
-COPY --from=vendor --chown=www-data:www-data /var/www/ieducar /var/www/ieducar
+WORKDIR /var/www/ieducar
+
+COPY --chown=www-data:www-data . /var/www/ieducar
+
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts
+
 COPY docker/php/entrypoint.prod.sh /usr/local/bin/entrypoint.prod.sh
 COPY docker/php/install-extra-packages.sh /usr/local/bin/install-extra-packages.sh
 
@@ -100,8 +98,6 @@ RUN chmod +x /usr/local/bin/entrypoint.prod.sh /usr/local/bin/install-extra-pack
     GIT_TOKEN=${GIT_TOKEN} \
     /usr/local/bin/install-extra-packages.sh \
     && rm -f /usr/local/bin/install-extra-packages.sh
-
-WORKDIR /var/www/ieducar
 
 ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.prod.sh"]
 CMD ["php-fpm", "-F"]
