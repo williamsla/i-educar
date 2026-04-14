@@ -2,10 +2,18 @@
 set -eu
 
 # Uso:
-# REGISTRY_HOST=registry.magalu.cloud \
-# REGISTRY_NAMESPACE=seu-projeto \
-# IMAGE_TAG=2.10.0 \
-# ./docker/build-push-registry.sh
+: <<EOF
+REGISTRY_HOST=container-registry.br-ne1.magalu.cloud \
+REGISTRY_NAMESPACE=ieducar \
+IMAGE_TAG=2.10.0 \
+ENABLE_PACKAGE_REPORTS=true \
+ENABLE_PACKAGE_EDUCACENSO=true \
+ENABLE_PACKAGE_TRANSPORTE=true \
+ENABLE_PACKAGE_PRE_MATRICULA=true \
+ENABLE_PACKAGE_DESPESAS=true \
+ENABLE_PACKAGE_MERENDA=true \
+./docker/build-push-registry.sh
+EOF
 
 : "${REGISTRY_HOST:?defina REGISTRY_HOST}"
 : "${REGISTRY_NAMESPACE:?defina REGISTRY_NAMESPACE}"
