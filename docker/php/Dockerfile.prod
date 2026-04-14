@@ -86,6 +86,9 @@ WORKDIR /var/www/ieducar
 
 COPY --chown=www-data:www-data . /var/www/ieducar
 
+RUN mkdir -p bootstrap/cache \
+    && rm -f bootstrap/cache/*.php
+
 RUN composer install \
     --no-dev \
     --no-interaction \
