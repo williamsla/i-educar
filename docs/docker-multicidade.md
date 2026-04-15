@@ -161,7 +161,7 @@ Para produção, use:
 - `docker-compose.multicidade.prod.yml`
 - `docker/php/Dockerfile.prod`
 - `docker/nginx/Dockerfile.prod`
-- `docker/php/install-extra-packages.sh`: apos `plug-and-play`, roda passos dos READMEs que cabem na build (`APP_KEY` temporario): relatórios (`community:reports:*`, publish de assets), pré-matrícula (`vendor:publish --tag=pmd`). O `community:reports:install` pode falhar sem DB e e executado de novo no `deploy-city.sh` apos `migrate`.
+- `docker/php/install-extra-packages.sh`: apos `plug-and-play`, na build roda só o que nao exige DB: relatórios (`community:reports:link`, publish de assets), pré-matrícula (`vendor:publish --tag=pmd`). O `community:reports:install` roda apenas no `deploy-city.sh` apos `migrate`.
 
 Nesta estrategia o código vai dentro das imagens e nao e montado via volume.
 

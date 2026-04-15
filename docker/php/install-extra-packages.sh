@@ -67,19 +67,15 @@ artisan_cmd_exists() {
   php artisan list --raw 2>/dev/null | awk '{print $1}' | grep -qx "$name"
 }
 
-# Passos descritos nos READMEs oficiais apos `composer plug-and-play` (o que roda
-# sem banco na build; o restante e repetido/confirmado no deploy com DB).
+# Passos README apos plug-and-play que nao exigem DB. `community:reports:install` fica
+# apenas no deploy (docker/deploy-city.sh), apos migrate.
 run_readme_artisan_after_composer() {
   apply_artisan_build_env
 
   if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ] && [ -d packages/portabilis/i-educar-reports-package ]; then
-    echo ">> README i-educar-reports-package: community:reports:* e publish de assets"
+    echo ">> README relatórios (build): community:reports:link e publish de assets"
     if artisan_cmd_exists community:reports:link; then
       php artisan community:reports:link --no-interaction || true
-    fi
-    if artisan_cmd_exists community:reports:install; then
-      php artisan community:reports:install --no-interaction 2>/dev/null || \
-        echo "AVISO: community:reports:install falhou na build (sem DB e normal). Sera executado no deploy."
     fi
     php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction 2>/dev/null || true
   fi
