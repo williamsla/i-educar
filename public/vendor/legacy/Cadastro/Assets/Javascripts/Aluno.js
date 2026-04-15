@@ -1910,7 +1910,7 @@ function canShowParentsFields() {
             <form>
             <input type="hidden" name="observacao" id="observacao"/>
               <h2></h2>
-              </table>
+              <table>
                 <tr>
                   <td valign="top">
                     <fieldset>
@@ -1947,15 +1947,15 @@ function canShowParentsFields() {
                       <label style="display: block;" for="naturalidade_pessoa-aluno"> Naturalidade<span class="campo_obrigatorio">*</span> </label>
                     </fieldset>
                   </td>
-                  <tr>
+                  <td>
                     <fieldset valign="top">
                       <legend>Dados do endereço</legend>
-                      <table>
+                      <table></table>
                     </fieldset>
                   </td>
-                  <tr>
+                  <td>
                     <fieldset>
-                      <table>
+                      <table></table>
                     </fieldset>
                   </td>
                 </tr>
@@ -2425,7 +2425,7 @@ function canShowParentsFields() {
               $j("#localizacao_diferenciada").val(),
               nome_social.val(),
               $j("#pais_residencia").val(),
-              $j("#povo_indigena_educacenso_id").val()
+              $j("#povo_indigena_educacenso_id").val(),
             );
           }
         },
@@ -2453,41 +2453,11 @@ function canShowParentsFields() {
     });
 
     // ============================================================
-    // MODAL DE CADASTRO DE PAI/MÃE - COM CPF E OCUPAÇÃO (SEM ESTADO CIVIL)
+    // MODAL DE CADASTRO DE PAI/MÃE - COM CPF E OCUPAÇÃO
     // ============================================================
-    $j('body').append('\
-<div id="dialog-form-pessoa-parent">\
-<form>\
-<h2></h2>\
-<table cellspacing="0" cellpadding="0" border="0">\
- mosunod\
-<td valign="top">\
-<fieldset>\
-<label for="nome-pessoa-parent">Nome</label>\
-<input type="text" id="nome-pessoa-parent" class="text" size="49" maxlength="255">\
-<label for="cpf-pessoa-parent">CPF</label>\
-<input type="text" id="cpf-pessoa-parent" class="text" size="20" maxlength="14" placeholder="000.000.000-00">\
-<label for="ocupacao-pessoa-parent">Ocupação</label>\
-<input type="text" id="ocupacao-pessoa-parent" class="text" size="40" maxlength="100">\
-<label for="sexo-pessoa-parent">Sexo</label>\
-<select id="sexo-pessoa-parent">\
-<option value="">Sexo</option>\
-<option value="M">Masculino</option>\
-<option value="F">Feminino</option>\
-</select>\
-<label for="data-nasc-pessoa-parent">Data de nascimento</label>\
-<input type="text" id="data-nasc-pessoa-parent" placeholder="dd/mm/yyyy" size="11" maxlength="10" onKeyPress="formataData(this, event);">\
-<div id="falecido-modal">\
-<label>Falecido?</label>\
-<input type="checkbox" id="falecido-parent" style="display:inline;">\
-</div>\
-</fieldset>\
-<p><a id="link_cadastro_detalhado_parent">Cadastro detalhado</a></p>\
-</td>\
-</tr>\
-</table>\
-</form>\
-</div>');
+    $j("body").append(
+      '<div id="dialog-form-pessoa-parent"><form><h2></h2><table><tr><td valign="top"><fieldset><label for="nome-pessoa-parent">Nome</label>    <input type="text " name="nome-pessoa-parent" id="nome-pessoa-parent" size="49" maxlength="255" class="text">    <label for="cpf-pessoa-parent">CPF</label>    <input type="text" name="cpf-pessoa-parent" id="cpf-pessoa-parent" size="20" maxlength="14" placeholder="000.000.000-00" class="text">    <label for="ocupacao-pessoa-parent">Ocupação</label>    <input type="text" name="ocupacao-pessoa-parent" id="ocupacao-pessoa-parent" size="40" maxlength="100" class="text">    <label for="sexo-pessoa-parent">Sexo</label>  <select class="select ui-widget-content ui-corner-all" name="sexo-pessoa-parent" id="sexo-pessoa-parent" ><option value="" selected>Sexo</option><option value="M">Masculino</option><option value="F">Feminino</option></select>    <label for="data-nasc-pessoa-parent"> Data de nascimento </label> <input onKeyPress="formataData(this, event);" class="" placeholder="dd/mm/yyyy" type="text" name="data-nasc-pessoa-parent" id="data-nasc-pessoa-parent" value="" size="11" maxlength="10"> <div id="falecido-modal"> <label>Falecido?</label><input type="checkbox" name="falecido-parent" id="falecido-parent" style="display:inline;"> </div></fieldset><p><a id="link_cadastro_detalhado_parent">Cadastro detalhado</a></p></form></div>'
+    );
 
     $j("#dialog-form-pessoa-parent").find(":input").css("display", "block");
 
@@ -2497,7 +2467,13 @@ function canShowParentsFields() {
       sexoParent = $j("#sexo-pessoa-parent"),
       datanascParent = $j("#data-nasc-pessoa-parent"),
       falecidoParent = $j("#falecido-parent"),
-      allFieldsParent = $j([]).add(nameParent).add(cpfParent).add(ocupacaoParent).add(sexoParent).add(datanascParent).add(falecidoParent);
+      allFieldsParent = $j([])
+        .add(nameParent)
+        .add(cpfParent)
+        .add(ocupacaoParent)
+        .add(sexoParent)
+        .add(datanascParent)
+        .add(falecidoParent);
 
     $j("#dialog-form-pessoa-parent").dialog({
       autoOpen: false,
@@ -2519,7 +2495,13 @@ function canShowParentsFields() {
           }
 
           if ($j("#data-nasc-pessoa-parent").val() != "") {
-            bValid = bValid && checkRegexp(datanascParent, /(^(((0[1-9]|[12]\d|3[01])\/(0[13578]|1[02])\/((19|[2-9]\d)\d{2}))|((0[1-9]|[12]\d|30)\/(0[13456789]|1[012])\/((19|[2-9]\d)\d{2}))|((0[1-9]|1\d|2[0-8])\/02\/((19|[2-9]\d)\d{2}))|(29\/02\/((1[6-9]|[2-9]\d)(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00))))$)/i, "O campo data de nascimento deve ser preenchido no formato dd/mm/yyyy.");
+            bValid =
+              bValid &&
+              checkRegexp(
+                datanascParent,
+                /(^(((0[1-9]|[12]\d|3[01])\/(0[13578]|1[02])\/((19|[2-9]\d)\d{2}))|((0[1-9]|[12]\d|30)\/(0[13456789]|1[012])\/((19|[2-9]\d)\d{2}))|((0[1-9]|1\d|2[0-8])\/02\/((19|[2-9]\d)\d{2}))|(29\/02\/((1[6-9]|[2-9]\d)(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00))))$)/i,
+                "O campo data de nascimento deve ser preenchido no formato dd/mm/yyyy."
+              );
           }
 
           if (bValid) {
@@ -2528,7 +2510,7 @@ function canShowParentsFields() {
               nameParent.val(),
               sexoParent.val(),
               datanascParent.val(),
-              (editar_pessoa ? $j("#" + pessoaPaiOuMae + "_id").val() : null),
+              editar_pessoa ? $j("#" + pessoaPaiOuMae + "_id").val() : null,
               pessoaPaiOuMae,
               falecidoParent.is(":checked"),
               cpfParent.val(),
@@ -2814,6 +2796,7 @@ function canShowParentsFields() {
     function checkLength(o, n, min, max) {
       if (o.val().length > max || o.val().length < min) {
         o.addClass("error");
+
         messageUtils.error(
           "Tamanho do " +
           n +
