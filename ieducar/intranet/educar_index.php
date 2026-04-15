@@ -8,6 +8,7 @@ use App\Models\LegacyUserSchool;
 use App\Models\LegacySchool;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 
 return new class
 {
@@ -16,6 +17,12 @@ return new class
         // Obter o usuário logado e sua escola
         $user = $this->getCurrentUser();
         $schoolId = $this->getUserSchoolId($user);
+        
+        // Verificar se veio da edição de CPF via session
+        $cpfAtualizado = Session::has('cpf_atualizado');
+        if ($cpfAtualizado) {
+            Session::forget('cpf_atualizado');
+        }
         
         // Buscar dados filtrados por escola
         $totalAlunos = $this->getTotalAlunosMatriculados($schoolId);
@@ -33,28 +40,53 @@ return new class
                 <link rel="stylesheet" href="styles/educar_index.css">
                 
                 <style>
-                    /* Estilos para o menu com subitens */
-                    .menu-item-with-submenu {
-                        position: relative;
+                    .item-bullet {
+                        margin-right: 8px;
+                        color: #007bff;
+                    }
+                    
+                    /* Estilos dos links dos documentos */
+                    .document-link {
                         cursor: pointer;
                     }
                     
-                    .submenu-items {
-                        display: none;
-                        margin-left: 20px;
-                        margin-top: 5px;
-                        margin-bottom: 5px;
-                        padding-left: 10px;
-                        border-left: 2px solid #e0e0e0;
+                    .document-link:hover {
+                        color: #007bff;
                     }
                     
-                    .menu-item-with-submenu:hover .submenu-items {
+                    /* Estilo para o título da seção clicável */
+                    .menu-principal {
+                        cursor: pointer;
+                        font-weight: 500;
+                        padding: 4px 0;
+                        display: block;
+                        color: #333;
+                        width: 100%;
+                        text-align: left;
+                    }
+                    
+                    .menu-principal:hover {
+                        color: #007bff;
+                    }
+                    
+                    /* Subitens - inicialmente escondidos */
+                    .submenu-items {
+                        display: none;
+                        margin: 0;
+                        padding: 0;
+                        list-style: none;
+                        width: 100%;
+                    }
+                    
+                    .submenu-items.show {
                         display: block;
                     }
                     
                     .submenu-items li {
                         padding: 4px 0;
                         list-style: none;
+                        margin-left: 0;
+                        width: 100%;
                     }
                     
                     .submenu-items li a {
@@ -63,26 +95,28 @@ return new class
                         font-size: 12px;
                         display: block;
                         padding: 2px 0;
+                        width: 100%;
                     }
                     
                     .submenu-items li a:hover {
                         color: #007bff;
                     }
                     
-                    .main-menu-item {
-                        font-weight: 500;
-                        padding: 4px 0;
+                    /* Garantir que os itens da lista fiquem em coluna */
+                    .card-content ul li {
                         display: block;
+                        width: 100%;
                     }
                     
-                    .main-menu-item:hover {
-                        color: #007bff;
-                    }
-                    
-                    .divider-menu {
-                        height: 1px;
-                        background: #f0f0f0;
-                        margin: 8px 0;
+                    /* Mensagem de sucesso */
+                    .success-message {
+                        background-color: #d4edda;
+                        color: #155724;
+                        padding: 10px;
+                        border-radius: 4px;
+                        margin-bottom: 15px;
+                        border: 1px solid #c3e6cb;
+                        display: none;
                     }
                 </style>
 
@@ -90,6 +124,10 @@ return new class
                     <div class="welcome-section">
                         <h1>Bem-vindo ao i-Educar</h1>
                         ' . ($schoolName ? '<p style="color: #666; margin-top: 5px; font-size: 16px;">Escola: ' . htmlspecialchars($schoolName) . '</p>' : '') . '
+                    </div>
+                    
+                    <div id="successMessage" class="success-message" style="' . ($cpfAtualizado ? 'display: block;' : 'display: none;') . '">
+                        ✅ CPF atualizado com sucesso! A lista foi atualizada.
                     </div>
 
                     <div class="cards-grid">
@@ -103,20 +141,20 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <!-- Menu Gestão de Alunos com subitens -->
-                                    <li class="menu-item-with-submenu">
-                                        <a href="/module/Cadastro/aluno" style="text-decoration: none; color: inherit; display: block;">
+                                    <!-- Gestão de Alunos com subitens expansíveis -->
+                                    <li style="display: block; width: 100%;">
+                                        <div class="menu-principal" onclick="toggleSubmenu(this)">
                                             <span class="item-bullet">•</span> Gestão de Alunos
-                                        </a>
+                                        </div>
                                         <ul class="submenu-items">
-                                            <li><a href="/module/Cadastro/aluno">↳ Nova matrícula</a></li>
-                                            <li><a href="/module/Cadastro/aluno">↳ Transferência de aluno</a></li>
-                                            <li><a href="/module/Cadastro/aluno">↳ Trocar aluno de turma</a></li>
-                                            <li><a href="/intranet/educar_historico_escolar_cad.php">↳ Informar histórico de anos anteriores</a></li>
+                                            <li><a href="/intranet/educar_aluno_lst.php">Nova matrícula</a></li>
+                                            <li><a href="/intranet/educar_aluno_lst.php">Transferência de aluno</a></li>
+                                            <li><a href="/intranet/educar_aluno_lst.php">Trocar aluno de turma</a></li>
+                                            <li><a href="/intranet/educar_aluno_lst.php">Informar histórico de anos anteriores</a></li>
                                         </ul>
                                     </li>
-                                    <li><a href="/intranet/educar_aluno_lst.php" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Consultar alunos</a></li>
-                                    <li><a href="/module/Reports/StudentSheet" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Requerimento de matrícula</a></li>
+                                    <li><a href="/intranet/educar_aluno_lst.php" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Consultar alunos</a></li>
+                                    <li><a href="/module/Reports/StudentSheet" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Requerimento de matrícula</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -131,10 +169,10 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <li><a href="/module/Reports/ReportCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim Escolar (Numérico)</a></li>
-                                    <li><a href="/module/Reports/ReportConceptualCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim Conceitual</a></li>
-                                    <li><a href="/module/Reports/ReportDescriptiveCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim Parecer Descritivo</a></li>
-                                    <li><a href="/module/Reports/TeacherReportCard" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Boletim do professor</a></li>
+                                    <li><a href="/module/Reports/ReportCard" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Boletim Escolar (Numérico)</a></li>
+                                    <li><a href="/module/Reports/ReportConceptualCard" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Boletim Conceitual</a></li>
+                                    <li><a href="/module/Reports/ReportDescriptiveCard" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Boletim Parecer Descritivo</a></li>
+                                    <li><a href="/module/Reports/TeacherReportCard" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Boletim do professor</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -149,9 +187,15 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <li><span class="item-bullet">•</span>Imprimir histórico</li>
-                                    <li><span class="item-bullet">•</span>Ata de resultado final</li>
-                                    <li><span class="item-bullet">•</span>Ficha Individual</li>
+                                    <li class="document-link" onclick="window.location.href=\'/module/Reports/SchoolHistory\'" style="display: block;">
+                                        <span class="item-bullet">•</span> Imprimir histórico
+                                    </li>
+                                    <li class="document-link" onclick="window.location.href=\'/module/Reports/MinutesFinalResult\'" style="display: block;">
+                                        <span class="item-bullet">•</span> Ata de resultado final
+                                    </li>
+                                    <li class="document-link" onclick="window.location.href=\'/module/Reports/IndividualStudentSheet\'" style="display: block;">
+                                        <span class="item-bullet">•</span> Ficha Individual
+                                    </li>
                                 </ul>
                             </div>
                         </div>
@@ -166,9 +210,9 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <li><a href="/module/Reports/TransferenceCertificate" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Declaração de transferência</a></li>
-                                    <li><a href="/module/Reports/FrequencyCertificate" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Declaração de frequência</a></li>
-                                    <li><a href="/module/Reports/ConclusionCertificate" style="text-decoration: none; color: inherit;"><span class="item-bullet">•</span>Declaração de conclusão</a></li>
+                                    <li><a href="/module/Reports/TransferenceCertificate" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Declaração de transferência</a></li>
+                                    <li><a href="/module/Reports/FrequencyCertificate" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Declaração de frequência</a></li>
+                                    <li><a href="/module/Reports/ConclusionCertificate" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Declaração de conclusão</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -183,7 +227,7 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <li><span class="item-bullet">•</span>Lançar notas recebidas de outra escola</li>
+                                    <li><span class="item-bullet">•</span> Lançar notas recebidas de outra escola</li>
                                 </ul>
                             </div>
                         </div></a>
@@ -217,7 +261,7 @@ return new class
                             <div class="summary-item" onclick="abrirListaAlunosSemCPF()" style="cursor: pointer;">
                                 <div class="summary-label">Documentos Pendentes</div>
                                 <div class="summary-number-container">
-                                    <div class="summary-number summary-documentos">' . number_format($alunosSemCPF['quantidade'], 0, '', '.') . '</div>
+                                    <div class="summary-number summary-documentos" id="documentosPendentesCount">' . number_format($alunosSemCPF['quantidade'], 0, '', '.') . '</div>
                                     ' . ($alunosSemCPF['quantidade'] > 0 ? '
                                     <div class="alert-pending">
                                         <span class="alert-icon">▲</span> Requer atenção
@@ -232,10 +276,10 @@ return new class
                 <div id="modalAlunosSemCPF" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
                     <div style="background: white; border-radius: 12px; width: 90%; max-width: 800px; max-height: 80vh; overflow: hidden;">
                         <div style="padding: 20px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
-                            <h3 style="margin: 0; color: #333;">Alunos sem CPF válido (' . $alunosSemCPF['quantidade'] . ')</h3>
+                            <h3 style="margin: 0; color: #333;">Alunos sem CPF válido (<span id="modalCount">' . $alunosSemCPF['quantidade'] . '</span>)</h3>
                             <button onclick="fecharModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
                         </div>
-                        <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
+                        <div style="padding: 20px; max-height: 60vh; overflow-y: auto;" id="modalContent">
                             ' . $this->gerarListaAlunosSemCPF($alunosSemCPF['alunos']) . '
                         </div>
                         <div style="padding: 15px 20px; border-top: 1px solid #f0f0f0; text-align: right;">
@@ -245,6 +289,17 @@ return new class
                 </div>
 
                 <script>
+                // Função para alternar o submenu
+                function toggleSubmenu(element) {
+                    var submenu = element.nextElementSibling;
+                    
+                    if (submenu.classList.contains(\'show\')) {
+                        submenu.classList.remove(\'show\');
+                    } else {
+                        submenu.classList.add(\'show\');
+                    }
+                }
+
                 function abrirListaAlunosSemCPF() {
                     document.getElementById(\'modalAlunosSemCPF\').style.display = \'flex\';
                 }
@@ -254,33 +309,25 @@ return new class
                 }
 
                 function editarAluno(codAluno) {
-                    // Redireciona para a página de detalhes do aluno
-                    window.location.href = \'/intranet/educar_aluno_det.php?cod_aluno=\' + codAluno + \'&origem=index_cpf\';
+                    // Usar o mesmo padrão que o i-Educar usa para edição
+                    window.location.href = \'/module/Cadastro/aluno?id=\' + codAluno;
+                }
+
+                // Esconder mensagem de sucesso após 5 segundos
+                var successMessage = document.getElementById(\'successMessage\');
+                if (successMessage && successMessage.style.display === \'block\') {
+                    setTimeout(function() {
+                        successMessage.style.display = \'none\';
+                    }, 5000);
                 }
 
                 // Fechar modal ao clicar fora
                 document.addEventListener(\'click\', function(event) {
-                    const modal = document.getElementById(\'modalAlunosSemCPF\');
+                    var modal = document.getElementById(\'modalAlunosSemCPF\');
                     if (event.target === modal) {
                         fecharModal();
                     }
                 });
-
-                // Função para recarregar a página após a correção do CPF
-                function recarregarPagina() {
-                    // Remove o parâmetro \'cpf_atualizado\' da URL para evitar loop
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete(\'cpf_atualizado\');
-                    window.location.href = url.toString();
-                }
-
-                // Verifica se a página foi recarregada após a correção do CPF
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.has(\'cpf_atualizado\') && urlParams.get(\'cpf_atualizado\') === \'true\') {
-                    // Se o CPF foi atualizado, recarrega a página para buscar a lista atualizada
-                    // Uma solução mais elegante seria via AJAX, mas para manter a estrutura, vamos recarregar.
-                    recarregarPagina();
-                }
                 </script>
                 ';
     }
@@ -297,12 +344,10 @@ return new class
     private function getCurrentUser()
     {
         try {
-            // Tentativa 1: Usar Auth do Laravel
             if (Auth::check()) {
                 return Auth::user();
             }
             
-            // Tentativa 2: Buscar via session ou método alternativo
             if (isset($_SESSION['id_pessoa']) || isset($_SESSION['cod_usuario'])) {
                 $userId = $_SESSION['cod_usuario'] ?? null;
                 if ($userId) {
@@ -327,7 +372,6 @@ return new class
         }
 
         try {
-            // Buscar a escola atual do usuário
             $userSchool = LegacyUserSchool::where('ref_cod_usuario', $user->cod_usuario)
                 ->where('escola_atual', 1)
                 ->first();
@@ -336,7 +380,6 @@ return new class
                 return $userSchool->ref_cod_escola;
             }
 
-            // Se não encontrou escola atual, buscar a primeira escola do usuário
             $firstSchool = LegacyUserSchool::where('ref_cod_usuario', $user->cod_usuario)
                 ->first();
 
@@ -358,15 +401,12 @@ return new class
         }
 
         try {
-            // NOTA: No i-Educar, a tabela de escolas pode não ter o campo "name"
-            // Vamos tentar diferentes campos possíveis
             $school = LegacySchool::find($schoolId);
             
             if (!$school) {
                 return null;
             }
             
-            // Tentar diferentes campos que podem conter o nome da escola
             if (isset($school->name) && !empty($school->name)) {
                 return $school->name;
             }
@@ -388,13 +428,11 @@ return new class
     }
 
     /**
-     * Obtém alunos sem CPF válido - CORRIGIDO para coluna numeric
+     * Obtém alunos sem CPF válido
      */
     private function getAlunosSemCPFValido($schoolId = null)
     {
         try {
-            // Como a coluna cpf é numeric, não podemos comparar com string vazia
-            // Vamos buscar CPFs que são zero, nulos ou inválidos
             $sql = "SELECT 
                         a.cod_aluno,
                         p.nome,
@@ -441,19 +479,16 @@ return new class
 
         } catch (Exception $e) {
             error_log('Erro ao buscar alunos sem CPF válido: ' . $e->getMessage());
-            
-            // Fallback mais simples
             return $this->getAlunosSemCPFValidoFallback($schoolId);
         }
     }
 
     /**
-     * Método fallback simplificado para coluna numeric
+     * Método fallback simplificado
      */
     private function getAlunosSemCPFValidoFallback($schoolId = null)
     {
         try {
-            // Consulta mais simples focando apenas em CPF zero ou nulo
             $sql = "SELECT 
                         a.cod_aluno,
                         p.nome,
@@ -492,71 +527,19 @@ return new class
 
         } catch (Exception $e) {
             error_log('Erro no fallback de alunos sem CPF: ' . $e->getMessage());
-            
-            // Último fallback - apenas contar
-            $sql = "SELECT COUNT(DISTINCT a.cod_aluno) as total
-                    FROM pmieducar.aluno a
-                    INNER JOIN cadastro.fisica f ON f.idpes = a.ref_idpes
-                    INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
-                    WHERE a.ativo = 1
-                    AND m.ativo = 1 
-                    AND m.ano = ?
-                    " . ($schoolId ? " AND m.ref_ref_cod_escola = ? " : "") . "
-                    AND (f.cpf IS NULL OR f.cpf = 0 OR f.cpf = 00000000000)";
-
-            $params = [date('Y')];
-            if ($schoolId) {
-                $params[] = $schoolId;
-            }
-
-            $result = DB::select($sql, $params);
-            
             return [
-                'quantidade' => $result[0]->total ?? 0,
+                'quantidade' => 0,
                 'alunos' => []
             ];
         }
     }
 
     /**
-     * Obtém o quantitativo de alunos matriculados no Atendimento Educacional Especializado (AEE)
-     * CORRIGIDO - Busca alunos em turmas com tipo_atendimento = 2 (AEE)
+     * Obtém matrículas AEE
      */
     private function getMatriculasAEE($schoolId = null)
     {
         try {
-            // Primeiro, vamos verificar qual valor o tipo_atendimento tem para AEE
-            // Vamos fazer uma consulta de teste para ver os valores existentes
-            $testSql = "SELECT DISTINCT tipo_atendimento, COUNT(*) as total
-                        FROM pmieducar.turma 
-                        WHERE ativo = 1 
-                        AND ano = ?
-                        " . ($schoolId ? " AND ref_ref_cod_escola = ? " : "") . "
-                        GROUP BY tipo_atendimento 
-                        ORDER BY tipo_atendimento";
-            
-            $testParams = [date('Y')];
-            if ($schoolId) {
-                $testParams[] = $schoolId;
-            }
-            
-            $testResult = DB::select($testSql, $testParams);
-            
-            // Log para debugging
-            error_log('Valores de tipo_atendimento encontrados: ' . json_encode($testResult));
-            
-            // Agora a consulta principal para alunos em turmas AEE
-            // Baseado na estrutura comum do i-Educar:
-            // tipo_atendimento = 1: Regular
-            // tipo_atendimento = 2: Atendimento Educacional Especializado (AEE)
-            // tipo_atendimento = 3: Atividade Complementar
-            // tipo_atendimento = 4: AEE - Braille
-            // tipo_atendimento = 5: AEE - Soroban
-            // tipo_atendimento = 6: AEE - Orientação e Mobilidade
-            // tipo_atendimento = 7: AEE - Língua Brasileira de Sinais
-            // tipo_atendimento = 8: AEE - Comunicação Alternativa
-            // tipo_atendimento = 9: AEE - Tecnologia Assistiva
-            
             $sql = "SELECT COUNT(DISTINCT m.cod_matricula) as total
                     FROM pmieducar.matricula m
                     INNER JOIN pmieducar.matricula_turma mt ON mt.ref_cod_matricula = m.cod_matricula
@@ -567,37 +550,9 @@ return new class
                     AND t.ativo = 1
                     " . ($schoolId ? " AND t.ref_ref_cod_escola = ? " : "") . "
                     AND (
-                        -- Tipo de atendimento para AEE (2 ou valores maiores que 2 para tipos específicos)
                         t.tipo_atendimento IN (2, 4, 5, 6, 7, 8, 9)
-                        
-                        -- OU se o nome da turma contém indicadores de AEE
                         OR LOWER(t.nm_turma) LIKE '%aee%'
                         OR LOWER(t.nm_turma) LIKE '%atendimento educacional especializado%'
-                        OR LOWER(t.nm_turma) LIKE '%educação especial%'
-                        OR LOWER(t.nm_turma) LIKE '%inclusão%'
-                        OR LOWER(t.nm_turma) LIKE '%braille%'
-                        OR LOWER(t.nm_turma) LIKE '%soroban%'
-                        OR LOWER(t.nm_turma) LIKE '%libras%'
-                        OR LOWER(t.nm_turma) LIKE '%comunicação alternativa%'
-                        
-                        -- OU se tem atividades AEE definidas
-                        OR (t.atividades_aee IS NOT NULL AND t.atividades_aee != '')
-                        
-                        -- OU se é classe especial
-                        OR t.classe_especial = 1
-                        
-                        -- OU se tem algum dos campos AEE específicos marcados
-                        OR t.aee_braille = 1
-                        OR t.aee_recurso_optico = 1
-                        OR t.aee_estrategia_desenvolvimento = 1
-                        OR t.aee_tecnica_mobilidade = 1
-                        OR t.aee_libras = 1
-                        OR t.aee_caa = 1
-                        OR t.aee_curricular = 1
-                        OR t.aee_soroban = 1
-                        OR t.aee_informatica = 1
-                        OR t.aee_lingua_escrita = 1
-                        OR t.aee_autonomia = 1
                     )";
 
             $params = [date('Y')];
@@ -606,90 +561,10 @@ return new class
             }
 
             $result = DB::select($sql, $params);
-            
-            $total = $result[0]->total ?? 0;
-            error_log('Total de matrículas AEE encontradas: ' . $total);
-            
-            return $total;
+            return $result[0]->total ?? 0;
 
         } catch (Exception $e) {
             error_log('Erro ao buscar matrículas AEE: ' . $e->getMessage());
-            
-            // Fallback: tentar consulta alternativa mais simples
-            return $this->getMatriculasAEEFallback($schoolId);
-        }
-    }
-
-    /**
-     * Método fallback simplificado para buscar matrículas AEE
-     */
-    private function getMatriculasAEEFallback($schoolId = null)
-    {
-        try {
-            // Consulta alternativa mais simples
-            $sql = "SELECT COUNT(DISTINCT m.cod_matricula) as total
-                    FROM pmieducar.matricula m
-                    INNER JOIN pmieducar.matricula_turma mt ON mt.ref_cod_matricula = m.cod_matricula
-                    INNER JOIN pmieducar.turma t ON t.cod_turma = mt.ref_cod_turma
-                    WHERE m.ativo = 1
-                    AND mt.ativo = 1
-                    AND m.ano = ?
-                    AND t.ativo = 1
-                    " . ($schoolId ? " AND t.ref_ref_cod_escola = ? " : "") . "
-                    AND (
-                        t.tipo_atendimento = 2 
-                        OR LOWER(t.nm_turma) LIKE '%aee%'
-                        OR LOWER(t.nm_turma) LIKE '%atendimento educacional especializado%'
-                    )";
-
-            $params = [date('Y')];
-            if ($schoolId) {
-                $params[] = $schoolId;
-            }
-
-            $result = DB::select($sql, $params);
-            
-            return $result[0]->total ?? 0;
-
-        } catch (Exception $e) {
-            error_log('Erro no fallback de matrículas AEE: ' . $e->getMessage());
-            
-            // Último fallback: contar apenas pelo nome da turma
-            return $this->getMatriculasAEEPorNome($schoolId);
-        }
-    }
-
-    /**
-     * Último fallback - busca apenas por nome da turma
-     */
-    private function getMatriculasAEEPorNome($schoolId = null)
-    {
-        try {
-            $sql = "SELECT COUNT(DISTINCT m.cod_matricula) as total
-                    FROM pmieducar.matricula m
-                    INNER JOIN pmieducar.matricula_turma mt ON mt.ref_cod_matricula = m.cod_matricula
-                    INNER JOIN pmieducar.turma t ON t.cod_turma = mt.ref_cod_turma
-                    WHERE m.ativo = 1
-                    AND mt.ativo = 1
-                    AND m.ano = ?
-                    AND t.ativo = 1
-                    " . ($schoolId ? " AND t.ref_ref_cod_escola = ? " : "") . "
-                    AND (
-                        LOWER(t.nm_turma) LIKE '%aee%'
-                        OR LOWER(t.nm_turma) LIKE '%atendimento educacional especializado%'
-                    )";
-
-            $params = [date('Y')];
-            if ($schoolId) {
-                $params[] = $schoolId;
-            }
-
-            $result = DB::select($sql, $params);
-            
-            return $result[0]->total ?? 0;
-
-        } catch (Exception $e) {
-            error_log('Erro no último fallback de matrículas AEE: ' . $e->getMessage());
             return 0;
         }
     }
@@ -703,15 +578,12 @@ return new class
             return 'Não informado';
         }
 
-        // Converte para string e preenche com zeros à esquerda
         $cpfString = str_pad((string)$cpfNumerico, 11, '0', STR_PAD_LEFT);
         
-        // Se for tudo zero, retorna como inválido
         if ($cpfString === '00000000000' || $cpfNumerico == 0) {
             return '000.000.000-00';
         }
 
-        // Formata o CPF
         if (strlen($cpfString) === 11) {
             return substr($cpfString, 0, 3) . '.' . substr($cpfString, 3, 3) . '.' . substr($cpfString, 6, 3) . '-' . substr($cpfString, 9, 2);
         }
@@ -758,12 +630,11 @@ return new class
                     <td style="padding: 12px; vertical-align: middle;">' . htmlspecialchars($aluno['nome']) . '</td>
                     <td style="padding: 12px; vertical-align: middle; font-family: monospace;">' . $cpfDisplay . '</td>
                     <td style="padding: 12px; text-align: center; vertical-align: middle;">
-                        <a href="/module/Cadastro/aluno?id=' . $aluno['cod_aluno'] . '" style="text-decoration: none;">
-                            <button type="button"
-                                    style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s;">
-                                Editar CPF
-                            </button>
-                        </a>
+                        <button type="button"
+                                onclick="editarAluno(' . $aluno['cod_aluno'] . ')"
+                                style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                            Editar CPF
+                        </button>
                     </td>
                 </tr>
             ';
@@ -782,7 +653,6 @@ return new class
     {
         try {
             if ($schoolId) {
-                // Consulta filtrada por escola
                 $sql = "SELECT COUNT(DISTINCT a.cod_aluno) as total 
                         FROM pmieducar.aluno a
                         INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
@@ -795,23 +665,21 @@ return new class
                 return $result[0]->total ?? 0;
             }
 
-            // Fallback: consulta sem filtro de escola (compatibilidade)
             return $this->getTotalAlunosFromDirectSQL();
 
         } catch (Exception $e) {
-            error_log('Erro ao buscar total de alunos por escola: ' . $e->getMessage());
+            error_log('Erro ao buscar total de alunos: ' . $e->getMessage());
             return $this->getTotalAlunosFromDirectSQL();
         }
     }
 
     /**
-     * Obtém o total de turmas ativas do ano atual para o resumo
+     * Obtém o total de turmas ativas
      */
     private function getTotalTurmasAtivas($schoolId = null)
     {
         try {
             if ($schoolId) {
-                // Consulta filtrada por escola
                 $sql = "SELECT COUNT(cod_turma) as total 
                         FROM pmieducar.turma 
                         WHERE ativo = 1 
@@ -823,18 +691,16 @@ return new class
                 return $result[0]->total ?? 0;
             }
 
-            // Consulta sem filtro de escola (compatibilidade)
             return $this->getTotalTurmasFromSQL();
 
         } catch (Exception $e) {
-            // Em caso de erro, usar fallback SQL
             error_log('Erro ao buscar total de turmas: ' . $e->getMessage());
             return $this->getTotalTurmasFromSQL();
         }
     }
 
     /**
-     * Método fallback com consulta SQL direta para turmas
+     * Método fallback para turmas
      */
     private function getTotalTurmasFromSQL()
     {
@@ -849,13 +715,13 @@ return new class
             return $result[0]->total ?? 0;
 
         } catch (Exception $e) {
-            error_log('Erro na consulta SQL direta de turmas: ' . $e->getMessage());
+            error_log('Erro na consulta SQL de turmas: ' . $e->getMessage());
             return 0;
         }
     }
 
     /**
-     * Método fallback com consulta SQL direta para alunos
+     * Método fallback para alunos
      */
     private function getTotalAlunosFromDirectSQL()
     {
@@ -873,7 +739,7 @@ return new class
             $result = DB::select($sql, [date('Y')]);
             return $result[0]->total ?? 0;
         } catch (Exception $e) {
-            error_log('Erro na consulta SQL direta: ' . $e->getMessage());
+            error_log('Erro na consulta SQL de alunos: ' . $e->getMessage());
             return 0; 
         }
     }
