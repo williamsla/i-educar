@@ -249,7 +249,7 @@ ENABLE_PACKAGE_PRE_MATRICULA=true \
 ./docker/build-push-registry.sh
 ```
 
-Se habilitar `ENABLE_PACKAGE_DESPESAS=true` ou `ENABLE_PACKAGE_MERENDA=true`, defina tambem `GIT_TOKEN`.
+Se habilitar `ENABLE_PACKAGE_DESPESAS=true` ou `ENABLE_PACKAGE_MERENDA=true`, defina `GIT_TOKEN` no ambiente ao rodar o script: ele e passado ao build como **secret** do BuildKit (`--secret id=git_token,env=GIT_TOKEN`), nao como `--build-arg`, para nao gravar o token no historico da imagem.
 
 ### 8.3 Preparar variaveis de deploy
 

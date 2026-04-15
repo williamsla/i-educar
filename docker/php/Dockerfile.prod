@@ -12,7 +12,6 @@ ARG PACKAGE_REF_TRANSPORTE=
 ARG PACKAGE_REF_PRE_MATRICULA=
 ARG PACKAGE_REF_DESPESAS=
 ARG PACKAGE_REF_MERENDA=
-ARG GIT_TOKEN=
 FROM composer:${COMPOSER_VERSION} AS composer_bin
 
 FROM php:${PHP_VERSION}-fpm-alpine
@@ -29,7 +28,6 @@ ARG PACKAGE_REF_TRANSPORTE
 ARG PACKAGE_REF_PRE_MATRICULA
 ARG PACKAGE_REF_DESPESAS
 ARG PACKAGE_REF_MERENDA
-ARG GIT_TOKEN
 
 LABEL maintainer="Portabilis <contato@portabilis.com.br>"
 
@@ -99,7 +97,11 @@ RUN composer install \
 COPY docker/php/entrypoint.prod.sh /usr/local/bin/entrypoint.prod.sh
 COPY docker/php/install-extra-packages.sh /usr/local/bin/install-extra-packages.sh
 
-RUN chmod +x /usr/local/bin/entrypoint.prod.sh /usr/local/bin/install-extra-packages.sh \
+# Token para clones privados: passe com buildx --secret id=git_token,env=GIT_TOKEN
+# (nao use --build-arg com token: fica no historico da imagem e aciona SecretsUsedInArgOrEnv).
+RUN --mount=type=secret,id=git_token,required=false \
+    chmod +x /usr/local/bin/entrypoint.prod.sh /usr/local/bin/install-extra-packages.sh \
+    && export GIT_TOKEN="$(cat /run/secrets/git_token 2>/dev/null | tr -d '\n' || true)" \
     && ENABLE_PACKAGE_REPORTS=${ENABLE_PACKAGE_REPORTS} \
     ENABLE_PACKAGE_EDUCACENSO=${ENABLE_PACKAGE_EDUCACENSO} \
     ENABLE_PACKAGE_TRANSPORTE=${ENABLE_PACKAGE_TRANSPORTE} \
@@ -112,7 +114,6 @@ RUN chmod +x /usr/local/bin/entrypoint.prod.sh /usr/local/bin/install-extra-pack
     PACKAGE_REF_PRE_MATRICULA=${PACKAGE_REF_PRE_MATRICULA} \
     PACKAGE_REF_DESPESAS=${PACKAGE_REF_DESPESAS} \
     PACKAGE_REF_MERENDA=${PACKAGE_REF_MERENDA} \
-    GIT_TOKEN=${GIT_TOKEN} \
     /usr/local/bin/install-extra-packages.sh \
     && rm -f /usr/local/bin/install-extra-packages.sh \
     && rm -f bootstrap/cache/*.php

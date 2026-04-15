@@ -55,6 +55,8 @@ require_git_token() {
 
 # Build da imagem nao inclui .env; varios comandos artisan exigem APP_KEY.
 apply_artisan_build_env() {
+  export APP_ENV="${APP_ENV:-production}"
+  export CI="${CI:-true}"
   if [ -z "${APP_KEY:-}" ]; then
     export APP_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
   fi

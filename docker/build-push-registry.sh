@@ -12,7 +12,7 @@ ENABLE_PACKAGE_TRANSPORTE=true \
 ENABLE_PACKAGE_PRE_MATRICULA=true \
 ENABLE_PACKAGE_DESPESAS=true \
 ENABLE_PACKAGE_MERENDA=true \
-./docker/build-push-registry.sh
+GIT_TOKEN=ghp_xxx ./docker/build-push-registry.sh
 EOF
 
 : "${REGISTRY_HOST:?defina REGISTRY_HOST}"
@@ -48,7 +48,7 @@ docker buildx build \
   --build-arg PACKAGE_REF_PRE_MATRICULA="${PACKAGE_REF_PRE_MATRICULA:-}" \
   --build-arg PACKAGE_REF_DESPESAS="${PACKAGE_REF_DESPESAS:-}" \
   --build-arg PACKAGE_REF_MERENDA="${PACKAGE_REF_MERENDA:-}" \
-  --build-arg GIT_TOKEN="${GIT_TOKEN:-}" \
+  ${GIT_TOKEN:+--secret id=git_token,env=GIT_TOKEN} \
   -t "${APP_IMAGE}" \
   --push \
   .
