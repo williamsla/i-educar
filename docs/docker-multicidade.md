@@ -285,13 +285,10 @@ Esse script:
 - faz `pull` da cidade
 - recria os servicos da cidade
 - compara hash das imagens antiga/nova
-- se mudou imagem, executa automaticamente:
-  - `composer plug-and-play:update`
-  - `php artisan community:reports:link`
-  - `php artisan community:reports:install`
+- se mudou imagem, executa automaticamente (imagem imutavel: sem `composer` em runtime; vendor e plug-and-play vêm do build da imagem, ex.: `docker/build-push-registry.sh` com `ENABLE_PACKAGE_*`):
+  - validacao de `DB_CONNECTION=pgsql` e `CACHE_*` em redis
   - `php artisan storage:link`
   - `php artisan migrate --force`
-  - `composer dump-autoload -o`
   - `php artisan optimize:clear`
 
 Exemplo (cidade1):
