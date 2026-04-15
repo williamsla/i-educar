@@ -182,8 +182,14 @@ fi
 
 if [ "$installed_any_package" = "1" ]; then
   ensure_laravel_runtime_dirs
+  # plug-and-play: mescla composer dos pacotes em packages/ (autoload PSR-4, etc.).
   composer plug-and-play:update --no-dev --no-scripts
-  composer dump-autoload -o --no-dev --no-scripts
+
+  # O composer.json do i-Educar define post-autoload-dump (ComposerScripts + package:discover).
+  # Usar --no-scripts aqui quebrava isso: classes em packages/ existiam mas nao entravam no autoload/manifest.
+  apply_artisan_build_env
+  composer dump-autoload -o --no-dev
+
   run_readme_artisan_after_composer
 fi
 
