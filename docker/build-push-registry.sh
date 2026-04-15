@@ -1,23 +1,21 @@
 #!/bin/sh
 set -eu
 
-# Uso:
-: <<EOF
-REGISTRY_HOST=container-registry.br-ne1.magalu.cloud \
-REGISTRY_NAMESPACE=ieducar \
-IMAGE_TAG=2.10.0 \
-ENABLE_PACKAGE_REPORTS=true \
-ENABLE_PACKAGE_EDUCACENSO=true \
-ENABLE_PACKAGE_TRANSPORTE=true \
-ENABLE_PACKAGE_PRE_MATRICULA=true \
-ENABLE_PACKAGE_DESPESAS=true \
-ENABLE_PACKAGE_MERENDA=true \
-GIT_TOKEN=ghp_xxx ./docker/build-push-registry.sh
-EOF
+# Obrigatorio: REGISTRY_HOST, REGISTRY_NAMESPACE, IMAGE_TAG (export ou na mesma linha).
+# Opcional: ENABLE_PACKAGE_*, PACKAGE_REF_*, GIT_TOKEN (BuildKit --secret, nao --build-arg).
+# Exemplo:
+#   REGISTRY_HOST=container-registry.br-ne1.magalu.cloud \
+#   REGISTRY_NAMESPACE=ieducar IMAGE_TAG=2.10.15 \
+#   ./docker/build-push-registry.sh
+# Com token para repos privados:
+#   GIT_TOKEN=ghp_xxx REGISTRY_HOST=... REGISTRY_NAMESPACE=... IMAGE_TAG=... ./docker/build-push-registry.sh
 
-: "${REGISTRY_HOST:?defina REGISTRY_HOST}"
-: "${REGISTRY_NAMESPACE:?defina REGISTRY_NAMESPACE}"
-: "${IMAGE_TAG:?defina IMAGE_TAG}"
+if [ -z "${REGISTRY_HOST:-}" ] || [ -z "${REGISTRY_NAMESPACE:-}" ] || [ -z "${IMAGE_TAG:-}" ]; then
+  echo "ERRO: defina REGISTRY_HOST, REGISTRY_NAMESPACE e IMAGE_TAG no ambiente." >&2
+  echo "Exemplo:" >&2
+  echo "  REGISTRY_HOST=container-registry.br-ne1.magalu.cloud REGISTRY_NAMESPACE=ieducar IMAGE_TAG=2.10.15 $0" >&2
+  exit 1
+fi
 
 APP_IMAGE="${REGISTRY_HOST}/${REGISTRY_NAMESPACE}/ieducar-app:${IMAGE_TAG}"
 NGINX_IMAGE="${REGISTRY_HOST}/${REGISTRY_NAMESPACE}/ieducar-nginx:${IMAGE_TAG}"

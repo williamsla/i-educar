@@ -84,7 +84,8 @@ WORKDIR /var/www/ieducar
 
 COPY --chown=www-data:www-data . /var/www/ieducar
 
-RUN mkdir -p bootstrap/cache \
+# .dockerignore omite tests/; autoload-dev do composer.json referencia tests/Unit (classmap).
+RUN mkdir -p bootstrap/cache tests/Unit \
     && rm -f bootstrap/cache/*.php
 
 RUN composer install \
