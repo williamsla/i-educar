@@ -5,6 +5,9 @@ set -eu
 # Se imagem mudou, executa pos-deploy automaticamente (fluxo imutavel: sem composer
 # em runtime; vendor/plug-and-play ficam na imagem via Dockerfile.prod + build).
 #
+# Relatorios (README i-educar-reports-package): apos migrate, confirma install e
+# assets no container (com DB); a build da imagem ja tenta publish sem DB.
+#
 # Exemplo:
 # CITY_INDEX=1 \
 # ENV_FILE=docker/.env.registry \
@@ -85,6 +88,17 @@ if [ "${images_changed}" = "true" ]; then
 
   compose exec "${php_service}" php artisan storage:link || true
   compose exec "${php_service}" php artisan migrate --force
+
+  if compose exec "${php_service}" sh -lc "[ -d packages/portabilis/i-educar-reports-package ]"; then
+    if compose exec "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:link"; then
+      compose exec "${php_service}" php artisan community:reports:link --no-interaction || true
+    fi
+    if compose exec "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
+      compose exec "${php_service}" php artisan community:reports:install --no-interaction || true
+    fi
+    compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
+  fi
+
   compose exec "${php_service}" php artisan optimize:clear || true
 else
   echo ">> Imagens inalteradas. Pos-deploy ignorado."

@@ -161,6 +161,7 @@ Para produção, use:
 - `docker-compose.multicidade.prod.yml`
 - `docker/php/Dockerfile.prod`
 - `docker/nginx/Dockerfile.prod`
+- `docker/php/install-extra-packages.sh`: apos `plug-and-play`, roda passos dos READMEs que cabem na build (`APP_KEY` temporario): relatórios (`community:reports:*`, publish de assets), pré-matrícula (`vendor:publish --tag=pmd`). O `community:reports:install` pode falhar sem DB e e executado de novo no `deploy-city.sh` apos `migrate`.
 
 Nesta estrategia o código vai dentro das imagens e nao e montado via volume.
 
@@ -287,8 +288,10 @@ Esse script:
 - compara hash das imagens antiga/nova
 - se mudou imagem, executa automaticamente (imagem imutavel: sem `composer` em runtime; vendor e plug-and-play vêm do build da imagem, ex.: `docker/build-push-registry.sh` com `ENABLE_PACKAGE_*`):
   - validacao de `DB_CONNECTION=pgsql` e `CACHE_*` em redis
+  - limpeza de `bootstrap/cache/*.php`
   - `php artisan storage:link`
   - `php artisan migrate --force`
+  - se existir `packages/portabilis/i-educar-reports-package`, alinha com o README dos relatórios: `community:reports:link`, `community:reports:install`, `vendor:publish --tag=reports-assets`
   - `php artisan optimize:clear`
 
 Exemplo (cidade1):

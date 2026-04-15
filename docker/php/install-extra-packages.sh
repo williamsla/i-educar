@@ -53,6 +53,41 @@ require_git_token() {
   fi
 }
 
+# Build da imagem nao inclui .env; varios comandos artisan exigem APP_KEY.
+apply_artisan_build_env() {
+  if [ -z "${APP_KEY:-}" ]; then
+    export APP_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+  fi
+}
+
+artisan_cmd_exists() {
+  name="$1"
+  php artisan list --raw 2>/dev/null | awk '{print $1}' | grep -qx "$name"
+}
+
+# Passos descritos nos READMEs oficiais apos `composer plug-and-play` (o que roda
+# sem banco na build; o restante e repetido/confirmado no deploy com DB).
+run_readme_artisan_after_composer() {
+  apply_artisan_build_env
+
+  if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ] && [ -d packages/portabilis/i-educar-reports-package ]; then
+    echo ">> README i-educar-reports-package: community:reports:* e publish de assets"
+    if artisan_cmd_exists community:reports:link; then
+      php artisan community:reports:link --no-interaction || true
+    fi
+    if artisan_cmd_exists community:reports:install; then
+      php artisan community:reports:install --no-interaction 2>/dev/null || \
+        echo "AVISO: community:reports:install falhou na build (sem DB e normal). Sera executado no deploy."
+    fi
+    php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction 2>/dev/null || true
+  fi
+
+  if [ "${ENABLE_PACKAGE_PRE_MATRICULA:-false}" = "true" ] && [ -d packages/portabilis/pre-matricula-digital ]; then
+    echo ">> README pre-matricula-digital: vendor:publish --tag=pmd"
+    php artisan vendor:publish --tag=pmd --force --no-interaction 2>/dev/null || true
+  fi
+}
+
 ensure_laravel_runtime_dirs
 
 installed_any_package=0
@@ -149,4 +184,11 @@ if [ "$installed_any_package" = "1" ]; then
   ensure_laravel_runtime_dirs
   composer plug-and-play:update --no-dev --no-scripts
   composer dump-autoload -o --no-dev --no-scripts
+  run_readme_artisan_after_composer
+fi
+
+# Educacenso / Transporte (README Portabilis): migrate e cache apos plug-and-play.
+# migrate e cache em runtime: ver docker/deploy-city.sh (multicidade) ou processo de release.
+if [ "${ENABLE_PACKAGE_EDUCACENSO:-false}" = "true" ] || [ "${ENABLE_PACKAGE_TRANSPORTE:-false}" = "true" ]; then
+  echo ">> Lembrete README Educacenso/Transporte: apos deploy com DB, migrate (deploy-city) e, se atualizacao, cache:clear / optimize:clear."
 fi
