@@ -114,7 +114,8 @@ RUN chmod +x /usr/local/bin/entrypoint.prod.sh /usr/local/bin/install-extra-pack
     PACKAGE_REF_MERENDA=${PACKAGE_REF_MERENDA} \
     GIT_TOKEN=${GIT_TOKEN} \
     /usr/local/bin/install-extra-packages.sh \
-    && rm -f /usr/local/bin/install-extra-packages.sh
+    && rm -f /usr/local/bin/install-extra-packages.sh \
+    && rm -f bootstrap/cache/*.php
 
 ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.prod.sh"]
 CMD ["php-fpm", "-F"]

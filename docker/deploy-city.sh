@@ -81,6 +81,8 @@ if [ "${images_changed}" = "true" ]; then
     [ "${CACHE_STORE:-}" = "redis" ] || { echo "ERRO: CACHE_STORE=${CACHE_STORE:-vazio} (esperado: redis)"; exit 1; }
   '
 
+  compose exec "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
+
   compose exec "${php_service}" php artisan storage:link || true
   compose exec "${php_service}" php artisan migrate --force
   compose exec "${php_service}" php artisan optimize:clear || true
