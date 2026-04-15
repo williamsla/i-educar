@@ -73,18 +73,34 @@ fi
 
 if [ "${images_changed}" = "true" ]; then
   echo ">> Nova imagem detectada. Executando pos-deploy da cidade ${CITY_INDEX}"
-  compose exec "${php_service}" composer plug-and-play:update --no-dev --no-scripts
-  if compose exec "${php_service}" sh -lc "php artisan list --raw | awk '{print \$1}' | grep -q '^community:reports:install$'"; then
-    compose exec "${php_service}" php artisan community:reports:link
-    compose exec "${php_service}" php artisan community:reports:install
-  else
-    echo ">> Comandos community:reports nao encontrados. Etapa de relatorios ignorada."
-  fi
-  compose exec "${php_service}" php artisan storage:link
-  compose exec "${php_service}" php artisan migrate --force
-  compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi
+  compose exec "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
   compose exec "${php_service}" composer dump-autoload -o --no-dev --no-scripts
-  compose exec "${php_service}" php artisan optimize:clear
+
+  compose exec "${php_service}" sh -lc '
+    [ "${DB_CONNECTION:-}" = "pgsql" ] || { echo "ERRO: DB_CONNECTION=${DB_CONNECTION:-vazio} (esperado: pgsql)"; exit 1; }
+    [ "${CACHE_DRIVER:-}" = "redis" ] || { echo "ERRO: CACHE_DRIVER=${CACHE_DRIVER:-vazio} (esperado: redis)"; exit 1; }
+    [ "${CACHE_STORE:-}" = "redis" ] || { echo "ERRO: CACHE_STORE=${CACHE_STORE:-vazio} (esperado: redis)"; exit 1; }
+  '
+
+  compose exec "${php_service}" php artisan config:clear
+  compose exec "${php_service}" php artisan cache:clear || true
+
+  if compose exec "${php_service}" sh -lc "[ -d packages/portabilis/i-educar-reports-package ]"; then
+    compose exec "${php_service}" composer plug-and-play:update --no-dev --no-scripts
+    if compose exec "${php_service}" sh -lc "php artisan list --raw | awk '{print \$1}' | grep -q '^community:reports:install$'"; then
+      compose exec "${php_service}" php artisan community:reports:link
+      compose exec "${php_service}" php artisan community:reports:install
+      compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force
+    else
+      echo ">> Comandos community:reports nao encontrados. Etapa de relatorios ignorada."
+    fi
+  else
+    echo ">> Pacote de relatorios ausente. Etapas de reports ignoradas."
+  fi
+
+  compose exec "${php_service}" php artisan storage:link || true
+  compose exec "${php_service}" php artisan migrate --force
+  compose exec "${php_service}" php artisan optimize:clear || true
 else
   echo ">> Imagens inalteradas. Pos-deploy ignorado."
 fi
