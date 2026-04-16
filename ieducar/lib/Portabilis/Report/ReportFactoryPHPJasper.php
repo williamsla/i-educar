@@ -86,11 +86,17 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
             $report->addArg('logo', $this->logoPath());
         }
 
-        $dataFile = $this->getReportsPath() . time() . '-' . mt_rand();
-        $outputFile = $this->getReportsPath() . time() . '-' . mt_rand();
-        $filename = $this->getReportsPath() . $report->templateName();
-        $jasperFile = $filename . '.jasper';
-        $jrxmlFile = $filename . '.jrxml';
+        // PDF e dados temporarios em /tmp: ReportSources costuma ser so-leitura para www-data
+        // (imagem Docker / deploy imutavel). Apenas .jrxml/.jasper em disco sao lidos de getReportsPath().
+        $tmp = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR);
+        $dataFile = $tmp . DIRECTORY_SEPARATOR . 'ieducar_jasper_data_' . uniqid('', true);
+        $outputFile = $tmp . DIRECTORY_SEPARATOR . 'ieducar_jasper_out_' . uniqid('', true);
+
+        $reportsPath = $this->getReportsPath();
+        $baseName = $reportsPath . $report->templateName();
+        $jasperFile = $baseName . '.jasper';
+        $jrxmlFile = $baseName . '.jrxml';
+        $tempCompiledJasper = null;
 
         foreach ($report->args as $key => $value) {
             if (is_bool($value)) {
@@ -104,14 +110,19 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
 
         if (file_exists($jasperFile) === false) {
             if (file_exists($jrxmlFile)) {
+                $compileBase = $tmp . DIRECTORY_SEPARATOR . 'ieducar_jasper_cmp_' . uniqid('', true);
                 // redirect_output=true para stderr do Java ir para o mesmo pipe que o exec() captura
-                $builder->compile($jrxmlFile, $filename, false, true);
+                $builder->compile($jrxmlFile, $compileBase, false, true);
                 $this->jasperExecute($builder);
+                $jasperFile = $compileBase . '.jasper';
+                $tempCompiledJasper = $jasperFile;
             } else {
                 // FALLBACK PARA HTML
                 return $this->renderHtmlFallback($report);
             }
         }
+
+        try {
 
         // Com o intuito de manter a compatibilidade até finalizar a migração
         // de todos os relatórios será utilizado o método useJson() para
@@ -180,6 +191,12 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
         $this->destroyPDF($outputFile);
 
         return $result;
+
+        } finally {
+            if ($tempCompiledJasper !== null && file_exists($tempCompiledJasper)) {
+                @unlink($tempCompiledJasper);
+            }
+        }
     }
 
     /**

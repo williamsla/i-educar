@@ -97,14 +97,22 @@ if [ "${images_changed}" = "true" ]; then
       compose exec "${php_service}" php artisan community:reports:install --no-interaction || true
     fi
     compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
-    # Jasper grava .jasper em ReportSources; artisan como root deixa ficheiros que www-data nao pode sobrescrever.
-    compose exec "${php_service}" sh -lc '
-      for d in ieducar/modules/Reports packages/portabilis/i-educar-reports-package/ieducar/modules/Reports; do
-        [ -e "$d" ] || continue
-        chown -R www-data:www-data "$d" 2>/dev/null || true
-        chmod -R ug+rwX "$d" 2>/dev/null || true
-      done
-    ' || true
+    # Jasper grava/compila ficheiros em ReportSources; e os containers (php/fpm) podem
+    # nao ter permissao suficiente se a instalacao correu como root.
+    for svc in "${php_service}" "${fpm_service}"; do
+      compose exec "${svc}" sh -lc '
+        for d in \
+          ieducar/modules/Reports \
+          ieducar/modules/Reports/ReportSources \
+          packages/portabilis/i-educar-reports-package/ieducar/modules/Reports \
+          packages/portabilis/i-educar-reports-package/ieducar/ReportSources
+        do
+          [ -e "$d" ] || continue
+          chown -R www-data:www-data "$d" 2>/dev/null || true
+          chmod -R ug+rwX "$d" 2>/dev/null || true
+        done
+      ' || true
+    done
   fi
 
   compose exec "${php_service}" php artisan optimize:clear || true

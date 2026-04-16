@@ -43,4 +43,17 @@ do
   fi
 done
 
+# Jasper escreve ficheiros temporarios e/ou sobrescreve .jasper em ReportSources.
+# A pasta real fica em packages/portabilis/.../ieducar/ReportSources (mesmo quando
+# o sítio usa symlink via ieducar/modules/Reports).
+for _rs in \
+  ieducar/modules/Reports/ReportSources \
+  packages/portabilis/i-educar-reports-package/ieducar/ReportSources
+do
+  if [ -e "$_rs" ]; then
+    chown -R www-data:www-data "$_rs" || true
+    chmod -R ug+rwX "$_rs" || true
+  fi
+done
+
 exec "$@"

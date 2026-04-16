@@ -118,6 +118,12 @@ if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ]; then
     chmod -R ug+rwX packages/portabilis/i-educar-reports-package/ieducar/modules/Reports
   fi
 
+  # Ficheiros compilados (.jasper) e saídas (.pdf) ficam em ReportSources.
+  if [ -d "packages/portabilis/i-educar-reports-package/ieducar/ReportSources" ]; then
+    chown -R www-data:www-data packages/portabilis/i-educar-reports-package/ieducar/ReportSources
+    chmod -R ug+rwX packages/portabilis/i-educar-reports-package/ieducar/ReportSources
+  fi
+
   installed_any_package=1
 fi
 
