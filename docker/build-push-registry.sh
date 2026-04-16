@@ -7,8 +7,11 @@ set -eu
 #   REGISTRY_HOST=container-registry.br-ne1.magalu.cloud \
 #   REGISTRY_NAMESPACE=ieducar IMAGE_TAG=2.10.15 \
 #   ./docker/build-push-registry.sh
-# Com token para repos privados:
+# Com token para repos privados (BuildKit secret — nao use --build-arg com o token):
 #   GIT_TOKEN=ghp_xxx REGISTRY_HOST=... REGISTRY_NAMESPACE=... IMAGE_TAG=... ./docker/build-push-registry.sh
+# Ou ficheiro no host (util em CI):
+#   GIT_TOKEN_FILE=/caminho/token.txt REGISTRY_HOST=... ... ./docker/build-push-registry.sh
+# Se usar sudo: sudo -E env GIT_TOKEN=... ./docker/build-push-registry.sh  (senao o token nao chega ao docker)
 
 if [ -z "${REGISTRY_HOST:-}" ] || [ -z "${REGISTRY_NAMESPACE:-}" ] || [ -z "${IMAGE_TAG:-}" ]; then
   echo "ERRO: defina REGISTRY_HOST, REGISTRY_NAMESPACE e IMAGE_TAG no ambiente." >&2
@@ -30,6 +33,34 @@ if ! docker buildx inspect >/dev/null 2>&1; then
   docker buildx create --use --name ieducar-builder >/dev/null
 fi
 
+# Secret BuildKit id=git_token (ver docker/php/Dockerfile.prod). env=GIT_TOKEN le a variavel
+# no processo que invoca o docker; src= ficheiro no host (CI recomendado).
+GIT_SECRET_ARGS=""
+if [ -n "${GIT_TOKEN_FILE:-}" ]; then
+  if [ ! -f "${GIT_TOKEN_FILE}" ]; then
+    echo "ERRO: GIT_TOKEN_FILE=${GIT_TOKEN_FILE} nao existe ou nao e ficheiro." >&2
+    exit 1
+  fi
+  GIT_SECRET_ARGS="--secret id=git_token,src=${GIT_TOKEN_FILE}"
+  echo ">> Secret git_token: a partir de GIT_TOKEN_FILE (${GIT_TOKEN_FILE})"
+elif [ -n "${GIT_TOKEN:-}" ]; then
+  GIT_SECRET_ARGS="--secret id=git_token,env=GIT_TOKEN"
+  echo ">> Secret git_token: a partir da variavel de ambiente GIT_TOKEN (${#GIT_TOKEN} caracteres)"
+else
+  echo ">> Secret git_token: nao montado (GIT_TOKEN e GIT_TOKEN_FILE vazios)."
+fi
+
+needs_git_token="false"
+if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ] || [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
+  needs_git_token="true"
+fi
+if [ "${needs_git_token}" = "true" ] && [ -z "${GIT_SECRET_ARGS}" ]; then
+  echo "ERRO: ENABLE_PACKAGE_DESPESAS ou ENABLE_PACKAGE_MERENDA exige token para clone privado." >&2
+  echo "      Defina GIT_TOKEN no ambiente OU GIT_TOKEN_FILE=/caminho/ficheiro com o token (uma linha)." >&2
+  echo "      Com sudo use: sudo -E env GIT_TOKEN=... $0 ..." >&2
+  exit 1
+fi
+
 echo ">> Build+push app via buildx: ${APP_IMAGE}"
 docker buildx build \
   -f docker/php/Dockerfile.prod \
@@ -46,7 +77,7 @@ docker buildx build \
   --build-arg PACKAGE_REF_PRE_MATRICULA="${PACKAGE_REF_PRE_MATRICULA:-}" \
   --build-arg PACKAGE_REF_DESPESAS="${PACKAGE_REF_DESPESAS:-}" \
   --build-arg PACKAGE_REF_MERENDA="${PACKAGE_REF_MERENDA:-}" \
-  ${GIT_TOKEN:+--secret id=git_token,env=GIT_TOKEN} \
+  ${GIT_SECRET_ARGS} \
   -t "${APP_IMAGE}" \
   --push \
   .
