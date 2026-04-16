@@ -92,7 +92,7 @@ installed_any_package=0
 
 if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ]; then
   clone_or_update_repo \
-    "${PACKAGE_REPO_REPORTS:-https://github.com/portabilis/i-educar-reports-package.git}" \
+    "${PACKAGE_REPO_REPORTS:-https://github.com/williamsla/i-educar-reports-package.git}" \
     "packages/portabilis/i-educar-reports-package" \
     "${PACKAGE_REF_REPORTS:-}"
 
