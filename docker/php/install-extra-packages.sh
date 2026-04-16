@@ -112,6 +112,12 @@ if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ]; then
     echo "AVISO: GIT_TOKEN ausente; pulando customizacoes SEMED-AL para reports."
   fi
 
+  # git clone no build fica como root; Jasper grava .jasper ao compilar em ReportSources.
+  if [ -d "packages/portabilis/i-educar-reports-package/ieducar/modules/Reports" ]; then
+    chown -R www-data:www-data packages/portabilis/i-educar-reports-package/ieducar/modules/Reports
+    chmod -R ug+rwX packages/portabilis/i-educar-reports-package/ieducar/modules/Reports
+  fi
+
   installed_any_package=1
 fi
 

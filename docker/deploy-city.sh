@@ -97,6 +97,14 @@ if [ "${images_changed}" = "true" ]; then
       compose exec "${php_service}" php artisan community:reports:install --no-interaction || true
     fi
     compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
+    # Jasper grava .jasper em ReportSources; artisan como root deixa ficheiros que www-data nao pode sobrescrever.
+    compose exec "${php_service}" sh -lc '
+      for d in ieducar/modules/Reports packages/portabilis/i-educar-reports-package/ieducar/modules/Reports; do
+        [ -e "$d" ] || continue
+        chown -R www-data:www-data "$d" 2>/dev/null || true
+        chmod -R ug+rwX "$d" 2>/dev/null || true
+      done
+    ' || true
   fi
 
   compose exec "${php_service}" php artisan optimize:clear || true

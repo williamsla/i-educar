@@ -104,7 +104,8 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
 
         if (file_exists($jasperFile) === false) {
             if (file_exists($jrxmlFile)) {
-                $builder->compile($jrxmlFile, $filename, false, false);
+                // redirect_output=true para stderr do Java ir para o mesmo pipe que o exec() captura
+                $builder->compile($jrxmlFile, $filename, false, true);
                 $this->jasperExecute($builder);
             } else {
                 // FALLBACK PARA HTML
@@ -191,15 +192,15 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
             $ref = new \ReflectionClass($builder);
             $theCommand = $ref->getProperty('the_command');
             $theCommand->setAccessible(true);
-            $redirectOutput = $ref->getProperty('redirect_output');
-            $redirectOutput->setAccessible(true);
             $background = $ref->getProperty('background');
             $background->setAccessible(true);
             $windows = $ref->getProperty('windows');
             $windows->setAccessible(true);
 
             $cmd = $theCommand->getValue($builder);
-            if ($redirectOutput->getValue($builder) && ! $windows->getValue($builder)) {
+            // Sempre juntar stderr (Java/JasperStarter escrevem la). O codigo legado usava
+            // compile(..., redirect_output=false), o que deixava $output vazio com exit != 0.
+            if (! $windows->getValue($builder)) {
                 $cmd .= ' 2>&1';
             }
             if ($background->getValue($builder) && ! $windows->getValue($builder)) {
@@ -213,17 +214,26 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
             if ($returnVar !== 0) {
                 $detail = trim(implode("\n", $output));
                 if ($detail === '') {
-                    $detail = '(nenhuma saida; verifique se exec() esta permitido no PHP e se java existe no PATH do container)';
+                    $detail = '(nenhuma saida capturada pelo PHP; ver php-fpm pool ou open_basedir)';
                 }
 
                 $safeDetail = $this->redactJasperCliPasswords($detail);
                 $safeCmd = $this->redactJasperCliPasswords($cmd);
 
-                Log::error('JasperStarter falhou', [
-                    'return' => $returnVar,
-                    'detail' => $safeDetail,
-                    'cmd' => $safeCmd,
-                ]);
+                try {
+                    Log::error('JasperStarter falhou', [
+                        'return' => $returnVar,
+                        'detail' => $safeDetail,
+                        'cmd' => $safeCmd,
+                    ]);
+                } catch (\Throwable) {
+                    // LOG_CHANNEL/stack indisponivel em alguns contextos
+                }
+                error_log(
+                    'JasperStarter falhou return=' . $returnVar
+                    . ' cmd=' . $safeCmd
+                    . ' detail=' . mb_substr($safeDetail, 0, 3000)
+                );
 
                 throw new Exception(
                     'JasperStarter falhou (código ' . $returnVar . '): ' . mb_substr($safeDetail, 0, 4000),

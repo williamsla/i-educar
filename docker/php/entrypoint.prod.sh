@@ -31,4 +31,16 @@ rm -f bootstrap/cache/*.php
 chown -R www-data:www-data storage bootstrap/cache || true
 chmod -R ug+rwX storage bootstrap/cache || true
 
+# Jasper compila .jrxml -> .jasper no mesmo diretorio (ReportSources). Ficheiros
+# vindos de git clone no build costumam ser root:root — www-data precisa de escrita.
+for _r in \
+  ieducar/modules/Reports \
+  packages/portabilis/i-educar-reports-package/ieducar/modules/Reports
+do
+  if [ -e "$_r" ]; then
+    chown -R www-data:www-data "$_r" || true
+    chmod -R ug+rwX "$_r" || true
+  fi
+done
+
 exec "$@"
