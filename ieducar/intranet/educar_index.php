@@ -147,7 +147,7 @@ return new class
                                             <span class="item-bullet">•</span> Gestão de Alunos
                                         </div>
                                         <ul class="submenu-items">
-                                            <li><a href="/intranet/educar_aluno_lst.php">Nova matrícula</a></li>
+                                            <li><a href="/module/Cadastro/aluno">Nova matrícula</a></li>
                                             <li><a href="/intranet/educar_aluno_lst.php">Transferência de aluno</a></li>
                                             <li><a href="/intranet/educar_aluno_lst.php">Trocar aluno de turma</a></li>
                                             <li><a href="/intranet/educar_aluno_lst.php">Informar histórico de anos anteriores</a></li>
