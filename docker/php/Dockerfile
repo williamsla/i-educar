@@ -21,6 +21,7 @@ ENV XDEBUG_START_WITH_REQUEST off
 COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
 
 RUN apk add --update \
+    bash \
     libc-dev \
     libpng-dev  \
     libzip-dev  \

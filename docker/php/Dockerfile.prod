@@ -35,9 +35,13 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV COMPOSER_PROCESS_TIMEOUT=900
 ENV COMPOSER_DISABLE_XDEBUG_WARN=1
 
+# JasperStarter (cossou/jasperphp): o script em vendor costuma usar shebang `#!/usr/bin/env bash`.
+# A imagem php-fpm-alpine nao inclui bash por defeito; sem ele, exec() falha com codigo != 0 e
+# o JasperPHP mostra apenas a mensagem generica (linha ~191).
 COPY --from=composer_bin /usr/bin/composer /usr/local/bin/composer
 
 RUN apk add --no-cache \
+    bash \
     libc-dev \
     libpng-dev \
     libzip-dev \
