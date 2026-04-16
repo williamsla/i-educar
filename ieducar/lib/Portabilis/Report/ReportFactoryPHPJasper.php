@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Log;
 use JasperPHP\JasperPHP;
 
 class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportFactory
@@ -103,7 +104,8 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
 
         if (file_exists($jasperFile) === false) {
             if (file_exists($jrxmlFile)) {
-                $builder->compile($jrxmlFile, $filename, false, false)->execute();
+                $builder->compile($jrxmlFile, $filename, false, false);
+                $this->jasperExecute($builder);
             } else {
                 // FALLBACK PARA HTML
                 return $this->renderHtmlFallback($report);
@@ -135,7 +137,8 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
                         'data_file' => $dataFile,
                     ],
                     false // Não executar em background garante que o erro será retornado
-                )->execute();
+                );
+                $this->jasperExecute($builder);
 
                 unlink($dataFile);
             } catch (Exception $e) {
@@ -163,7 +166,8 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
                     'password' => $this->settings['db']->password,
                 ],
                 false // Não executar em background garante que o erro será retornado
-            )->execute();
+            );
+            $this->jasperExecute($builder);
         }
 
         $outputFile .= '.pdf';
@@ -175,6 +179,67 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
         $this->destroyPDF($outputFile);
 
         return $result;
+    }
+
+    /**
+     * Replica JasperPHP::execute() mas, em falha, junta toda a saida (nao so a 1a linha)
+     * e regista o comando com senha JDBC mascarada — a lib original esconde o motivo real.
+     */
+    private function jasperExecute(JasperPHP $builder): void
+    {
+        try {
+            $ref = new \ReflectionClass($builder);
+            $theCommand = $ref->getProperty('the_command');
+            $theCommand->setAccessible(true);
+            $redirectOutput = $ref->getProperty('redirect_output');
+            $redirectOutput->setAccessible(true);
+            $background = $ref->getProperty('background');
+            $background->setAccessible(true);
+            $windows = $ref->getProperty('windows');
+            $windows->setAccessible(true);
+
+            $cmd = $theCommand->getValue($builder);
+            if ($redirectOutput->getValue($builder) && ! $windows->getValue($builder)) {
+                $cmd .= ' 2>&1';
+            }
+            if ($background->getValue($builder) && ! $windows->getValue($builder)) {
+                $cmd .= ' &';
+            }
+
+            $output = [];
+            $returnVar = 0;
+            exec($cmd, $output, $returnVar);
+
+            if ($returnVar !== 0) {
+                $detail = trim(implode("\n", $output));
+                if ($detail === '') {
+                    $detail = '(nenhuma saida; verifique se exec() esta permitido no PHP e se java existe no PATH do container)';
+                }
+
+                $safeDetail = $this->redactJasperCliPasswords($detail);
+                $safeCmd = $this->redactJasperCliPasswords($cmd);
+
+                Log::error('JasperStarter falhou', [
+                    'return' => $returnVar,
+                    'detail' => $safeDetail,
+                    'cmd' => $safeCmd,
+                ]);
+
+                throw new Exception(
+                    'JasperStarter falhou (código ' . $returnVar . '): ' . mb_substr($safeDetail, 0, 4000),
+                    1
+                );
+            }
+        } catch (\ReflectionException) {
+            $builder->execute();
+        }
+    }
+
+    private function redactJasperCliPasswords(string $text): string
+    {
+        $out = preg_replace('/(\s-p\s+)(\S+)/', '$1***', $text);
+
+        return is_string($out) ? $out : $text;
     }
 
     protected function renderHtmlFallback($report)
