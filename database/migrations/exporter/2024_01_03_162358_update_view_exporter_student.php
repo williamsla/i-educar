@@ -1,9 +1,9 @@
 <?php
 
 use App\Support\Database\AsView;
+use App\Support\Database\PmieducarReligionsSchema;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -35,10 +35,7 @@ return new class extends Migration
             return;
         }
 
-        $religionsExists = DB::selectOne("SELECT to_regclass('pmieducar.religions') as reg")?->reg;
-        if ($religionsExists && ! Schema::hasColumn('pmieducar.religions', 'nm_religiao')) {
-            DB::statement('ALTER TABLE pmieducar.religions ADD COLUMN nm_religiao VARCHAR(255)');
-        }
+        PmieducarReligionsSchema::ensureForExporterPersonView();
 
         $this->createView('public.exporter_person', '2023-10-05');
     }
