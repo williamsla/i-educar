@@ -28,6 +28,27 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
     }
 
     /**
+     * Diretório passado ao JasperPHP como resource path (-r do JasperStarter).
+     * O padrão da lib (subir ../../../../.. a partir do vendor) não aponta para ReportSources;
+     * sem -r correto, subrelatórios e recursos costumam falhar com "reportResource not found".
+     */
+    private function jasperResourceDirectory(string $reportsPath): string
+    {
+        $trimmed = rtrim($reportsPath, DIRECTORY_SEPARATOR . '/');
+        $resolved = realpath($trimmed);
+
+        if ($resolved !== false && is_dir($resolved)) {
+            return $resolved . DIRECTORY_SEPARATOR;
+        }
+
+        if (is_dir($trimmed)) {
+            return $trimmed . DIRECTORY_SEPARATOR;
+        }
+
+        throw new Exception("Diretório de fontes de relatório inválido ou inacessível: {$reportsPath}");
+    }
+
+    /**
      * Retorna o arquivo da logo utilizada nos relatórios.
      *
      * @return string
@@ -54,7 +75,9 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
                 file_put_contents($tmpFile, $imageData);
             }
 
-            return $tmpFile;
+            $resolvedTmp = realpath($tmpFile);
+
+            return $resolvedTmp !== false ? $resolvedTmp : $tmpFile;
         }
 
         $rootPath = dirname(dirname(dirname(dirname(__FILE__))));
@@ -64,7 +87,29 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
             throw new CoreExt_Exception("Report logo '{$this->settings['logo_file_name']}' not found in path '$filePath'");
         }
 
-        return $filePath;
+        $resolved = realpath($filePath);
+
+        return $resolved !== false ? $resolved : $filePath;
+    }
+
+    /**
+     * O cabeçalho Jasper (ex.: header-landscape) usa $P{logo}; se o ficheiro não existir ou não for legível,
+     * o motor costuma devolver apenas "reportResource not found" no .jasper do cabeçalho.
+     */
+    private function assertReadableLogoParameter(Portabilis_Report_ReportCore $report): void
+    {
+        if (! isset($report->args['logo']) || ! is_string($report->args['logo']) || $report->args['logo'] === '') {
+            return;
+        }
+
+        $logo = $report->args['logo'];
+
+        if (! is_file($logo) || ! is_readable($logo)) {
+            throw new Exception(
+                'O ficheiro da logo do relatório não existe ou não pode ser lido pelo processo Jasper (parâmetro logo). Caminho: '
+                . $logo
+            );
+        }
     }
 
     /**
@@ -86,14 +131,17 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
             $report->addArg('logo', $this->logoPath());
         }
 
-        // PDF e dados temporarios em /tmp: ReportSources costuma ser so-leitura para www-data
-        // (imagem Docker / deploy imutavel). Apenas .jrxml/.jasper em disco sao lidos de getReportsPath().
+        // PDF, JSON e saida .pdf em /tmp. Compilacao .jrxml -> .jasper: preferir ReportSources quando gravavel,
+        // porque compilar o relatorio principal em /tmp quebra subrelatorios (ex.: header-landscape) com JSON.
         $tmp = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR);
         $dataFile = $tmp . DIRECTORY_SEPARATOR . 'ieducar_jasper_data_' . uniqid('', true);
         $outputFile = $tmp . DIRECTORY_SEPARATOR . 'ieducar_jasper_out_' . uniqid('', true);
 
         $reportsPath = $this->getReportsPath();
-        $baseName = $reportsPath . $report->templateName();
+        $resourceDir = $this->jasperResourceDirectory($reportsPath);
+        $report->args['SUBREPORT_DIR'] = $resourceDir;
+
+        $baseName = $resourceDir . $report->templateName();
         $jasperFile = $baseName . '.jasper';
         $jrxmlFile = $baseName . '.jrxml';
         $tempCompiledJasper = null;
@@ -104,23 +152,31 @@ class Portabilis_Report_ReportFactoryPHPJasper extends Portabilis_Report_ReportF
             }
         }
 
-        $builder = new JasperPHP;
+        $builder = new JasperPHP($resourceDir);
 
         // Compila o arquivo .jrxml caso o arquivo .jasper não exista.
 
         if (file_exists($jasperFile) === false) {
             if (file_exists($jrxmlFile)) {
-                $compileBase = $tmp . DIRECTORY_SEPARATOR . 'ieducar_jasper_cmp_' . uniqid('', true);
                 // redirect_output=true para stderr do Java ir para o mesmo pipe que o exec() captura
-                $builder->compile($jrxmlFile, $compileBase, false, true);
-                $this->jasperExecute($builder);
-                $jasperFile = $compileBase . '.jasper';
-                $tempCompiledJasper = $jasperFile;
+                if (is_writable($resourceDir)) {
+                    $builder->compile($jrxmlFile, $baseName, false, true);
+                    $this->jasperExecute($builder);
+                    $tempCompiledJasper = null;
+                } else {
+                    $compileBase = $tmp . DIRECTORY_SEPARATOR . 'ieducar_jasper_cmp_' . uniqid('', true);
+                    $builder->compile($jrxmlFile, $compileBase, false, true);
+                    $this->jasperExecute($builder);
+                    $jasperFile = $compileBase . '.jasper';
+                    $tempCompiledJasper = $jasperFile;
+                }
             } else {
                 // FALLBACK PARA HTML
                 return $this->renderHtmlFallback($report);
             }
         }
+
+        $this->assertReadableLogoParameter($report);
 
         try {
 
