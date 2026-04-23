@@ -107,6 +107,8 @@ if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ]; then
       packages/portabilis/i-educar-reports-package/database/
     cp -r cdn-config/i-educar/ieducar/* ./ieducar/
 
+    cp -r cdn-config/images/brasao/* packages/portabilis/i-educar-reports-package/ieducar/ReportLogos/
+
     rm -rf cdn-config
   else
     echo "AVISO: GIT_TOKEN ausente; pulando customizacoes SEMED-AL para reports."
