@@ -94,11 +94,11 @@ if [ "${images_changed}" = "true" ]; then
       compose exec "${php_service}" php artisan community:reports:link --no-interaction || true
     fi
     if compose exec "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
-      compose exec "${php_service}" php artisan community:reports:install --no-interaction || true
-      # Imagem de producao (registry): php_* e fpm_* sao containers separados sem bind mount
-      # do codigo; community:reports:install grava .jasper em ReportSources no filesystem do
-      # container onde corre. O nginx usa fpm — sem este passo, o FPM nao ve os .jasper.
-      compose exec "${fpm_service}" php artisan community:reports:install --no-interaction || true
+      compose exec "${php_service}" php artisan community:reports:install --no-interaction &
+      pid1=$!
+      compose exec "${fpm_service}" php artisan community:reports:install --no-interaction &
+      pid2=$!
+      wait "${pid1}" "${pid2}" || true
     fi
     compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
     # Jasper grava/compila ficheiros em ReportSources; e os containers (php/fpm) podem

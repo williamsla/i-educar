@@ -67,8 +67,7 @@ artisan_cmd_exists() {
   php artisan list --raw 2>/dev/null | awk '{print $1}' | grep -qx "$name"
 }
 
-# Passos README apos plug-and-play que nao exigem DB. `community:reports:install` fica
-# apenas no deploy (docker/deploy-city.sh), apos migrate.
+# Passos README apos plug-and-play que nao exigem DB.
 run_readme_artisan_after_composer() {
   apply_artisan_build_env
 
@@ -180,14 +179,13 @@ if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
   require_git_token
   clone_or_update_repo \
     "${PACKAGE_REPO_MERENDA:-https://${GIT_TOKEN}@github.com/williamsla/merenda.git}" \
-    "packages/merenda" \
-    "${PACKAGE_REF_MERENDA:-}"
+    "packages/merenda"
 
-  strip_sudo_from_script "packages/merenda/instalar_modulo.sh"
+  strip_sudo_from_script "packages/merenda/merenda-escolar/instalar_modulo.sh"
   ensure_laravel_runtime_dirs
 
-  chmod +x packages/merenda/instalar_modulo.sh    
-  run_if_exists "packages/merenda/instalar_modulo.sh"
+  chmod +x packages/merenda/merenda-escolar/instalar_modulo.sh    
+  run_if_exists "packages/merenda/merenda-escolar/instalar_modulo.sh"
 
   installed_any_package=1
 fi
