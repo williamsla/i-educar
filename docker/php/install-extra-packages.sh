@@ -183,12 +183,12 @@ if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
     "packages/merenda" \
     "${PACKAGE_REF_MERENDA:-}"
 
-  strip_sudo_from_script "packages/merenda/merenda-escolar/instalar_modulo.sh"
+  strip_sudo_from_script "packages/merenda/instalar_modulo.sh"
   ensure_laravel_runtime_dirs
 
-  chmod +x packages/merenda/merenda-escolar/instalar_modulo.sh    
-  run_if_exists "packages/merenda/merenda-escolar/instalar_modulo.sh"
-  
+  chmod +x packages/merenda/instalar_modulo.sh    
+  run_if_exists "packages/merenda/instalar_modulo.sh"
+
   installed_any_package=1
 fi
 
