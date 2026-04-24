@@ -172,6 +172,7 @@ if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
   strip_sudo_from_script "packages/despesas-escolar/install.sh"
   ensure_laravel_runtime_dirs
   run_if_exists "packages/despesas-escolar/install.sh"
+
   installed_any_package=1
 fi
 
@@ -183,13 +184,11 @@ if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
     "${PACKAGE_REF_MERENDA:-}"
 
   strip_sudo_from_script "packages/merenda/merenda-escolar/instalar_modulo.sh"
-  strip_sudo_from_script "packages/merenda/install.sh"
   ensure_laravel_runtime_dirs
-  if ! run_if_exists "packages/merenda/merenda-escolar/instalar_modulo.sh"; then
-    if ! run_if_exists "packages/merenda/install.sh"; then
-      echo "AVISO: script de instalacao da merenda nao encontrado no repositorio." >&2
-    fi
-  fi
+
+  chmod +x packages/merenda/merenda-escolar/instalar_modulo.sh    
+  run_if_exists "packages/merenda/merenda-escolar/instalar_modulo.sh"
+  
   installed_any_package=1
 fi
 
