@@ -89,16 +89,18 @@ if [ "${images_changed}" = "true" ]; then
   compose exec -T "${php_service}" php artisan storage:link || true
   compose exec -T "${php_service}" php artisan migrate --force
 
-  if compose exec -T "${php_service}" sh -lc "[ -d packages/portabilis/i-educar-reports-package ]"; then
+  # Imagem registry pode nao ter packages/portabilis/... (build sem ENABLE_PACKAGE_REPORTS).
+  # O gatilho correto e' o comando Artisan registado (plug-and-play / composer).
+  if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
+    echo ">> Relatorios: link/install/publish (pacote presente na app)"
     if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:link"; then
       compose exec -T "${php_service}" php artisan community:reports:link --no-interaction || true
     fi
-    if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
-      # Sequencial: exec em background com compose falha ou termina de forma imprevisivel sem TTY/job control.
-      # compose exec -T "${php_service}" php artisan community:reports:install --no-interaction || true
-      compose exec -T "${fpm_service}" php artisan community:reports:install --no-interaction || true
-    fi
+    compose exec -T "${php_service}" php artisan community:reports:install --no-interaction || true
+    compose exec -T "${fpm_service}" php artisan community:reports:install --no-interaction || true
+    # publish grava em disco da app; php_* e fpm_* nao partilham camada gravada (registry).
     compose exec -T "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
+    compose exec -T "${fpm_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
     # Jasper grava/compila ficheiros em ReportSources; e os containers (php/fpm) podem
     # nao ter permissao suficiente se a instalacao correu como root.
     for svc in "${php_service}" "${fpm_service}"; do
@@ -115,6 +117,8 @@ if [ "${images_changed}" = "true" ]; then
         done
       ' || true
     done
+  else
+    echo ">> Relatorios: ignorados (comando community:reports:install inexistente). Para incluir na imagem: build com ENABLE_PACKAGE_REPORTS=true (ver docker/php/Dockerfile.prod)."
   fi
 
   compose exec -T "${php_service}" php artisan optimize:clear || true
