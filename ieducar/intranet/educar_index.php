@@ -436,7 +436,7 @@ return new class
             $sql = "SELECT 
                         a.cod_aluno,
                         p.nome,
-                        f.cpf,
+                        public.formata_cpf(f.cpf) as cpf,
                         m.ref_ref_cod_escola as escola_id
                     FROM pmieducar.aluno a
                     INNER JOIN cadastro.pessoa p ON p.idpes = a.ref_idpes
@@ -447,11 +447,14 @@ return new class
                     AND m.ano = ?
                     " . ($schoolId ? " AND m.ref_ref_cod_escola = ? " : "") . "
                     AND (
-                        f.cpf IS NULL 
-                        OR f.cpf = 0 
-                        OR f.cpf = 00000000000
-                        OR CAST(f.cpf AS TEXT) LIKE '000%'
-                        OR LENGTH(CAST(f.cpf AS TEXT)) < 11
+                        f.cpf IS null
+                        OR f.cpf = 0
+					    OR public.formata_cpf(f.cpf) !~ '^[0-9.-]{14}$' -- não tem exatamente 11 dígitos
+					    OR public.formata_cpf(f.cpf) IN (
+					        '000.000.000-00','111.111.111-11','222.222.222-22','333.333.333-33',
+					        '444.444.444-44','555.555.555-55','666.666.666-66','777.777.777-77',
+					        '888.888.888-88','999.999.999-99'
+					    )
                     )
                     GROUP BY a.cod_aluno, p.nome, f.cpf, m.ref_ref_cod_escola
                     ORDER BY p.nome";
