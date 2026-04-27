@@ -94,11 +94,9 @@ if [ "${images_changed}" = "true" ]; then
       compose exec -T "${php_service}" php artisan community:reports:link --no-interaction || true
     fi
     if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
-      compose exec -T "${php_service}" php artisan community:reports:install --no-interaction &
-      pid1=$!
-      compose exec -T "${fpm_service}" php artisan community:reports:install --no-interaction &
-      pid2=$!
-      wait "${pid1}" "${pid2}" || true
+      # Sequencial: exec em background com compose falha ou termina de forma imprevisivel sem TTY/job control.
+      # compose exec -T "${php_service}" php artisan community:reports:install --no-interaction || true
+      compose exec -T "${fpm_service}" php artisan community:reports:install --no-interaction || true
     fi
     compose exec -T "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
     # Jasper grava/compila ficheiros em ReportSources; e os containers (php/fpm) podem
