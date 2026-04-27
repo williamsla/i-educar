@@ -546,16 +546,13 @@ return new class
             $sql = "SELECT COUNT(DISTINCT m.cod_matricula) as total
                     FROM pmieducar.matricula m
                     INNER JOIN pmieducar.matricula_turma mt ON mt.ref_cod_matricula = m.cod_matricula
-                    INNER JOIN pmieducar.turma t ON t.cod_turma = mt.ref_cod_turma
+                    INNER JOIN pmieducar.serie s ON s.cod_serie = m.ref_ref_cod_serie
                     WHERE m.ativo = 1
                     AND mt.ativo = 1
                     AND m.ano = ?
-                    AND t.ativo = 1
-                    " . ($schoolId ? " AND t.ref_ref_cod_escola = ? " : "") . "
+                    " . ($schoolId ? " AND m.ref_ref_cod_escola = ? " : "") . "
                     AND (
-                        t.tipo_atendimento IN (2, 4, 5, 6, 7, 8, 9)
-                        OR LOWER(t.nm_turma) LIKE '%aee%'
-                        OR LOWER(t.nm_turma) LIKE '%atendimento educacional especializado%'
+                        LOWER(s.nm_serie) LIKE '%aee%'
                     )";
 
             $params = [date('Y')];

@@ -78,33 +78,33 @@ fi
 if [ "${images_changed}" = "true" ]; then
   echo ">> Nova imagem detectada. Executando pos-deploy da cidade ${CITY_INDEX}"
 
-  compose exec "${php_service}" sh -lc '
+  compose exec -T "${php_service}" sh -lc '
     [ "${DB_CONNECTION:-}" = "pgsql" ] || { echo "ERRO: DB_CONNECTION=${DB_CONNECTION:-vazio} (esperado: pgsql)"; exit 1; }
     [ "${CACHE_DRIVER:-}" = "redis" ] || { echo "ERRO: CACHE_DRIVER=${CACHE_DRIVER:-vazio} (esperado: redis)"; exit 1; }
     [ "${CACHE_STORE:-}" = "redis" ] || { echo "ERRO: CACHE_STORE=${CACHE_STORE:-vazio} (esperado: redis)"; exit 1; }
   '
 
-  compose exec "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
+  compose exec -T "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
 
-  compose exec "${php_service}" php artisan storage:link || true
-  compose exec "${php_service}" php artisan migrate --force
+  compose exec -T "${php_service}" php artisan storage:link || true
+  compose exec -T "${php_service}" php artisan migrate --force
 
-  if compose exec "${php_service}" sh -lc "[ -d packages/portabilis/i-educar-reports-package ]"; then
-    if compose exec "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:link"; then
-      compose exec "${php_service}" php artisan community:reports:link --no-interaction || true
+  if compose exec -T "${php_service}" sh -lc "[ -d packages/portabilis/i-educar-reports-package ]"; then
+    if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:link"; then
+      compose exec -T "${php_service}" php artisan community:reports:link --no-interaction || true
     fi
-    if compose exec "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
-      compose exec "${php_service}" php artisan community:reports:install --no-interaction &
+    if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
+      compose exec -T "${php_service}" php artisan community:reports:install --no-interaction &
       pid1=$!
-      compose exec "${fpm_service}" php artisan community:reports:install --no-interaction &
+      compose exec -T "${fpm_service}" php artisan community:reports:install --no-interaction &
       pid2=$!
       wait "${pid1}" "${pid2}" || true
     fi
-    compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
+    compose exec -T "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
     # Jasper grava/compila ficheiros em ReportSources; e os containers (php/fpm) podem
     # nao ter permissao suficiente se a instalacao correu como root.
     for svc in "${php_service}" "${fpm_service}"; do
-      compose exec "${svc}" sh -lc '
+      compose exec -T "${svc}" sh -lc '
         for d in \
           ieducar/modules/Reports \
           ieducar/modules/Reports/ReportSources \
@@ -119,7 +119,7 @@ if [ "${images_changed}" = "true" ]; then
     done
   fi
 
-  compose exec "${php_service}" php artisan optimize:clear || true
+  compose exec -T "${php_service}" php artisan optimize:clear || true
 else
   echo ">> Imagens inalteradas. Pos-deploy ignorado."
 fi
