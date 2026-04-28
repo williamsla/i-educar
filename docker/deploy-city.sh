@@ -96,7 +96,7 @@ if [ "${images_changed}" = "true" ]; then
     if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:link"; then
       compose exec -T "${php_service}" php artisan community:reports:link --no-interaction || true
     fi
-    compose exec -T "${php_service}" php artisan community:reports:install --no-interaction || true
+
     compose exec -T "${fpm_service}" php artisan community:reports:install --no-interaction || true
     # publish grava em disco da app; php_* e fpm_* nao partilham camada gravada (registry).
     compose exec -T "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
