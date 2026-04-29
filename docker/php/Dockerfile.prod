@@ -42,6 +42,7 @@ COPY --from=composer_bin /usr/bin/composer /usr/local/bin/composer
 
 RUN apk add --no-cache \
     bash \
+    aws-cli \
     fontconfig \
     libc-dev \
     libpng-dev \

@@ -18,6 +18,7 @@ CITY_INDEX="${CITY_INDEX:-1}"
 ENV_FILE="${ENV_FILE:-docker/.env.registry}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.multicidade.registry.yml}"
 FORCE_POST_DEPLOY="${FORCE_POST_DEPLOY:-false}"
+RUNTIME_ENV_FILE="${RUNTIME_ENV_FILE:-.env}"
 
 php_service="php_cidade${CITY_INDEX}"
 fpm_service="fpm_cidade${CITY_INDEX}"
@@ -26,6 +27,19 @@ redis_service="redis_cidade${CITY_INDEX}"
 
 compose() {
   docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
+}
+
+load_runtime_env() {
+  if [ ! -f "${RUNTIME_ENV_FILE}" ]; then
+    echo ">> Arquivo de runtime nao encontrado (${RUNTIME_ENV_FILE}); seguindo sem carregar variaveis extras."
+    return 0
+  fi
+
+  echo ">> Carregando variaveis de runtime de ${RUNTIME_ENV_FILE}"
+  set -a
+  # shellcheck disable=SC1090
+  . "${RUNTIME_ENV_FILE}"
+  set +a
 }
 
 container_id() {
@@ -44,6 +58,8 @@ image_id_from_container() {
 old_php_cid="$(container_id "${php_service}")"
 old_fpm_cid="$(container_id "${fpm_service}")"
 old_nginx_cid="$(container_id "${nginx_service}")"
+
+load_runtime_env
 
 old_php_image="$(image_id_from_container "${old_php_cid}")"
 old_fpm_image="$(image_id_from_container "${old_fpm_cid}")"
