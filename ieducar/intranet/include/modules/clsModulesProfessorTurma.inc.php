@@ -872,6 +872,12 @@ class clsModulesProfessorTurma extends Model
             $sql = "SELECT id FROM {$this->_tabela} pt WHERE ano = '{$this->ano}' AND turma_id = '{$this->turma_id}'
                AND instituicao_id = '{$this->instituicao_id}' AND servidor_id = '{$this->servidor_id}' ";
 
+            if (is_numeric($this->turno_id)) {
+                $sql .= " AND turno_id = '{$this->turno_id}'";
+            } else {
+                $sql .= ' AND turno_id IS NULL';
+            }
+
             if (is_numeric($this->id)) {
                 $sql .= " AND id <> {$this->id}";
             }
