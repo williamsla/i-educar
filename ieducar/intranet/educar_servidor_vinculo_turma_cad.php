@@ -149,7 +149,18 @@ return new class extends clsCadastro
         $this->campoOculto(nome: 'copia', valor: (int) $this->copia);
 
         $this->inputsHelper()->dynamic(helperNames: 'ano', inputOptions: ['value' => (is_null(value: $ano) ? date(format: 'Y') : $ano)]);
-        $this->inputsHelper()->dynamic(helperNames: ['instituicao', 'escola', 'curso', 'serie', 'turma']);
+        $this->inputsHelper()->dynamic(helperNames: ['instituicao', 'escola']);
+
+        $cursos = is_numeric($this->ref_cod_escola) ? App_Model_IedFinder::getCursos($this->ref_cod_escola) : [];
+        if (is_numeric($this->ref_cod_curso) && !array_key_exists($this->ref_cod_curso, $cursos)) {
+            $curso = (new clsPmieducarCurso(cod_curso: $this->ref_cod_curso))->detalhe();
+            if ($curso) {
+                $cursos[$this->ref_cod_curso] = $curso['nm_curso'];
+            }
+        }
+
+        $this->inputsHelper()->dynamic(helperNames: 'curso', inputOptions: ['resources' => $cursos]);
+        $this->inputsHelper()->dynamic(helperNames: ['serie', 'turma']);
 
         $obrigarCamposCenso = $this->validarCamposObrigatoriosCenso();
         $this->campoOculto(nome: 'obrigar_campos_censo', valor: (int) $obrigarCamposCenso);
