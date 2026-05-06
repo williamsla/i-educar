@@ -94,9 +94,18 @@ return new class extends clsCadastro
                 $obj_turma = new clsPmieducarTurma(cod_turma: $this->ref_cod_turma);
                 $obj_turma = $obj_turma->detalhe();
                 $this->ref_cod_escola = $obj_turma['ref_ref_cod_escola'];
-
-                $this->ref_cod_curso = $obj_turma['ref_cod_curso'];
                 $this->ref_cod_serie = $obj_turma['ref_ref_cod_serie'];
+
+                // O curso exibido no cadastro de turma vem da série; turma.ref_cod_curso pode divergir.
+                if (is_numeric($this->ref_cod_serie)) {
+                    $det_serie = (new clsPmieducarSerie(cod_serie: $this->ref_cod_serie))->detalhe();
+                    $this->ref_cod_curso = is_array($det_serie) && !empty($det_serie['ref_cod_curso'])
+                        ? $det_serie['ref_cod_curso']
+                        : $obj_turma['ref_cod_curso'];
+                } else {
+                    $this->ref_cod_curso = $obj_turma['ref_cod_curso'];
+                }
+
                 $this->turma_organizacao_curricular = $obj_turma['organizacao_curricular'];
 
                 if (!isset($_GET['copia'])) {
