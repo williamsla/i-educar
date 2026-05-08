@@ -19,7 +19,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
-use Laravel\Telescope\TelescopeServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -105,8 +104,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(Breadcrumb::class);
 
-        if ($this->app->environment('development', 'local', 'testing')) {
-            $this->app->register(TelescopeServiceProvider::class);
+        if (
+            $this->app->environment('development', 'local', 'testing')
+            && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)
+        ) {
+            $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);
+            $this->app->register(\App\Providers\TelescopeServiceProvider::class);
         }
 
         $this->app->bind(Tracker::class, function () {

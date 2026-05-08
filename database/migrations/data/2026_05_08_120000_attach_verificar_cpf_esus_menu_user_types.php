@@ -2,7 +2,6 @@
 
 use App\Menu;
 use App\Models\LegacyUserType;
-use App\Process;
 use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
@@ -23,32 +22,23 @@ return new class extends Migration
     }
 
     /**
-     * Run the migrations.
+     * O item "Verificar CPFs (eSUS)" foi criado sem vínculos em menu_tipo_usuario; para usuários
+     * não administradores o menu é filtrado por esse relacionamento e o link não aparecia.
      */
     public function up(): void
     {
-        $parent = Menu::query()
-            ->where('old', Process::CONFIGURATIONS_TOOLS)
+        $menu = Menu::query()
+            ->where('title', 'Verificar CPFs (eSUS)')
+            ->where('link', '/intranet/educar_verificar_cpf_esus.php')
             ->first();
 
-        if ($parent) {
-            $menu = Menu::query()->create([
-                'parent_id' => $parent->getKey(),
-                'title' => 'Verificar CPFs (eSUS)',
-                'description' => 'Verificar CPFs do relatório eSUS no cadastro',
-                'link' => '/intranet/educar_verificar_cpf_esus.php',
-                'process' => Process::CONFIGURATIONS_TOOLS,
-                'order' => 99,
-                'active' => true,
-            ]);
-
-            $this->attachMenuIfNotExists(LegacyUserType::all(), $menu);
+        if ($menu === null) {
+            return;
         }
+
+        $this->attachMenuIfNotExists(LegacyUserType::all(), $menu);
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         $menu = Menu::query()
@@ -56,11 +46,12 @@ return new class extends Migration
             ->where('link', '/intranet/educar_verificar_cpf_esus.php')
             ->first();
 
-        if ($menu !== null) {
-            LegacyUserType::all()->each(static function (LegacyUserType $userType) use ($menu) {
-                $userType->menus()->detach($menu);
-            });
-            $menu->delete();
+        if ($menu === null) {
+            return;
         }
+
+        LegacyUserType::all()->each(static function (LegacyUserType $userType) use ($menu) {
+            $userType->menus()->detach($menu);
+        });
     }
 };

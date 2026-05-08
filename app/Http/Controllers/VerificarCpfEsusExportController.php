@@ -15,7 +15,7 @@ class VerificarCpfEsusExportController extends Controller
     /**
      * Armazena na sessão o resultado da última verificação (para exportação).
      *
-     * @param  list<array{cpf: string, nome: string, data_nascimento: string}>  $itens
+     * @param  list<array<string, mixed>>  $itens
      */
     public static function armazenarParaExportacao(int $cpfsExtraidos, int $anoLetivo, array $itens): void
     {
@@ -68,8 +68,8 @@ class VerificarCpfEsusExportController extends Controller
     /**
      * Ordena por data de nascimento (DD/MM/AAAA) crescente; sem data válida ficam por último.
      *
-     * @param  list<array{cpf: string, nome: string, data_nascimento: string}>  $itens
-     * @return list<array{cpf: string, nome: string, data_nascimento: string}>
+     * @param  list<array<string, mixed>>  $itens
+     * @return list<array<string, mixed>>
      */
     private static function ordenarItensPorDataNascimentoAsc(array $itens): array
     {
@@ -110,7 +110,7 @@ class VerificarCpfEsusExportController extends Controller
     /**
      * Conta registros por ano de nascimento (a partir de DD/MM/AAAA); sem data válida em `sem_data`.
      *
-     * @param  list<array{cpf: string, nome: string, data_nascimento: string}>  $itens
+     * @param  list<array<string, mixed>>  $itens
      * @return array{anos: array<int, int>, sem_data: int}
      */
     private static function resumoQuantidadePorAnoNascimento(array $itens): array
