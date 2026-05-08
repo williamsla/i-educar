@@ -5,46 +5,53 @@
     let $cursoField = getElementFor('curso');
     let $ano = getElementFor('ano');
 
-    let handleGetCursos = function(response) {
-      let selectOptions = jsonResourcesToSelectOptions(response['options']);
-      updateSelect($cursoField, selectOptions, "Selecione um curso");
-    }
-
     let updateCursos = function() {
+      const currentCursoId = $cursoField.val();
       resetSelect($cursoField);
+
+      const onCursosLoaded = function(response) {
+        let selectOptions = jsonResourcesToSelectOptions(response['options']);
+        updateSelect($cursoField, selectOptions, "Selecione um curso");
+        if (currentCursoId !== '' && currentCursoId != null) {
+          $cursoField.val(String(currentCursoId));
+        }
+        $cursoField.change();
+      };
 
       if ($instituicaoField.val() && $escolaField.val() && $escolaField.is(':enabled')) {
         $cursoField.children().first().html('Aguarde carregando...');
         let urlForGetCursos = getResourceUrlBuilder.buildUrl('/module/DynamicInput/Curso', 'cursos', {
-          escola_id: $escolaField.attr('value'),
-          instituicao_id: $instituicaoField.attr('value'),
-          ano: ($ano.val() && $ano.val() != "NaN" ? $ano.val() : '')
+          escola_id: $escolaField.val(),
+          instituicao_id: $instituicaoField.val(),
+          ano: ($ano.val() && $ano.val() != "NaN" ? $ano.val() : ''),
+          curso_id: currentCursoId || ''
         });
 
         let options = {
           url: urlForGetCursos,
           dataType: 'json',
-          success: handleGetCursos
+          success: onCursosLoaded
         };
 
         getResources(options);
       } else if ($instituicaoField.val()) {
         $cursoField.children().first().html('Aguarde carregando...');
         let urlForGetCursos = getResourceUrlBuilder.buildUrl('/module/DynamicInput/Curso', 'cursos', {
-          instituicao_id: $instituicaoField.attr('value'),
-          ano: ($ano.val() && $ano.val() != "NaN" ? $ano.val() : '')
+          instituicao_id: $instituicaoField.val(),
+          ano: ($ano.val() && $ano.val() != "NaN" ? $ano.val() : ''),
+          curso_id: currentCursoId || ''
         });
 
         let options = {
           url: urlForGetCursos,
           dataType: 'json',
-          success: handleGetCursos
+          success: onCursosLoaded
         };
 
         getResources(options);
+      } else {
+        $cursoField.change();
       }
-
-      $cursoField.change();
     };
 
     $instituicaoField.change(updateCursos);

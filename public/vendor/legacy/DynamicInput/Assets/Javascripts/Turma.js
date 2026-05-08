@@ -12,13 +12,18 @@
     var naoFiltrarAno        = $j('#nao_filtrar_ano').length > 0 ? 1 : false;
     var anoEmAndamento       = $j('#ano_em_andamento').length > 0 ? 1 : false;
 
-    var handleGetTurmas = function(response) {
-      var selectOptions = jsonResourcesToSelectOptions(response['options']);
-      updateSelect($turmaField, selectOptions, "Selecione uma turma");
-    }
-
     var updateTurmas = function(){
+      const currentTurmaId = $turmaField.val();
       resetSelect($turmaField);
+
+      const onTurmasLoaded = function(response) {
+        var selectOptions = jsonResourcesToSelectOptions(response['options']);
+        updateSelect($turmaField, selectOptions, "Selecione uma turma");
+        if (currentTurmaId !== '' && currentTurmaId != null) {
+          $turmaField.val(String(currentTurmaId));
+        }
+        $turmaField.change();
+      };
 
       if ($instituicaoField.val() && $escolaField.val() && $serieField.val() && $serieField.is(':enabled')) {
         $turmaField.children().first().html('Aguarde carregando...');
@@ -35,13 +40,13 @@
         var options = {
           url : urlForGetTurmas,
           dataType : 'json',
-          success  : handleGetTurmas
+          success  : onTurmasLoaded
         };
 
         getResources(options);
+      } else {
+        $turmaField.change();
       }
-
-      $turmaField.change();
     };
 
     // bind onchange event

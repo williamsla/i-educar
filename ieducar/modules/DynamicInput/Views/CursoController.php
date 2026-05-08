@@ -15,6 +15,7 @@ class CursoController extends ApiCoreController
             $instituicaoId = $this->getRequest()->instituicao_id;
             $escolaId = $this->getRequest()->escola_id ?: 0;
             $ano = $this->getRequest()->ano;
+            $cursoId = $this->getRequest()->curso_id;
 
             $isOnlyProfessor = Portabilis_Business_Professor::isOnlyProfessor($instituicaoId, $userId);
 
@@ -50,6 +51,17 @@ class CursoController extends ApiCoreController
             foreach ($cursos as $curso) {
                 $nomeCurso = empty($curso['descricao']) ? $curso['nome'] : "{$curso['nome']} ({$curso['descricao']})";
                 $options['__' . $curso['id']] = $nomeCurso;
+            }
+
+            // Mantém o curso já selecionado na edição, mesmo quando não está
+            // no resultado padrão de cursos por escola/perfil.
+            if (is_numeric($cursoId) && !isset($options['__' . $cursoId])) {
+                $curso = (new clsPmieducarCurso($cursoId))->detalhe();
+
+                if (is_array($curso)) {
+                    $nomeCurso = empty($curso['descricao']) ? $curso['nm_curso'] : "{$curso['nm_curso']} ({$curso['descricao']})";
+                    $options['__' . $cursoId] = $nomeCurso;
+                }
             }
 
             return ['options' => $options];
