@@ -237,7 +237,7 @@ return new class extends clsCadastro
 
         if ($n > 0) {
             $exportUrl = url('/relatorios/verificar-cpf-esus/exportar');
-            $html .= '<tr><td class="formmdtd" colspan="2"><span class="form"><a href="' . htmlspecialchars($exportUrl) . '" target="_blank" rel="noopener" class="decorated"><strong>Exportar relatório em PDF</strong></a> — abre CPF, nome, data de nascimento e endereço do aluno para imprimir ou salvar como PDF.</span></td></tr>';
+            $html .= '<tr><td class="formmdtd" colspan="2"><span class="form"><a href="' . htmlspecialchars($exportUrl) . '" target="_blank" rel="noopener" class="decorated"><strong>Exportar relatório em PDF</strong></a> — abre CPF/CNS, nome, data de nascimento, endereço (sem CEP) e última atualização cadastral para imprimir ou salvar como PDF.</span></td></tr>';
         }
 
         $this->addHtml($html);

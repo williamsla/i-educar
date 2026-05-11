@@ -408,15 +408,38 @@ class EsusPdfCpfService
             $cadastro = $this->sanitizarTextoEndereco($cadastro);
             $relatorio = $this->sanitizarTextoEndereco((string) ($dados['endereco_relatorio'] ?? ''));
             if ($this->enderecoPossuiConteudoUtil($cadastro)) {
-                $itens[$i]['endereco'] = $cadastro;
+                $itens[$i]['endereco'] = $this->removerCepDoEnderecoExibicao($cadastro);
             } elseif ($this->relatorioEnderecoConsideradoPreenchido($relatorio)) {
-                $itens[$i]['endereco'] = $relatorio;
+                $itens[$i]['endereco'] = $this->removerCepDoEnderecoExibicao($relatorio);
             } else {
                 $itens[$i]['endereco'] = '—';
+            }
+            $itens[$i]['ultima_atualizacao_cadastral'] = trim((string) ($dados['ultima_atualizacao_cadastral'] ?? ''));
+            if ($itens[$i]['ultima_atualizacao_cadastral'] === '') {
+                $itens[$i]['ultima_atualizacao_cadastral'] = '—';
             }
         }
 
         return $itens;
+    }
+
+    /**
+     * Remove CEP do texto de endereço (cadastro ou e-SUS), inclusive após "|" ou no final da linha.
+     */
+    private function removerCepDoEnderecoExibicao(string $endereco): string
+    {
+        if ($endereco === '' || $endereco === '—') {
+            return $endereco;
+        }
+
+        $t = $endereco;
+        $t = preg_replace('/\s*\|\s*\d{5}-?\d{3}\s*$/u', '', $t) ?? $t;
+        $t = preg_replace('/\s*[—\-]\s*\d{5}-?\d{3}\s*$/u', '', $t) ?? $t;
+        $t = preg_replace('/\b\d{5}-?\d{3}\s*$/u', '', $t) ?? $t;
+        $t = $this->sanitizarTextoEndereco($t);
+        $t = preg_replace('/\s*[\|—\-]\s*$/u', '', $t) ?? $t;
+
+        return $this->sanitizarTextoEndereco($t);
     }
 
     /**
@@ -530,8 +553,7 @@ class EsusPdfCpfService
                 nullif(trim(a.address), ''),
                 nullif(trim(cast(a.number as varchar)), ''),
                 nullif(trim(a.neighborhood), ''),
-                nullif(trim(a.city), ''),
-                nullif(trim(a.postal_code), '')
+                nullif(trim(a.city), '')
             )) as linha
             from cadastro.fisica f
             inner join pmieducar.aluno al on al.ref_idpes = f.idpes and al.ativo = 1

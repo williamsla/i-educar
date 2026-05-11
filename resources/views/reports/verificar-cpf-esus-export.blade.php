@@ -126,10 +126,11 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 16%;">CPF / CNS</th>
-                <th style="width: 26%;">Nome completo</th>
-                <th style="width: 12%;">Data de nascimento</th>
-                <th style="width: 46%;">Endereço do aluno</th>
+                <th style="width: 14%;">CPF / CNS</th>
+                <th style="width: 22%;">Nome completo</th>
+                <th style="width: 10%;">Data de nascimento</th>
+                <th style="width: 32%;">Endereço do aluno</th>
+                <th style="width: 12%;">Última atualização cadastral</th>
             </tr>
         </thead>
         <tbody>
@@ -153,6 +154,7 @@
                     <td>{{ $row['nome'] ?? '—' }}</td>
                     <td>{{ $row['data_nascimento'] ?? '—' }}</td>
                     <td>{{ $row['endereco'] ?? '—' }}</td>
+                    <td>{{ $row['ultima_atualizacao_cadastral'] ?? '—' }}</td>
                 </tr>
             @endforeach
         </tbody>
