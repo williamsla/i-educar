@@ -129,7 +129,7 @@ test('normaliza nome para fallback cadastro colapsa espacos e minusculas', funct
     $m = new ReflectionMethod(EsusPdfCpfService::class, 'normalizarNomeComparacaoCadastro');
     $m->setAccessible(true);
 
-    expect($m->invoke($s, '  JOÃO   CARLOS  '))->toBe('joão carlos');
+    expect($m->invoke($s, '  JOÃO   CARLOS  '))->toBe('joao carlos');
 });
 
 test('normaliza cns do cartao sus removendo pontuacao e espacos', function () {

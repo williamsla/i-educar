@@ -12,7 +12,7 @@ use Throwable;
  * Extrai CPFs e dados correlatos de PDFs do relatório "Acompanhamento de cidadãos vinculados" do eSUS
  * e verifica quais não possuem matrícula ativa no ano letivo informado (pmieducar.matricula).
  * Cruzamento com o cadastro: por CPF quando informado; sem CPF, por CNS (cartão SUS em cadastro.fisica.sus).
- * Se não houver aluno por documento, tenta nome + data de nascimento (ambos na planilha, iguais ao cadastro).
+ * Se não houver aluno por documento, tenta nome + data de nascimento (ambos na planilha; nome sem acento na comparação).
  */
 class EsusPdfCpfService
 {
@@ -382,6 +382,7 @@ class EsusPdfCpfService
 
     /**
      * Regras após "sem matrícula ativa no ano" (lista de pendentes no relatório):
+     * - "Última atualização cadastral" do e-SUS anterior à data da matrícula mais recente no i-Educar: não exibir.
      * - Aluno cadastrado cuja última matrícula (mais recente) está em série do 9º ano: não exibir.
      * - Aluno cadastrado cuja última matrícula é transferência e há pelo menos N meses entre
      *   a data da transferência e a "Última atualização cadastral" do CSV: não exibir.
@@ -420,6 +421,15 @@ class EsusPdfCpfService
                 continue;
             }
 
+            if ($this->descartarAlunoSeAtualizacaoCadastralEsusAnteriorUltimaMatricula(
+                $ultimaEsus,
+                $cpfNormalizado,
+                $cnsDb,
+                $idpesFallback
+            )) {
+                continue;
+            }
+
             if ($this->ultimaMatriculaSerieIndicaNonoFundamental($cpfNormalizado, $cnsDb, $idpesFallback)) {
                 continue;
             }
@@ -438,6 +448,88 @@ class EsusPdfCpfService
         }
 
         return $filtrados;
+    }
+
+    /**
+     * Data mais recente entre data_matricula e data_cadastro das matrículas do aluno identificado.
+     *
+     * @param  list<int>  $idpesFallbackNomeData
+     */
+    private function obterDataMaisRecenteMatriculaDoAluno(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        array $idpesFallbackNomeData = []
+    ): ?Carbon {
+        $temCpf = $cpfNormalizado !== '' && $cpfNormalizado !== null;
+        $temCns = strlen($cnsApenasDigitos) === 15;
+        if (! $temCpf && ! $temCns && $idpesFallbackNomeData === []) {
+            return null;
+        }
+
+        $valor = DB::table('pmieducar.matricula as m')
+            ->join('pmieducar.aluno as al', 'al.cod_aluno', '=', 'm.ref_cod_aluno')
+            ->join('cadastro.fisica as f', 'f.idpes', '=', 'al.ref_idpes')
+            ->where(function ($w) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos, $idpesFallbackNomeData) {
+                if ($temCpf || $temCns) {
+                    $w->where(function ($doc) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos) {
+                        if ($temCpf && $temCns) {
+                            $doc->where(function ($x) use ($cpfNormalizado, $cnsApenasDigitos) {
+                                $x->where('f.cpf', $cpfNormalizado)
+                                    ->orWhereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                            });
+                        } elseif ($temCpf) {
+                            $doc->where('f.cpf', $cpfNormalizado);
+                        } else {
+                            $doc->whereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                        }
+                    });
+                }
+                if ($idpesFallbackNomeData !== []) {
+                    if ($temCpf || $temCns) {
+                        $w->orWhereIn('f.idpes', $idpesFallbackNomeData);
+                    } else {
+                        $w->whereIn('f.idpes', $idpesFallbackNomeData);
+                    }
+                }
+            })
+            ->where('al.ativo', 1)
+            ->selectRaw('max(coalesce(m.data_matricula, m.data_cadastro)) as data_ref')
+            ->value('data_ref');
+
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+        try {
+            return Carbon::parse((string) $valor)->startOfDay();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Última atualização cadastral do e-SUS estritamente anterior à última matrícula no sistema: fora da lista.
+     *
+     * @param  list<int>  $idpesFallbackNomeData
+     */
+    private function descartarAlunoSeAtualizacaoCadastralEsusAnteriorUltimaMatricula(
+        ?Carbon $ultimaAtualizacaoEsus,
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        array $idpesFallbackNomeData = []
+    ): bool {
+        if ($ultimaAtualizacaoEsus === null) {
+            return false;
+        }
+        $dataUltimaMatricula = $this->obterDataMaisRecenteMatriculaDoAluno(
+            $cpfNormalizado,
+            $cnsApenasDigitos,
+            $idpesFallbackNomeData
+        );
+        if ($dataUltimaMatricula === null) {
+            return false;
+        }
+
+        return $ultimaAtualizacaoEsus->copy()->startOfDay()->lt($dataUltimaMatricula->copy()->startOfDay());
     }
 
     private function existeAlunoAtivoPorCpfOuCns(string $cpfNormalizado, string $cnsApenasDigitos): bool
@@ -498,24 +590,26 @@ class EsusPdfCpfService
     }
 
     /**
-     * Nome para comparação com cadastro.pessoa.nome (minúsculas, espaços colapsados).
+     * Nome para comparação auxiliar (minúsculas, espaços colapsados, sem acentos — alinhado ao uso de unaccent no SQL).
      */
     private function normalizarNomeComparacaoCadastro(string $nome): string
     {
         $collapsed = preg_replace('/\s+/u', ' ', trim($nome)) ?? '';
+        $ascii = Str::ascii(trim($collapsed));
 
-        return mb_strtolower(trim($collapsed), 'UTF-8');
+        return mb_strtolower($ascii, 'UTF-8');
     }
 
     /**
      * Aluno ativo cujo nome (pessoa) e data de nascimento (física) coincidem com a planilha.
+     * Comparação de nome ignora acentos (unaccent no PostgreSQL) na planilha e no cadastro.
      *
      * @return list<int>
      */
     private function buscarIdpesAlunoAtivoPorNomeEDataNascimento(string $nomePlanilha, Carbon $dataNascimento): array
     {
-        $nomeNorm = $this->normalizarNomeComparacaoCadastro($nomePlanilha);
-        if ($nomeNorm === '') {
+        $nomeCsv = trim((string) (preg_replace('/\s+/u', ' ', trim($nomePlanilha)) ?? ''));
+        if ($nomeCsv === '') {
             return [];
         }
 
@@ -524,8 +618,8 @@ class EsusPdfCpfService
             ->join('pmieducar.aluno as al', 'al.ref_idpes', '=', 'f.idpes')
             ->where('al.ativo', 1)
             ->whereRaw(
-                "lower(regexp_replace(trim(both ' ' from p.nome), '\\s+', ' ', 'g')) = ?",
-                [$nomeNorm]
+                "lower(regexp_replace(trim(both ' ' from unaccent(trim(p.nome))), '\\s+', ' ', 'g')) = lower(regexp_replace(trim(both ' ' from unaccent(?)), '\\s+', ' ', 'g'))",
+                [$nomeCsv]
             )
             ->whereDate('f.data_nasc', $dataNascimento->format('Y-m-d'))
             ->pluck('f.idpes')
