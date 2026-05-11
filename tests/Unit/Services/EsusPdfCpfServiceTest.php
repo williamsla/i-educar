@@ -111,6 +111,40 @@ CSV;
     expect($reg['147.922.394-86']['endereco_relatorio'])->toBe('Rua Fallback Antes Do Cpf');
 });
 
+test('ignora linha do csv com cpf ou cns valido mas sem nome', function () {
+    $csv = <<<'CSV'
+Nome equipe;INE equipe;Microárea;Endereço;CPF/CNS;Nome;Idade;Sexo;Identidade de gênero;Data de nascimento;Telefone celular;Telefone residencial;Telefone de contato;Última atualização cadastral;Origem
+ESF;1;1;Rua A;147.922.394-86;;10 anos;Feminino;-;01/01/2016;-;-;-;14/05/2021;PEC
+ESF;1;1;Rua B;8,98005E+14;;9 anos;Feminino;-;07/08/2016;-;-;-;30/03/2025;CDS
+CSV;
+
+    $s = new EsusPdfCpfService;
+    $reg = $s->extrairRegistrosDoCsv($csv);
+
+    expect($reg)->toHaveCount(0);
+});
+
+test('normaliza nome para fallback cadastro colapsa espacos e minusculas', function () {
+    $s = new EsusPdfCpfService;
+    $m = new ReflectionMethod(EsusPdfCpfService::class, 'normalizarNomeComparacaoCadastro');
+    $m->setAccessible(true);
+
+    expect($m->invoke($s, '  JOÃO   CARLOS  '))->toBe('joão carlos');
+});
+
+test('normaliza cns do cartao sus removendo pontuacao e espacos', function () {
+    $csv = <<<'CSV'
+Nome equipe;INE equipe;Microárea;Endereço;CPF/CNS;Nome;Idade;Sexo;Identidade de gênero;Data de nascimento;Telefone celular;Telefone residencial;Telefone de contato;Última atualização cadastral;Origem
+ESF;1;1;Rua A;898.005.000.000.000;NOME CNS;10 anos;Feminino;-;01/01/2016;-;-;-;14/05/2021;PEC
+CSV;
+
+    $s = new EsusPdfCpfService;
+    $reg = $s->extrairRegistrosDoCsv($csv);
+
+    expect($reg)->toHaveKey('cns:898005000000000')
+        ->and($reg['cns:898005000000000']['cns'])->toBe('898005000000000');
+});
+
 test('formata cpf numerico no csv', function () {
     $csv = <<<'CSV'
 Nome equipe;INE equipe;Microárea;Endereço;CPF/CNS;Nome;Idade;Sexo;Identidade de gênero;Data de nascimento;Telefone celular;Telefone residencial;Telefone de contato;Última atualização cadastral;Origem

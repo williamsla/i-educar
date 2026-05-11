@@ -126,11 +126,11 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 14%;">CPF / CNS</th>
+                <th style="width: 14%;">CPF</th>
                 <th style="width: 22%;">Nome completo</th>
                 <th style="width: 10%;">Data de nascimento</th>
-                <th style="width: 32%;">Endereço do aluno</th>
-                <th style="width: 12%;">Última atualização cadastral</th>
+                <th style="width: 32%;">Endereço</th>
+                <th style="width: 12%;">Último atendimento de saúde</th>
             </tr>
         </thead>
         <tbody>

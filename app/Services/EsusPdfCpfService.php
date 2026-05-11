@@ -11,16 +11,11 @@ use Throwable;
 /**
  * Extrai CPFs e dados correlatos de PDFs do relatório "Acompanhamento de cidadãos vinculados" do eSUS
  * e verifica quais não possuem matrícula ativa no ano letivo informado (pmieducar.matricula).
+ * Cruzamento com o cadastro: por CPF quando informado; sem CPF, por CNS (cartão SUS em cadastro.fisica.sus).
+ * Se não houver aluno por documento, tenta nome + data de nascimento (ambos na planilha, iguais ao cadastro).
  */
 class EsusPdfCpfService
 {
-    /**
-     * Situações de matrícula consideradas "concluiu a etapa" (aprovado).
-     *
-     * @see \App_Model_MatriculaSituacao
-     */
-    private const APROVADO_CONCLUIU_ETAPA = [1, 8, 10, 12, 13];
-
     /**
      * Situação transferido.
      */
@@ -30,6 +25,12 @@ class EsusPdfCpfService
      * Considera transferências em matrículas cujo ano letivo seja >= (ano verificado - N).
      */
     private const ANOS_LOOKBACK_TRANSFERENCIA = 5;
+
+    /**
+     * Para exclusão da lista de pendentes: diferença mínima (em meses completos) entre a
+     * "Última atualização cadastral" do CSV e a data de transferência (data_cancel).
+     */
+    private const MESES_DISTANCIA_TRANSFERENCIA_PARA_EXCLUIR_PENDENTE = 2;
 
     /**
      * Padrão para CPF no formato XXX.XXX.XXX-XX (como no relatório eSUS).
@@ -260,29 +261,68 @@ class EsusPdfCpfService
     }
 
     /**
-     * Matrícula ativa no ano por CPF (cadastro.fisica.cpf) ou CNS (15 dígitos em cadastro.fisica.sus).
+     * Cartão SUS (CNS): remove tudo que não for dígito 0–9 antes de comparar com cadastro.fisica.sus.
      */
-    private function possuiMatriculaAtivaNoAnoPorCpfOuCns(string $cpfNormalizado, string $cnsApenasDigitos, int $anoLetivo): bool
+    private function normalizarCnsCartaoSus(mixed $valor): string
     {
+        $s = preg_replace('/[^0-9]+/', '', (string) $valor) ?? '';
+
+        return strlen($s) === 15 ? $s : '';
+    }
+
+    /**
+     * CNS só entra nas consultas ao cadastro quando não há CPF na planilha (filtro por cartão SUS).
+     */
+    private function cnsParaConsultaCadastro(string $cpfNormalizado, string $cnsApenasDigitos): string
+    {
+        if ($cpfNormalizado !== '' && $cpfNormalizado !== null) {
+            return '';
+        }
+
+        return $this->normalizarCnsCartaoSus($cnsApenasDigitos);
+    }
+
+    /**
+     * Matrícula ativa no ano por CPF/CNS e, se informado, por idpes resolvidos com nome + data de nascimento.
+     *
+     * @param  list<int>  $idpesFallbackNomeData
+     */
+    private function possuiMatriculaAtivaNoAnoPorCpfOuCns(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        int $anoLetivo,
+        array $idpesFallbackNomeData = []
+    ): bool {
         $temCpf = $cpfNormalizado !== '' && $cpfNormalizado !== null;
         $temCns = strlen($cnsApenasDigitos) === 15;
-        if (! $temCpf && ! $temCns) {
+        if (! $temCpf && ! $temCns && $idpesFallbackNomeData === []) {
             return false;
         }
 
         return DB::table('pmieducar.matricula as m')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
-            ->where(function ($q) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos) {
-                if ($temCpf && $temCns) {
-                    $q->where(function ($w) use ($cpfNormalizado, $cnsApenasDigitos) {
-                        $w->where('f.cpf', $cpfNormalizado)
-                            ->orWhereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+            ->where(function ($q) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos, $idpesFallbackNomeData) {
+                if ($temCpf || $temCns) {
+                    $q->where(function ($doc) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos) {
+                        if ($temCpf && $temCns) {
+                            $doc->where(function ($w) use ($cpfNormalizado, $cnsApenasDigitos) {
+                                $w->where('f.cpf', $cpfNormalizado)
+                                    ->orWhereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                            });
+                        } elseif ($temCpf) {
+                            $doc->where('f.cpf', $cpfNormalizado);
+                        } else {
+                            $doc->whereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                        }
                     });
-                } elseif ($temCpf) {
-                    $q->where('f.cpf', $cpfNormalizado);
-                } else {
-                    $q->whereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                }
+                if ($idpesFallbackNomeData !== []) {
+                    if ($temCpf || $temCns) {
+                        $q->orWhereIn('f.idpes', $idpesFallbackNomeData);
+                    } else {
+                        $q->whereIn('f.idpes', $idpesFallbackNomeData);
+                    }
                 }
             })
             ->where('m.ano', $anoLetivo)
@@ -304,16 +344,20 @@ class EsusPdfCpfService
             if ($cpfNormalizado === null) {
                 $cpfNormalizado = '';
             }
-            $cnsDigitos = preg_replace('/\D+/', '', (string) ($dados['cns'] ?? '')) ?? '';
-            if (strlen($cnsDigitos) !== 15) {
-                $cnsDigitos = '';
-            }
+            $cnsDigitos = $this->normalizarCnsCartaoSus($dados['cns'] ?? '');
             if ($cpfNormalizado === '' && $cnsDigitos === '') {
                 $lista[] = $this->normalizarLinhaItem($dados);
 
                 continue;
             }
-            if (! $this->possuiMatriculaAtivaNoAnoPorCpfOuCns($cpfNormalizado, $cnsDigitos, $anoLetivo)) {
+            $cnsDb = $this->cnsParaConsultaCadastro($cpfNormalizado, $cnsDigitos);
+            $idpesFallback = $this->resolverIdpesFallbackNomeEDataSeDocumentoNaoLocalizaAluno(
+                $cpfNormalizado,
+                $cnsDb,
+                trim((string) ($dados['nome'] ?? '')),
+                (string) ($dados['data_nascimento'] ?? '')
+            );
+            if (! $this->possuiMatriculaAtivaNoAnoPorCpfOuCns($cpfNormalizado, $cnsDb, $anoLetivo, $idpesFallback)) {
                 $lista[] = $this->normalizarLinhaItem($dados);
             }
         }
@@ -337,9 +381,10 @@ class EsusPdfCpfService
     }
 
     /**
-     * Regra 2: não exibir quem já concluiu o 9º ano (com aprovação).
-     * Regra 3: exibir se houve transferência em anos recentes e data da transferência é anterior
-     * à "Última atualização cadastral" do e-SUS (sobrepõe a regra 2).
+     * Regras após "sem matrícula ativa no ano" (lista de pendentes no relatório):
+     * - Aluno cadastrado cuja última matrícula (mais recente) está em série do 9º ano: não exibir.
+     * - Aluno cadastrado cuja última matrícula é transferência e há pelo menos N meses entre
+     *   a data da transferência e a "Última atualização cadastral" do CSV: não exibir.
      *
      * @param  list<array<string, mixed>>  $itens
      * @return list<array<string, mixed>>
@@ -353,10 +398,7 @@ class EsusPdfCpfService
             if ($cpfNormalizado === null) {
                 $cpfNormalizado = '';
             }
-            $cnsDigitos = preg_replace('/\D+/', '', (string) ($dados['cns'] ?? '')) ?? '';
-            if (strlen($cnsDigitos) !== 15) {
-                $cnsDigitos = '';
-            }
+            $cnsDigitos = $this->normalizarCnsCartaoSus($dados['cns'] ?? '');
             if ($cpfNormalizado === '' && $cnsDigitos === '') {
                 $filtrados[] = $dados;
 
@@ -364,20 +406,31 @@ class EsusPdfCpfService
             }
 
             $ultimaEsus = $this->parseDataBr((string) ($dados['ultima_atualizacao_cadastral'] ?? ''));
-            $incluirPorTransferencia = $this->possuiTransferenciaRecenteAntesUltimaAtualizacaoEsus(
-                $cpfNormalizado,
-                $cnsDigitos,
-                $ultimaEsus,
-                $anoLetivo
-            );
 
-            if ($incluirPorTransferencia) {
+            $cnsDb = $this->cnsParaConsultaCadastro($cpfNormalizado, $cnsDigitos);
+            $idpesFallback = $this->resolverIdpesFallbackNomeEDataSeDocumentoNaoLocalizaAluno(
+                $cpfNormalizado,
+                $cnsDb,
+                trim((string) ($dados['nome'] ?? '')),
+                (string) ($dados['data_nascimento'] ?? '')
+            );
+            if (! $this->existeAlunoAtivoPorCpfCnsOuIdpesFallback($cpfNormalizado, $cnsDb, $idpesFallback)) {
                 $filtrados[] = $dados;
 
                 continue;
             }
 
-            if ($this->concluiuNonoAnoFundamental($cpfNormalizado, $cnsDigitos)) {
+            if ($this->ultimaMatriculaSerieIndicaNonoFundamental($cpfNormalizado, $cnsDb, $idpesFallback)) {
+                continue;
+            }
+
+            if ($this->excluirPendentePorTransferenciaComDistanciaCadastral(
+                $cpfNormalizado,
+                $cnsDb,
+                $ultimaEsus,
+                $anoLetivo,
+                $idpesFallback
+            )) {
                 continue;
             }
 
@@ -385,6 +438,267 @@ class EsusPdfCpfService
         }
 
         return $filtrados;
+    }
+
+    private function existeAlunoAtivoPorCpfOuCns(string $cpfNormalizado, string $cnsApenasDigitos): bool
+    {
+        $temCpf = $cpfNormalizado !== '' && $cpfNormalizado !== null;
+        $temCns = strlen($cnsApenasDigitos) === 15;
+        if (! $temCpf && ! $temCns) {
+            return false;
+        }
+
+        $q = DB::table('pmieducar.aluno as al')
+            ->join('cadastro.fisica as f', 'f.idpes', '=', 'al.ref_idpes')
+            ->where('al.ativo', 1)
+            ->where(function ($w) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos) {
+                if ($temCpf && $temCns) {
+                    $w->where(function ($x) use ($cpfNormalizado, $cnsApenasDigitos) {
+                        $x->where('f.cpf', $cpfNormalizado)
+                            ->orWhereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                    });
+                } elseif ($temCpf) {
+                    $w->where('f.cpf', $cpfNormalizado);
+                } else {
+                    $w->whereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                }
+            });
+
+        return $q->exists();
+    }
+
+    /**
+     * @param  list<int>  $idpesFallbackNomeData
+     */
+    private function existeAlunoAtivoPorCpfCnsOuIdpesFallback(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        array $idpesFallbackNomeData
+    ): bool {
+        if ($this->existeAlunoAtivoPorCpfOuCns($cpfNormalizado, $cnsApenasDigitos)) {
+            return true;
+        }
+
+        return $idpesFallbackNomeData !== [] && $this->existeAlunoAtivoPorIdpes($idpesFallbackNomeData);
+    }
+
+    /**
+     * @param  list<int>  $idpesList
+     */
+    private function existeAlunoAtivoPorIdpes(array $idpesList): bool
+    {
+        if ($idpesList === []) {
+            return false;
+        }
+
+        return DB::table('pmieducar.aluno as al')
+            ->where('al.ativo', 1)
+            ->whereIn('al.ref_idpes', $idpesList)
+            ->exists();
+    }
+
+    /**
+     * Nome para comparação com cadastro.pessoa.nome (minúsculas, espaços colapsados).
+     */
+    private function normalizarNomeComparacaoCadastro(string $nome): string
+    {
+        $collapsed = preg_replace('/\s+/u', ' ', trim($nome)) ?? '';
+
+        return mb_strtolower(trim($collapsed), 'UTF-8');
+    }
+
+    /**
+     * Aluno ativo cujo nome (pessoa) e data de nascimento (física) coincidem com a planilha.
+     *
+     * @return list<int>
+     */
+    private function buscarIdpesAlunoAtivoPorNomeEDataNascimento(string $nomePlanilha, Carbon $dataNascimento): array
+    {
+        $nomeNorm = $this->normalizarNomeComparacaoCadastro($nomePlanilha);
+        if ($nomeNorm === '') {
+            return [];
+        }
+
+        return DB::table('cadastro.fisica as f')
+            ->join('cadastro.pessoa as p', 'p.idpes', '=', 'f.idpes')
+            ->join('pmieducar.aluno as al', 'al.ref_idpes', '=', 'f.idpes')
+            ->where('al.ativo', 1)
+            ->whereRaw(
+                "lower(regexp_replace(trim(both ' ' from p.nome), '\\s+', ' ', 'g')) = ?",
+                [$nomeNorm]
+            )
+            ->whereDate('f.data_nasc', $dataNascimento->format('Y-m-d'))
+            ->pluck('f.idpes')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Só usa nome + nascimento quando não existe aluno ativo identificado por CPF/CNS.
+     *
+     * @return list<int>
+     */
+    private function resolverIdpesFallbackNomeEDataSeDocumentoNaoLocalizaAluno(
+        string $cpfNormalizado,
+        string $cnsConsultaDb,
+        string $nomePlanilha,
+        string $dataNascimentoBr
+    ): array {
+        if ($this->existeAlunoAtivoPorCpfOuCns($cpfNormalizado, $cnsConsultaDb)) {
+            return [];
+        }
+        $data = $this->parseDataBr($dataNascimentoBr);
+        if ($data === null) {
+            return [];
+        }
+
+        return $this->buscarIdpesAlunoAtivoPorNomeEDataNascimento($nomePlanilha, $data);
+    }
+
+    /**
+     * Última matrícula do aluno (ano e cod_matricula descendentes) com série vinculada:
+     * indica 9º ano do fundamental (etapa ou nome da série).
+     *
+     * @param  list<int>  $idpesFallbackNomeData
+     */
+    private function ultimaMatriculaSerieIndicaNonoFundamental(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        array $idpesFallbackNomeData = []
+    ): bool {
+        $row = $this->obterUltimaMatriculaComSerie($cpfNormalizado, $cnsApenasDigitos, $idpesFallbackNomeData);
+        if ($row === null) {
+            return false;
+        }
+
+        $etapa = isset($row->etapa_curso) ? (int) $row->etapa_curso : 0;
+        $nmSerie = isset($row->nm_serie) ? (string) $row->nm_serie : '';
+
+        return $this->serieEhNonoFundamental($nmSerie, $etapa);
+    }
+
+    /**
+     * @param  list<int>  $idpesFallbackNomeData
+     * @return object{aprovado: int|string, data_cancel: mixed, ano: int|string, nm_serie: mixed, etapa_curso: mixed}|null
+     */
+    private function obterUltimaMatriculaComSerie(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        array $idpesFallbackNomeData = []
+    ): ?object {
+        $temCpf = $cpfNormalizado !== '' && $cpfNormalizado !== null;
+        $temCns = strlen($cnsApenasDigitos) === 15;
+        if (! $temCpf && ! $temCns && $idpesFallbackNomeData === []) {
+            return null;
+        }
+
+        $row = DB::table('pmieducar.matricula as m')
+            ->join('pmieducar.aluno as al', 'al.cod_aluno', '=', 'm.ref_cod_aluno')
+            ->join('cadastro.fisica as f', 'f.idpes', '=', 'al.ref_idpes')
+            ->leftJoin('pmieducar.serie as s', 's.cod_serie', '=', 'm.ref_ref_cod_serie')
+            ->where(function ($w) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos, $idpesFallbackNomeData) {
+                if ($temCpf || $temCns) {
+                    $w->where(function ($doc) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos) {
+                        if ($temCpf && $temCns) {
+                            $doc->where(function ($x) use ($cpfNormalizado, $cnsApenasDigitos) {
+                                $x->where('f.cpf', $cpfNormalizado)
+                                    ->orWhereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                            });
+                        } elseif ($temCpf) {
+                            $doc->where('f.cpf', $cpfNormalizado);
+                        } else {
+                            $doc->whereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                        }
+                    });
+                }
+                if ($idpesFallbackNomeData !== []) {
+                    if ($temCpf || $temCns) {
+                        $w->orWhereIn('f.idpes', $idpesFallbackNomeData);
+                    } else {
+                        $w->whereIn('f.idpes', $idpesFallbackNomeData);
+                    }
+                }
+            })
+            ->where('al.ativo', 1)
+            ->whereNotNull('m.ref_ref_cod_serie')
+            ->orderByDesc('m.ano')
+            ->orderByDesc('m.cod_matricula')
+            ->select(['m.aprovado', 'm.data_cancel', 'm.ano', 's.nm_serie', 's.etapa_curso'])
+            ->first();
+
+        return $row;
+    }
+
+    private function serieEhNonoFundamental(string $nmSerie, int $etapaCurso): bool
+    {
+        if ($etapaCurso === 9) {
+            return true;
+        }
+        $nm = mb_strtolower(trim($nmSerie), 'UTF-8');
+        foreach (['nono', '9º', '9 ano', '9°'] as $frag) {
+            if ($frag !== '' && mb_strpos($nm, mb_strtolower($frag, 'UTF-8'), 0, 'UTF-8') !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Última matrícula é transferência e |última atualização cadastral − data_cancel| ≥ N meses: fora da lista de pendentes.
+     */
+    /**
+     * @param  list<int>  $idpesFallbackNomeData
+     */
+    private function excluirPendentePorTransferenciaComDistanciaCadastral(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        ?Carbon $ultimaAtualizacaoEsus,
+        int $anoLetivo,
+        array $idpesFallbackNomeData = []
+    ): bool {
+        if ($ultimaAtualizacaoEsus === null) {
+            return false;
+        }
+
+        $anoMin = $anoLetivo - self::ANOS_LOOKBACK_TRANSFERENCIA;
+        $row = $this->obterUltimaMatriculaComSerie($cpfNormalizado, $cnsApenasDigitos, $idpesFallbackNomeData);
+        if ($row === null || (int) $row->aprovado !== self::MATRICULA_TRANSFERIDO) {
+            return false;
+        }
+        if ((int) ($row->ano ?? 0) < $anoMin) {
+            return false;
+        }
+
+        $dataCancel = $this->parseDataCancelMatricula($row->data_cancel ?? null);
+        if ($dataCancel === null) {
+            return false;
+        }
+
+        $meses = (int) $ultimaAtualizacaoEsus->copy()->startOfDay()->diffInMonths($dataCancel->copy()->startOfDay());
+
+        return $meses >= self::MESES_DISTANCIA_TRANSFERENCIA_PARA_EXCLUIR_PENDENTE;
+    }
+
+    private function parseDataCancelMatricula(mixed $dataCancel): ?Carbon
+    {
+        if ($dataCancel === null || $dataCancel === '') {
+            return null;
+        }
+        if ($dataCancel instanceof Carbon) {
+            return $dataCancel->copy()->startOfDay();
+        }
+        $s = trim((string) $dataCancel);
+        if ($s === '') {
+            return null;
+        }
+        try {
+            return Carbon::parse($s)->startOfDay();
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -398,12 +712,16 @@ class EsusPdfCpfService
             if ($cpfNormalizado === null) {
                 $cpfNormalizado = '';
             }
-            $cnsDigitos = preg_replace('/\D+/', '', (string) ($dados['cns'] ?? '')) ?? '';
-            if (strlen($cnsDigitos) !== 15) {
-                $cnsDigitos = '';
-            }
+            $cnsDigitos = $this->normalizarCnsCartaoSus($dados['cns'] ?? '');
+            $cnsDb = $this->cnsParaConsultaCadastro($cpfNormalizado, $cnsDigitos);
+            $idpesFallback = $this->resolverIdpesFallbackNomeEDataSeDocumentoNaoLocalizaAluno(
+                $cpfNormalizado,
+                $cnsDb,
+                trim((string) ($dados['nome'] ?? '')),
+                (string) ($dados['data_nascimento'] ?? '')
+            );
             $cadastro = ($cpfNormalizado !== '' || $cnsDigitos !== '')
-                ? $this->obterEnderecoCadastroPorCpfOuCns($cpfNormalizado, $cnsDigitos)
+                ? $this->obterEnderecoCadastroPorCpfOuCns($cpfNormalizado, $cnsDb, $idpesFallback)
                 : '';
             $cadastro = $this->sanitizarTextoEndereco($cadastro);
             $relatorio = $this->sanitizarTextoEndereco((string) ($dados['endereco_relatorio'] ?? ''));
@@ -525,8 +843,48 @@ class EsusPdfCpfService
 
     /**
      * Endereço principal do cadastro (person_has_place + view addresses).
+     *
+     * @param  list<int>  $idpesFallbackNomeData
      */
-    private function obterEnderecoCadastroPorCpfOuCns(string $cpfNormalizado, string $cnsApenasDigitos): string
+    private function obterEnderecoCadastroPorCpfOuCns(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        array $idpesFallbackNomeData = []
+    ): string {
+        $linha = $this->obterEnderecoCadastroSomenteDocumento($cpfNormalizado, $cnsApenasDigitos);
+        if ($this->enderecoPossuiConteudoUtil($linha)) {
+            return $linha;
+        }
+        if ($idpesFallbackNomeData === []) {
+            return '';
+        }
+
+        $ids = array_values(array_map('intval', $idpesFallbackNomeData));
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $row = DB::selectOne(
+            "select trim(both ' ' from concat_ws(' — ',
+                nullif(trim(a.address), ''),
+                nullif(trim(cast(a.number as varchar)), ''),
+                nullif(trim(a.neighborhood), ''),
+                nullif(trim(a.city), '')
+            )) as linha
+            from cadastro.fisica f
+            inner join pmieducar.aluno al on al.ref_idpes = f.idpes and al.ativo = 1
+            left join person_has_place php on php.person_id = f.idpes
+            left join addresses a on a.id = php.place_id
+            where f.idpes in ({$placeholders})
+            order by php.type asc nulls last
+            limit 1",
+            $ids
+        );
+
+        $linha = is_object($row) ? (string) ($row->linha ?? '') : '';
+        $linha = $this->sanitizarTextoEndereco($linha);
+
+        return $this->enderecoPossuiConteudoUtil($linha) ? $linha : '';
+    }
+
+    private function obterEnderecoCadastroSomenteDocumento(string $cpfNormalizado, string $cnsApenasDigitos): string
     {
         $temCpf = $cpfNormalizado !== '' && $cpfNormalizado !== null;
         $temCns = strlen($cnsApenasDigitos) === 15;
@@ -569,88 +927,6 @@ class EsusPdfCpfService
         $linha = $this->sanitizarTextoEndereco($linha);
 
         return $this->enderecoPossuiConteudoUtil($linha) ? $linha : '';
-    }
-
-    private function concluiuNonoAnoFundamental(string $cpfNormalizado, string $cnsApenasDigitos): bool
-    {
-        $temCpf = $cpfNormalizado !== '' && $cpfNormalizado !== null;
-        $temCns = strlen($cnsApenasDigitos) === 15;
-        if (! $temCpf && ! $temCns) {
-            return false;
-        }
-
-        $q = DB::table('pmieducar.matricula as m')
-            ->join('pmieducar.aluno as al', 'al.cod_aluno', '=', 'm.ref_cod_aluno')
-            ->join('cadastro.fisica as f', 'f.idpes', '=', 'al.ref_idpes')
-            ->join('pmieducar.serie as s', 's.cod_serie', '=', 'm.ref_ref_cod_serie')
-            ->where(function ($w) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos) {
-                if ($temCpf && $temCns) {
-                    $w->where(function ($x) use ($cpfNormalizado, $cnsApenasDigitos) {
-                        $x->where('f.cpf', $cpfNormalizado)
-                            ->orWhereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
-                    });
-                } elseif ($temCpf) {
-                    $w->where('f.cpf', $cpfNormalizado);
-                } else {
-                    $w->whereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
-                }
-            })
-            ->where('al.ativo', 1)
-            ->where('m.ativo', 1)
-            ->whereIn('m.aprovado', self::APROVADO_CONCLUIU_ETAPA)
-            ->whereNotNull('m.ref_ref_cod_serie')
-            ->where(function ($q) {
-                $q->where('s.etapa_curso', 9)
-                    ->orWhereRaw('lower(s.nm_serie) like ?', ['%nono%'])
-                    ->orWhereRaw('lower(s.nm_serie) like ?', ['%9º%'])
-                    ->orWhereRaw('lower(s.nm_serie) like ?', ['%9 ano%'])
-                    ->orWhereRaw('lower(s.nm_serie) like ?', ['%9°%']);
-            });
-
-        return $q->exists();
-    }
-
-    private function possuiTransferenciaRecenteAntesUltimaAtualizacaoEsus(
-        string $cpfNormalizado,
-        string $cnsApenasDigitos,
-        ?Carbon $ultimaAtualizacaoEsus,
-        int $anoLetivo
-    ): bool {
-        if ($ultimaAtualizacaoEsus === null) {
-            return false;
-        }
-
-        $temCpf = $cpfNormalizado !== '' && $cpfNormalizado !== null;
-        $temCns = strlen($cnsApenasDigitos) === 15;
-        if (! $temCpf && ! $temCns) {
-            return false;
-        }
-
-        $anoMin = $anoLetivo - self::ANOS_LOOKBACK_TRANSFERENCIA;
-
-        $q = DB::table('pmieducar.matricula as m')
-            ->join('pmieducar.aluno as al', 'al.cod_aluno', '=', 'm.ref_cod_aluno')
-            ->join('cadastro.fisica as f', 'f.idpes', '=', 'al.ref_idpes')
-            ->where(function ($w) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos) {
-                if ($temCpf && $temCns) {
-                    $w->where(function ($x) use ($cpfNormalizado, $cnsApenasDigitos) {
-                        $x->where('f.cpf', $cpfNormalizado)
-                            ->orWhereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
-                    });
-                } elseif ($temCpf) {
-                    $w->where('f.cpf', $cpfNormalizado);
-                } else {
-                    $w->whereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
-                }
-            })
-            ->where('al.ativo', 1)
-            ->where('m.ativo', 1)
-            ->where('m.aprovado', self::MATRICULA_TRANSFERIDO)
-            ->whereNotNull('m.data_cancel')
-            ->where('m.ano', '>=', $anoMin)
-            ->whereRaw('DATE(m.data_cancel) < ?', [$ultimaAtualizacaoEsus->toDateString()]);
-
-        return $q->exists();
     }
 
     /**
@@ -817,6 +1093,9 @@ class EsusPdfCpfService
 
             $id = $this->parseIdentificadorColunaCpfCnsCsv((string) ($colunas[$clamp($cpfCol)] ?? ''));
             $chave = $id['chave'];
+            if ($chave !== '' && $nome === '') {
+                continue;
+            }
             if ($chave === '') {
                 if ($nome === '' || $enderecoRelatorio === '') {
                     continue;
@@ -894,8 +1173,9 @@ class EsusPdfCpfService
 
             return ['cpf_formatado' => $fmt, 'cns' => '', 'chave' => $fmt];
         }
-        if (strlen($digitos) === 15) {
-            return ['cpf_formatado' => '', 'cns' => $digitos, 'chave' => 'cns:'.$digitos];
+        $cns = $this->normalizarCnsCartaoSus($digitos);
+        if ($cns !== '') {
+            return ['cpf_formatado' => '', 'cns' => $cns, 'chave' => 'cns:'.$cns];
         }
 
         return ['cpf_formatado' => '', 'cns' => '', 'chave' => ''];
