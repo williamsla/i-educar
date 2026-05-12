@@ -43,6 +43,11 @@ class EsusPdfCpfService
     private const NOME_EXCLUDE_PATTERN = '/^(Cidadão|FILTROS|Equipe|Microárea|Sexo|Idade|Data de nasc|Endereço|Telefone|Última|MINISTÉRIO|ESTADO|MUNICÍCIO|UNIDADE|Pág\.|Impresso|Acompanhamento|eSUS|SAÚDE)/iu';
 
     /**
+     * PDF em tabela "Acompanhamento de cidadãos vinculados": linha com "CPF: XXX.XXX.XXX-XX" após o nome.
+     */
+    private const PDF_LINHA_CPF_CIDADAO = '/CPF:\s*(\d{3}\.\d{3}\.\d{3}-\d{2})/iu';
+
+    /**
      * Extrai todos os CPFs únicos do texto do PDF (formato XXX.XXX.XXX-XX).
      *
      * @return string[]
@@ -78,6 +83,14 @@ class EsusPdfCpfService
      */
     public function extrairRegistrosDoTexto(string $text): array
     {
+        $linhas = $this->normalizarLinhasTextoPdf($text);
+        if ($this->textoPdfTemLayoutTabelaCpfCidadao($text)) {
+            $porTabela = $this->extrairRegistrosDoTextoPdfLayoutTabelaAcompanhamento($linhas);
+            if ($porTabela !== []) {
+                return $porTabela;
+            }
+        }
+
         $pattern = self::CPF_PATTERN;
         preg_match_all($pattern.'u', $text, $matches, PREG_OFFSET_CAPTURE);
         if (empty($matches[0])) {
@@ -114,6 +127,167 @@ class EsusPdfCpfService
         }
 
         return $registros;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function normalizarLinhasTextoPdf(string $text): array
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $raw = explode("\n", $text);
+        $out = [];
+        foreach ($raw as $line) {
+            $t = trim($line);
+            if ($t !== '') {
+                $out[] = $t;
+            }
+        }
+
+        return $out;
+    }
+
+    private function textoPdfTemLayoutTabelaCpfCidadao(string $text): bool
+    {
+        return (bool) preg_match(self::PDF_LINHA_CPF_CIDADAO, $text);
+    }
+
+    /**
+     * Layout em linhas: nome na linha acima de "CPF: …"; depois sexo, idade, data nasc., endereço, telefone, última atualização (+ CDS).
+     *
+     * @param  list<string>  $linhas
+     * @return array<string, array<string, mixed>>
+     */
+    private function extrairRegistrosDoTextoPdfLayoutTabelaAcompanhamento(array $linhas): array
+    {
+        $registros = [];
+        $n = count($linhas);
+        $i = 0;
+        while ($i < $n) {
+            $cpf = $this->extrairCpfFormatadoDaLinhaPdfCidadao($linhas[$i]);
+            if ($cpf === '') {
+                $i++;
+
+                continue;
+            }
+            $nome = '';
+            if ($i > 0) {
+                $candidato = $linhas[$i - 1];
+                if ($this->linhaPareceNomeCidadaoPdf($candidato)) {
+                    $nome = $candidato;
+                }
+            }
+            $segmento = [];
+            $j = $i + 1;
+            while ($j < $n && $this->extrairCpfFormatadoDaLinhaPdfCidadao($linhas[$j]) === '') {
+                $segmento[] = $linhas[$j];
+                $j++;
+            }
+            $campos = $this->parseSegmentoAposLinhaCpfPdfTabela($segmento);
+            $registros[$cpf] = [
+                'cpf' => $cpf,
+                'cns' => '',
+                'nome' => $nome,
+                'data_nascimento' => $campos['data_nascimento'],
+                'endereco_relatorio' => $campos['endereco_relatorio'],
+                'ultima_atualizacao_cadastral' => $campos['ultima_atualizacao_cadastral'],
+            ];
+            $i = $j;
+        }
+
+        return $registros;
+    }
+
+    private function extrairCpfFormatadoDaLinhaPdfCidadao(string $line): string
+    {
+        if (preg_match(self::PDF_LINHA_CPF_CIDADAO, $line, $m)) {
+            return $m[1];
+        }
+        if (preg_match('/^(\d{3}\.\d{3}\.\d{3}-\d{2})\s*$/', trim($line), $m)) {
+            return $m[1];
+        }
+
+        return '';
+    }
+
+    private function linhaPareceNomeCidadaoPdf(string $line): bool
+    {
+        if ($line === '' || strlen($line) > 200 || strlen($line) < 3) {
+            return false;
+        }
+        if (preg_match(self::NOME_EXCLUDE_PATTERN, $line)) {
+            return false;
+        }
+        if (preg_match(self::CPF_PATTERN, $line) || preg_match(self::PDF_LINHA_CPF_CIDADAO, $line)) {
+            return false;
+        }
+
+        return (bool) preg_match('/^[\p{L}\s\'.´`^\-]+$/u', $line);
+    }
+
+    /**
+     * @param  list<string>  $segmento
+     * @return array{data_nascimento: string, endereco_relatorio: string, ultima_atualizacao_cadastral: string}
+     */
+    private function parseSegmentoAposLinhaCpfPdfTabela(array $segmento): array
+    {
+        $out = ['data_nascimento' => '', 'endereco_relatorio' => '', 'ultima_atualizacao_cadastral' => ''];
+        $seg = array_values(array_filter(array_map('trim', $segmento), fn ($l) => $l !== ''));
+        $k = 0;
+        $lim = count($seg);
+
+        if ($k < $lim && preg_match('/^(Feminino|Masculino|Outro)$/iu', $seg[$k])) {
+            $k++;
+        }
+        if ($k < $lim && preg_match('/^\d+\s+anos?(?:\s+e\s+\d+\s+m[eê]s(?:es)?)?/iu', $seg[$k])) {
+            $k++;
+        }
+        if ($k < $lim && preg_match('/^(\d{2}\/\d{2}\/\d{4})(\s+CDS)?$/iu', $seg[$k], $dm)) {
+            $d = $dm[1];
+            if ($this->dataPlausivelNascimento($d)) {
+                $out['data_nascimento'] = $d;
+            }
+            $k++;
+        }
+        $partesEndereco = [];
+        while ($k < $lim) {
+            $ln = $seg[$k];
+            if ($this->linhaPareceTelefonePdfEsus($ln)) {
+                break;
+            }
+            $partesEndereco[] = $ln;
+            $k++;
+        }
+        $out['endereco_relatorio'] = trim(implode(' ', $partesEndereco));
+        if ($k < $lim && $this->linhaPareceTelefonePdfEsus($seg[$k])) {
+            $k++;
+        }
+        if ($k < $lim) {
+            if (preg_match('/^(\d{2}\/\d{2}\/\d{4})(\s+CDS)?$/iu', trim($seg[$k]), $um)) {
+                $du = $um[1];
+                if ($this->dataPlausivelUltimaAtualizacaoEsus($du)) {
+                    $out['ultima_atualizacao_cadastral'] = $du;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    private function linhaPareceTelefonePdfEsus(string $line): bool
+    {
+        return (bool) preg_match('/^\(\d{2}\)\s*\d/', trim($line));
+    }
+
+    private function dataPlausivelUltimaAtualizacaoEsus(string $dataBr): bool
+    {
+        $parts = explode('/', $dataBr);
+        if (count($parts) !== 3) {
+            return false;
+        }
+        $y = (int) $parts[2];
+
+        return $y >= 2000 && $y <= ((int) date('Y')) + 1;
     }
 
     /**
@@ -507,6 +681,119 @@ class EsusPdfCpfService
     }
 
     /**
+     * Maior data de cancelamento em matrículas com situação transferido.
+     *
+     * @param  list<int>  $idpesFallbackNomeData
+     */
+    private function obterDataUltimaTransferenciaDoAluno(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        array $idpesFallbackNomeData = []
+    ): ?Carbon {
+        $temCpf = $cpfNormalizado !== '' && $cpfNormalizado !== null;
+        $temCns = strlen($cnsApenasDigitos) === 15;
+        if (! $temCpf && ! $temCns && $idpesFallbackNomeData === []) {
+            return null;
+        }
+
+        $valor = DB::table('pmieducar.matricula as m')
+            ->join('pmieducar.aluno as al', 'al.cod_aluno', '=', 'm.ref_cod_aluno')
+            ->join('cadastro.fisica as f', 'f.idpes', '=', 'al.ref_idpes')
+            ->where(function ($w) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos, $idpesFallbackNomeData) {
+                if ($temCpf || $temCns) {
+                    $w->where(function ($doc) use ($temCpf, $temCns, $cpfNormalizado, $cnsApenasDigitos) {
+                        if ($temCpf && $temCns) {
+                            $doc->where(function ($x) use ($cpfNormalizado, $cnsApenasDigitos) {
+                                $x->where('f.cpf', $cpfNormalizado)
+                                    ->orWhereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                            });
+                        } elseif ($temCpf) {
+                            $doc->where('f.cpf', $cpfNormalizado);
+                        } else {
+                            $doc->whereRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') = ?", [$cnsApenasDigitos]);
+                        }
+                    });
+                }
+                if ($idpesFallbackNomeData !== []) {
+                    if ($temCpf || $temCns) {
+                        $w->orWhereIn('f.idpes', $idpesFallbackNomeData);
+                    } else {
+                        $w->whereIn('f.idpes', $idpesFallbackNomeData);
+                    }
+                }
+            })
+            ->where('al.ativo', 1)
+            ->where('m.aprovado', self::MATRICULA_TRANSFERIDO)
+            ->whereNotNull('m.data_cancel')
+            ->selectRaw('max(m.data_cancel) as data_ref')
+            ->value('data_ref');
+
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+        try {
+            return Carbon::parse((string) $valor)->startOfDay();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Data mais recente entre última matrícula (cadastro da matrícula) e última transferência.
+     *
+     * @param  list<int>  $idpesFallbackNomeData
+     */
+    private function obterCarbonMaisRecenteMatriculaOuTransferencia(
+        string $cpfNormalizado,
+        string $cnsApenasDigitos,
+        array $idpesFallbackNomeData = []
+    ): ?Carbon {
+        $dMat = $this->obterDataMaisRecenteMatriculaDoAluno($cpfNormalizado, $cnsApenasDigitos, $idpesFallbackNomeData);
+        $dTrans = $this->obterDataUltimaTransferenciaDoAluno($cpfNormalizado, $cnsApenasDigitos, $idpesFallbackNomeData);
+        if ($dMat === null && $dTrans === null) {
+            return null;
+        }
+        if ($dMat === null) {
+            return $dTrans;
+        }
+        if ($dTrans === null) {
+            return $dMat;
+        }
+
+        return $dMat->copy()->startOfDay()->gte($dTrans->copy()->startOfDay()) ? $dMat : $dTrans;
+    }
+
+    /**
+     * Linha do arquivo com CNS válido e sem CPF informado (somente cartão SUS).
+     */
+    private function itemArquivoSomenteCnsSemCpf(array $dados): bool
+    {
+        $cpfRaw = trim((string) ($dados['cpf'] ?? ''));
+        $cpfNorm = idFederal2int($cpfRaw);
+        if ($cpfNorm === null) {
+            $cpfNorm = '';
+        }
+        if ($cpfNorm !== '') {
+            return false;
+        }
+
+        return $this->normalizarCnsCartaoSus($dados['cns'] ?? '') !== '';
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $itens
+     * @return list<array<string, mixed>>
+     */
+    private function filtrarItensExcluindoSomenteCnsSemCpfSeOpcao(array $itens, bool $excluirSomenteCnsSemCpf): array
+    {
+        if (! $excluirSomenteCnsSemCpf) {
+            return $itens;
+        }
+
+        return array_values(array_filter($itens, fn (array $row) => ! $this->itemArquivoSomenteCnsSemCpf($row)));
+    }
+
+    /**
      * Última atualização cadastral do e-SUS estritamente anterior à última matrícula no sistema: fora da lista.
      *
      * @param  list<int>  $idpesFallbackNomeData
@@ -830,6 +1117,10 @@ class EsusPdfCpfService
             if ($itens[$i]['ultima_atualizacao_cadastral'] === '') {
                 $itens[$i]['ultima_atualizacao_cadastral'] = '—';
             }
+            $dataRef = $this->obterCarbonMaisRecenteMatriculaOuTransferencia($cpfNormalizado, $cnsDb, $idpesFallback);
+            $itens[$i]['data_ultima_matricula_ou_transferencia'] = $dataRef === null
+                ? '—'
+                : $dataRef->format('d/m/Y');
         }
 
         return $itens;
@@ -1029,11 +1320,12 @@ class EsusPdfCpfService
      * @return array{
      *     cpfs_extraidos: int,
      *     ano_letivo: int,
-     *     cpfs_nao_cadastrados: list<array{cpf: string, nome: string, data_nascimento: string}>,
+     *     cpfs_nao_cadastrados: list<array<string, mixed>>,
+     *     excluir_sem_cpf_somente_cns: bool,
      *     erro?: string
      * }
      */
-    public function processarPdf(string $pdfPath, int $anoLetivo): array
+    public function processarPdf(string $pdfPath, int $anoLetivo, bool $excluirSomenteCnsSemCpfNoArquivo = false): array
     {
         try {
             $parser = new Parser();
@@ -1041,17 +1333,20 @@ class EsusPdfCpfService
             $text = $pdf->getText();
             $registros = $this->extrairRegistrosDoTexto($text);
             $semMatricula = $this->getItensSemMatriculaNoAno($registros, $anoLetivo);
+            $semMatricula = $this->filtrarItensExcluindoSomenteCnsSemCpfSeOpcao($semMatricula, $excluirSomenteCnsSemCpfNoArquivo);
 
             return [
                 'cpfs_extraidos' => count($registros),
                 'ano_letivo' => $anoLetivo,
                 'cpfs_nao_cadastrados' => $semMatricula,
+                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
             ];
         } catch (Throwable $e) {
             return [
                 'cpfs_extraidos' => 0,
                 'ano_letivo' => $anoLetivo,
                 'cpfs_nao_cadastrados' => [],
+                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
                 'erro' => $e->getMessage(),
             ];
         }
@@ -1064,27 +1359,31 @@ class EsusPdfCpfService
      * @return array{
      *     cpfs_extraidos: int,
      *     ano_letivo: int,
-     *     cpfs_nao_cadastrados: list<array{cpf: string, nome: string, data_nascimento: string}>,
+     *     cpfs_nao_cadastrados: list<array<string, mixed>>,
+     *     excluir_sem_cpf_somente_cns: bool,
      *     erro?: string
      * }
      */
-    public function processarCsv(string $csvPath, int $anoLetivo): array
+    public function processarCsv(string $csvPath, int $anoLetivo, bool $excluirSomenteCnsSemCpfNoArquivo = false): array
     {
         try {
             $conteudo = (string) file_get_contents($csvPath);
             $registros = $this->extrairRegistrosDoCsv($conteudo);
             $semMatricula = $this->getItensSemMatriculaNoAno($registros, $anoLetivo);
+            $semMatricula = $this->filtrarItensExcluindoSomenteCnsSemCpfSeOpcao($semMatricula, $excluirSomenteCnsSemCpfNoArquivo);
 
             return [
                 'cpfs_extraidos' => count($registros),
                 'ano_letivo' => $anoLetivo,
                 'cpfs_nao_cadastrados' => $semMatricula,
+                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
             ];
         } catch (Throwable $e) {
             return [
                 'cpfs_extraidos' => 0,
                 'ano_letivo' => $anoLetivo,
                 'cpfs_nao_cadastrados' => [],
+                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
                 'erro' => $e->getMessage(),
             ];
         }

@@ -38,6 +38,54 @@ TXT;
         ->and($reg['222.222.222-22']['endereco_relatorio'])->toBe('');
 });
 
+test('pdf acompanhamento em tabela com linha CPF após nome preenche colunas na ordem eSUS', function () {
+    $text = <<<'TXT'
+FILTROS: Equipe teste
+MAITE PEREIRA GOMES
+CPF: 594.958.158-00
+Feminino
+4 anos e 6 meses
+15/07/2021
+Estrada MUMBUCA, S/N. CASA - ZONA RURAL, Coité do Nóia - AL | 57325-000
+(82) 98124-8906
+29/09/2025
+CDS
+JOAO SILVA
+CPF: 123.456.789-09
+Masculino
+3 anos
+10/01/2022
+Rua A, 10 - Centro
+(82) 3526-1289
+01/05/2025
+CDS
+BABY TESTE
+CPF: 999.888.777-66
+Feminino
+1 ano e 1 mês
+20/12/2024
+Rua B
+(82) 1111-1111
+03/06/2025
+CDS
+TXT;
+
+    $s = new EsusPdfCpfService;
+    $reg = $s->extrairRegistrosDoTexto($text);
+
+    expect($reg)->toHaveKey('594.958.158-00')
+        ->and($reg['594.958.158-00']['nome'])->toBe('MAITE PEREIRA GOMES')
+        ->and($reg['594.958.158-00']['data_nascimento'])->toBe('15/07/2021')
+        ->and($reg['594.958.158-00']['endereco_relatorio'])->toContain('Estrada MUMBUCA')
+        ->and($reg['594.958.158-00']['ultima_atualizacao_cadastral'])->toBe('29/09/2025')
+        ->and($reg['123.456.789-09']['nome'])->toBe('JOAO SILVA')
+        ->and($reg['123.456.789-09']['data_nascimento'])->toBe('10/01/2022')
+        ->and($reg['123.456.789-09']['endereco_relatorio'])->toContain('Rua A')
+        ->and($reg['123.456.789-09']['ultima_atualizacao_cadastral'])->toBe('01/05/2025')
+        ->and($reg['999.888.777-66']['data_nascimento'])->toBe('20/12/2024')
+        ->and($reg['999.888.777-66']['ultima_atualizacao_cadastral'])->toBe('03/06/2025');
+});
+
 test('ignora data da coluna CDS e usa nascimento após sexo e idade', function () {
     $text = <<<'TXT'
 111.111.111-11

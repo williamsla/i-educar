@@ -17,13 +17,18 @@ class VerificarCpfEsusExportController extends Controller
      *
      * @param  list<array<string, mixed>>  $itens
      */
-    public static function armazenarParaExportacao(int $cpfsExtraidos, int $anoLetivo, array $itens): void
-    {
+    public static function armazenarParaExportacao(
+        int $cpfsExtraidos,
+        int $anoLetivo,
+        array $itens,
+        bool $excluirSomenteCnsSemCpfNoArquivo = false
+    ): void {
         Session::put(self::SESSION_KEY, [
             'verificado_em' => now()->toIso8601String(),
             'cpfs_extraidos' => $cpfsExtraidos,
             'ano_letivo' => $anoLetivo,
             'itens' => $itens,
+            'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
         ]);
     }
 
@@ -62,6 +67,7 @@ class VerificarCpfEsusExportController extends Controller
             'cpfs_extraidos' => (int) ($payload['cpfs_extraidos'] ?? 0),
             'itens' => $itens,
             'resumo_por_ano_nascimento' => $resumoPorAnoNascimento,
+            'excluir_sem_cpf_somente_cns' => (bool) ($payload['excluir_sem_cpf_somente_cns'] ?? false),
         ]);
     }
 
