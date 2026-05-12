@@ -1083,12 +1083,98 @@ class EsusPdfCpfService
     }
 
     /**
+     * Quando o PDF/CSV cola sexo, data de nascimento e idade no mesmo texto do endereço
+     * (ex.: "Masculino 23/08/2024 1 ano e 5 meses Sítio…"), extrai a data para o campo adequado
+     * e remove sexo, data e idade do texto de endereço.
+     *
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function corrigirEnderecoRelatorioMescladoComMetadadosEsus(array $item): array
+    {
+        $rel = $this->sanitizarTextoEndereco((string) ($item['endereco_relatorio'] ?? ''));
+        if ($rel === '') {
+            return $item;
+        }
+        $parsed = $this->parsePrefixoSexoDataIdadeEnderecoEsus($rel);
+        if ($parsed === null) {
+            return $item;
+        }
+        $item['endereco_relatorio'] = $parsed['endereco_somente'];
+        $dataAtual = trim((string) ($item['data_nascimento'] ?? ''));
+        if ($dataAtual === '' && $parsed['data_nascimento_extraida'] !== '') {
+            $item['data_nascimento'] = $parsed['data_nascimento_extraida'];
+        }
+
+        return $item;
+    }
+
+    /**
+     * Reconhece prefixo (opcional) sexo + data DD/MM/AAAA + idade por extenso antes do endereço real.
+     *
+     * @return array{data_nascimento_extraida: string, endereco_somente: string}|null
+     */
+    private function parsePrefixoSexoDataIdadeEnderecoEsus(string $s): ?array
+    {
+        $s = trim(preg_replace('/\s+/u', ' ', $s) ?? '');
+        if ($s === '') {
+            return null;
+        }
+        if (! preg_match(
+            '/^(?:(Feminino|Masculino|Outro)\s+)?(\d{2}\/\d{2}\/\d{4})/u',
+            $s,
+            $m,
+            PREG_OFFSET_CAPTURE
+        )) {
+            return null;
+        }
+        $data = $m[2][0];
+        if (! $this->dataPlausivelNascimento($data)) {
+            return null;
+        }
+        $offsetFimData = $m[2][1] + strlen($data);
+        $rest = trim(substr($s, $offsetFimData));
+        $idadePatterns = [
+            '/^\d+\s+anos?(?:\s+e\s+\d+\s+m[eê]s(?:es)?)?/iu',
+            '/^\d+\s+meses?\s+e\s+\d+\s+dias?/iu',
+            '/^\d+\s+anos?\s+e\s+\d+\s+meses?\s+e\s+\d+\s+dias?/iu',
+            '/^\d+\s+meses?/iu',
+            '/^\d+\s+dias?/iu',
+        ];
+        $maxPasses = 8;
+        for ($p = 0; $p < $maxPasses && $rest !== ''; $p++) {
+            $houve = false;
+            foreach ($idadePatterns as $pat) {
+                if (preg_match($pat, $rest, $mm, PREG_OFFSET_CAPTURE) && ($mm[0][1] ?? -1) === 0) {
+                    $rest = trim(substr($rest, strlen($mm[0][0])));
+                    $houve = true;
+
+                    break;
+                }
+            }
+            if (! $houve) {
+                break;
+            }
+        }
+        if ($rest === '' || ! preg_match('/[\p{L},]/u', $rest)) {
+            return null;
+        }
+
+        return [
+            'data_nascimento_extraida' => $data,
+            'endereco_somente' => $rest,
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $itens
      * @return list<array<string, mixed>>
      */
     private function enriquecerEnderecoAluno(array $itens): array
     {
         foreach ($itens as $i => $dados) {
+            $dados = $this->corrigirEnderecoRelatorioMescladoComMetadadosEsus($dados);
+            $itens[$i] = $dados;
             $cpfNormalizado = idFederal2int((string) ($dados['cpf'] ?? ''));
             if ($cpfNormalizado === null) {
                 $cpfNormalizado = '';

@@ -205,3 +205,45 @@ CSV;
     expect($reg)->toHaveKey('147.922.394-86')
         ->and($reg['147.922.394-86']['cns'])->toBe('');
 });
+
+test('desmerge sexo data e idade colados no endereco do relatorio preenche data nascimento', function () {
+    $s = new EsusPdfCpfService;
+    $m = new ReflectionMethod(EsusPdfCpfService::class, 'corrigirEnderecoRelatorioMescladoComMetadadosEsus');
+    $m->setAccessible(true);
+
+    $out = $m->invoke($s, [
+        'data_nascimento' => '',
+        'endereco_relatorio' => 'Masculino 23/08/2024 1 ano e 5 meses Sítio ALAGOINHA, S/N. ZONA RURAL, Coité do Nóia - AL',
+    ]);
+
+    expect($out['data_nascimento'])->toBe('23/08/2024')
+        ->and($out['endereco_relatorio'])->toBe('Sítio ALAGOINHA, S/N. ZONA RURAL, Coité do Nóia - AL');
+});
+
+test('desmerge aceita data colada ao primeiro digito da idade sem espaco', function () {
+    $s = new EsusPdfCpfService;
+    $m = new ReflectionMethod(EsusPdfCpfService::class, 'corrigirEnderecoRelatorioMescladoComMetadadosEsus');
+    $m->setAccessible(true);
+
+    $out = $m->invoke($s, [
+        'data_nascimento' => '',
+        'endereco_relatorio' => 'Feminino 11/06/20257 meses e 16 dias Sítio ALAGOINHA, S/N. ZONA RURAL',
+    ]);
+
+    expect($out['data_nascimento'])->toBe('11/06/2025')
+        ->and($out['endereco_relatorio'])->toBe('Sítio ALAGOINHA, S/N. ZONA RURAL');
+});
+
+test('desmerge limpa endereco mas mantem data nascimento ja preenchida', function () {
+    $s = new EsusPdfCpfService;
+    $m = new ReflectionMethod(EsusPdfCpfService::class, 'corrigirEnderecoRelatorioMescladoComMetadadosEsus');
+    $m->setAccessible(true);
+
+    $out = $m->invoke($s, [
+        'data_nascimento' => '10/10/2020',
+        'endereco_relatorio' => 'Feminino 23/02/2024 1 ano e 11 meses Sítio CASA - ZONA RURAL',
+    ]);
+
+    expect($out['data_nascimento'])->toBe('10/10/2020')
+        ->and($out['endereco_relatorio'])->toBe('Sítio CASA - ZONA RURAL');
+});
