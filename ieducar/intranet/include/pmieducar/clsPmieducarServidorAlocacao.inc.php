@@ -51,7 +51,7 @@ class clsPmieducarServidorAlocacao extends Model
      *
      * @var float
      */
-    public static $cargaHorariaMax = 36.0;
+    public static $cargaHorariaMax = 40.0;
 
     /**
      * Define o campo para ser usado como padrão de agrupamento no método lista().
