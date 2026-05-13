@@ -18,20 +18,29 @@ return new class
         $user = $this->getCurrentUser();
         $schoolId = $this->getUserSchoolId($user);
         
-        // Verificar se veio da edição de CPF via session
+        // Verificar se veio da edição de CPF via session FLASH
         $cpfAtualizado = Session::has('cpf_atualizado');
         if ($cpfAtualizado) {
             Session::forget('cpf_atualizado');
         }
         
-        // Buscar dados filtrados por escola
-        $totalAlunos = $this->getTotalAlunosMatriculados($schoolId);
-        $totalTurmasAtivas = $this->getTotalTurmasAtivas($schoolId);
-        $alunosSemCPF = $this->getAlunosSemCPFValido($schoolId);
-        $matriculasAEE = $this->getMatriculasAEE($schoolId);
+        // Verificar se é administrador
+        $isAdmin = $this->isAdminUser($user);
+        
+        // Buscar dados
+        $totalAlunos = $this->getTotalAlunosMatriculados($isAdmin ? null : $schoolId);
+        $totalTurmasAtivas = $this->getTotalTurmasAtivas($isAdmin ? null : $schoolId);
+        
+        // ALUNOS SEM CPF
+        $alunosSemCPF = $this->getAlunosSemCPFValido($isAdmin ? null : $schoolId);
+        
+        // ALUNOS MATRICULADOS NO AEE
+        $matriculasAEE = $this->getAlunosMatriculadosAEE($isAdmin ? null : $schoolId);
 
         // Obter nome da escola para exibição
-        $schoolName = $this->getSchoolName($schoolId);
+        $schoolName = $isAdmin ? 'Todas as Escolas' : $this->getSchoolName($schoolId);
+        
+        $quantidadeSemCPF = $alunosSemCPF['quantidade'];
 
         return '<!--
                 <table width=\'100%\' style=\'height: 100%;\'>
@@ -45,7 +54,6 @@ return new class
                         color: #007bff;
                     }
                     
-                    /* Estilos dos links dos documentos */
                     .document-link {
                         cursor: pointer;
                     }
@@ -54,7 +62,6 @@ return new class
                         color: #007bff;
                     }
                     
-                    /* Estilo para o título da seção clicável */
                     .menu-principal {
                         cursor: pointer;
                         font-weight: 500;
@@ -69,7 +76,6 @@ return new class
                         color: #007bff;
                     }
                     
-                    /* Subitens - inicialmente escondidos */
                     .submenu-items {
                         display: none;
                         margin: 0;
@@ -102,13 +108,11 @@ return new class
                         color: #007bff;
                     }
                     
-                    /* Garantir que os itens da lista fiquem em coluna */
                     .card-content ul li {
                         display: block;
                         width: 100%;
                     }
                     
-                    /* Mensagem de sucesso */
                     .success-message {
                         background-color: #d4edda;
                         color: #155724;
@@ -118,12 +122,69 @@ return new class
                         border: 1px solid #c3e6cb;
                         display: none;
                     }
+                    
+                    .alunos-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                    }
+                    
+                    .alunos-table th {
+                        padding: 12px;
+                        text-align: left;
+                        border-bottom: 2px solid #dee2e6;
+                        background: #f8f9fa;
+                    }
+                    
+                    .alunos-table td {
+                        padding: 12px;
+                        border-bottom: 1px solid #f0f0f0;
+                    }
+                    
+                    .btn-editar-cpf {
+                        background: #007bff;
+                        color: white;
+                        text-decoration: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        display: inline-block;
+                        font-size: 12px;
+                        border: none;
+                        cursor: pointer;
+                    }
+                    
+                    .btn-editar-cpf:hover {
+                        background: #0056b3;
+                    }
+                    
+                    .alert-pending {
+                        margin-top: 10px;
+                        padding: 6px 12px;
+                        background: #dc3545;
+                        color: white;
+                        border-radius: 20px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        display: inline-block;
+                    }
+                    
+                    .alert-icon {
+                        font-size: 14px;
+                        margin-right: 4px;
+                    }
+                    
+                    .summary-number-container {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                    }
                 </style>
 
                 <div class="dashboard-container">
                     <div class="welcome-section">
                         <h1>Bem-vindo ao i-Educar</h1>
                         ' . ($schoolName ? '<p style="color: #666; margin-top: 5px; font-size: 16px;">Escola: ' . htmlspecialchars($schoolName) . '</p>' : '') . '
+                        ' . ($isAdmin ? '<p style="color: #666; margin-top: 5px; font-size: 14px;">👑 Visualizando dados de todas as escolas</p>' : '') . '
                     </div>
                     
                     <div id="successMessage" class="success-message" style="' . ($cpfAtualizado ? 'display: block;' : 'display: none;') . '">
@@ -131,7 +192,6 @@ return new class
                     </div>
 
                     <div class="cards-grid">
-                        <!-- Card Matrículas -->
                         <div class="card">
                             <div class="card-header">
                                 <div class="card-icon-wrapper icon-matriculas">
@@ -141,7 +201,6 @@ return new class
                             </div>
                             <div class="card-content">
                                 <ul>
-                                    <!-- Gestão de Alunos com subitens expansíveis -->
                                     <li style="display: block; width: 100%;">
                                         <div class="menu-principal" onclick="toggleSubmenu(this)">
                                             <span class="item-bullet">•</span> Gestão de Alunos
@@ -159,7 +218,6 @@ return new class
                             </div>
                         </div>
 
-                        <!-- Card Boletins -->
                         <div class="card">
                             <div class="card-header">
                                 <div class="card-icon-wrapper icon-boletins">
@@ -177,7 +235,6 @@ return new class
                             </div>
                         </div>
 
-                        <!-- Card Documentos -->
                         <div class="card">
                             <div class="card-header">
                                 <div class="card-icon-wrapper icon-documentos">
@@ -200,7 +257,6 @@ return new class
                             </div>
                         </div>
 
-                        <!-- Card Declarações -->
                         <div class="card">
                             <div class="card-header">
                                 <div class="card-icon-wrapper icon-declaracoes">
@@ -217,7 +273,6 @@ return new class
                             </div>
                         </div>
 
-                        <!-- Card Movimentação -->
                         <a href=\'../module/Avaliacao/diario\' style=\'text-decoration: none; color: inherit;\'><div class="card">
                             <div class="card-header">
                                 <div class="card-icon-wrapper icon-movimentacao">
@@ -236,35 +291,31 @@ return new class
                     <div class="quick-summary-section">
                         <h2>Resumo Rápido - ' . ($schoolName ? htmlspecialchars($schoolName) : 'Sua Escola') . '</h2>
                         <div class="summary-grid">
-                            <!-- Resumo Alunos -->
                             <div class="summary-item">
                                 <div class="summary-label">Total de Alunos Matriculados</div>
                                 <div class="summary-number-container">
                                     <div class="summary-number summary-alunos">' . number_format($totalAlunos, 0, '', '.') . '</div>
                                 </div>
                             </div>
-                            <!-- Resumo Turmas -->
                             <div class="summary-item">
                                 <div class="summary-label">Turmas Ativas</div>
                                 <div class="summary-number-container">
                                     <div class="summary-number summary-turmas">' . number_format($totalTurmasAtivas, 0, '', '.') . '</div>
                                 </div>
                             </div>
-                            <!-- Resumo AEE -->
                             <div class="summary-item">
                                 <div class="summary-label">Atendimento educacional especializado (AEE)</div>
                                 <div class="summary-number-container">
                                     <div class="summary-number summary-aee">' . number_format($matriculasAEE, 0, '', '.') . '</div>
                                 </div>
                             </div>
-                            <!-- Resumo Documentos Pendentes com Alerta -->
                             <div class="summary-item" onclick="abrirListaAlunosSemCPF()" style="cursor: pointer;">
                                 <div class="summary-label">Documentos Pendentes</div>
                                 <div class="summary-number-container">
-                                    <div class="summary-number summary-documentos" id="documentosPendentesCount">' . number_format($alunosSemCPF['quantidade'], 0, '', '.') . '</div>
-                                    ' . ($alunosSemCPF['quantidade'] > 0 ? '
+                                    <div class="summary-number summary-documentos" id="documentosPendentesCount">' . number_format($quantidadeSemCPF, 0, '', '.') . '</div>
+                                    ' . ($quantidadeSemCPF > 0 ? '
                                     <div class="alert-pending">
-                                        <span class="alert-icon">▲</span> Requer atenção
+                                        <span class="alert-icon">⚠️</span> Requer atenção
                                     </div>' : '') . '
                                 </div>
                             </div>
@@ -276,10 +327,10 @@ return new class
                 <div id="modalAlunosSemCPF" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
                     <div style="background: white; border-radius: 12px; width: 90%; max-width: 800px; max-height: 80vh; overflow: hidden;">
                         <div style="padding: 20px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
-                            <h3 style="margin: 0; color: #333;">Alunos sem CPF válido (<span id="modalCount">' . $alunosSemCPF['quantidade'] . '</span>)</h3>
-                            <button onclick="fecharModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
+                            <h3 style="margin: 0; color: #333;">Alunos sem CPF válido (<span id="modalCount">' . $quantidadeSemCPF . '</span>)</h3>
+                            <button onclick="fecharModal()" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
                         </div>
-                        <div style="padding: 20px; max-height: 60vh; overflow-y: auto;" id="modalContent">
+                        <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
                             ' . $this->gerarListaAlunosSemCPF($alunosSemCPF['alunos']) . '
                         </div>
                         <div style="padding: 15px 20px; border-top: 1px solid #f0f0f0; text-align: right;">
@@ -289,45 +340,42 @@ return new class
                 </div>
 
                 <script>
-                // Função para alternar o submenu
                 function toggleSubmenu(element) {
                     var submenu = element.nextElementSibling;
-                    
-                    if (submenu.classList.contains(\'show\')) {
-                        submenu.classList.remove(\'show\');
+                    if (submenu.classList.contains("show")) {
+                        submenu.classList.remove("show");
                     } else {
-                        submenu.classList.add(\'show\');
+                        submenu.classList.add("show");
                     }
                 }
 
                 function abrirListaAlunosSemCPF() {
-                    document.getElementById(\'modalAlunosSemCPF\').style.display = \'flex\';
+                    document.getElementById("modalAlunosSemCPF").style.display = "flex";
                 }
 
                 function fecharModal() {
-                    document.getElementById(\'modalAlunosSemCPF\').style.display = \'none\';
+                    document.getElementById("modalAlunosSemCPF").style.display = "none";
                 }
 
                 function editarAluno(codAluno) {
-                    // Usar o mesmo padrão que o i-Educar usa para edição
-                    window.location.href = \'/module/Cadastro/aluno?id=\' + codAluno;
+                    window.location.href = "/module/Cadastro/aluno?id=" + codAluno;
                 }
 
-                // Esconder mensagem de sucesso após 5 segundos
-                var successMessage = document.getElementById(\'successMessage\');
-                if (successMessage && successMessage.style.display === \'block\') {
+                // Esconder mensagem de sucesso e recarregar
+                var successMsg = document.getElementById("successMessage");
+                if (successMsg && successMsg.style.display === "block") {
                     setTimeout(function() {
-                        successMessage.style.display = \'none\';
-                    }, 5000);
+                        successMsg.style.display = "none";
+                        window.location.href = window.location.pathname + "?refresh=" + new Date().getTime();
+                    }, 3000);
                 }
 
-                // Fechar modal ao clicar fora
-                document.addEventListener(\'click\', function(event) {
-                    var modal = document.getElementById(\'modalAlunosSemCPF\');
+                window.onclick = function(event) {
+                    var modal = document.getElementById("modalAlunosSemCPF");
                     if (event.target === modal) {
                         fecharModal();
                     }
-                });
+                }
                 </script>
                 ';
     }
@@ -338,9 +386,6 @@ return new class
         $this->processoAp = 55;
     }
 
-    /**
-     * Obtém o usuário atual logado
-     */
     private function getCurrentUser()
     {
         try {
@@ -356,15 +401,37 @@ return new class
             }
             
             return null;
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             error_log('Erro ao obter usuário atual: ' . $e->getMessage());
             return null;
         }
     }
 
-    /**
-     * Obtém o ID da escola do usuário
-     */
+    private function isAdminUser($user)
+    {
+        if (!$user) {
+            return false;
+        }
+
+        try {
+            if (isset($user->nivel) && $user->nivel == 1) {
+                return true;
+            }
+            
+            $schoolsCount = LegacyUserSchool::where('ref_cod_usuario', $user->cod_usuario)->count();
+            
+            if ($schoolsCount == 0) {
+                return true;
+            }
+            
+            return false;
+            
+        } catch (\Exception $e) {
+            error_log('Erro ao verificar admin: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     private function getUserSchoolId($user)
     {
         if (!$user) {
@@ -385,15 +452,12 @@ return new class
 
             return $firstSchool ? $firstSchool->ref_cod_escola : null;
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             error_log('Erro ao obter escola do usuário: ' . $e->getMessage());
             return null;
         }
     }
 
-    /**
-     * Obtém o nome da escola
-     */
     private function getSchoolName($schoolId)
     {
         if (!$schoolId) {
@@ -407,41 +471,66 @@ return new class
                 return null;
             }
             
-            if (isset($school->name) && !empty($school->name)) {
-                return $school->name;
-            }
+            return $school->name ?? $school->nome ?? $school->nm_escola ?? 'Escola #' . $schoolId;
             
-            if (isset($school->nome) && !empty($school->nome)) {
-                return $school->nome;
-            }
-            
-            if (isset($school->nm_escola) && !empty($school->nm_escola)) {
-                return $school->nm_escola;
-            }
-            
-            return 'Escola #' . $schoolId;
-            
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             error_log('Erro ao obter nome da escola: ' . $e->getMessage());
             return 'Escola #' . $schoolId;
         }
     }
 
-    /**
-     * Obtém alunos sem CPF válido
-     */
+    private function getAlunosMatriculadosAEE($schoolId = null)
+    {
+        try {
+            $sql = "SELECT COUNT(DISTINCT m.ref_cod_aluno) as total
+                    FROM pmieducar.matricula m
+                    INNER JOIN pmieducar.matricula_turma mt
+                        ON mt.ref_cod_matricula = m.cod_matricula
+                    INNER JOIN pmieducar.turma t
+                        ON t.cod_turma = mt.ref_cod_turma
+                    WHERE m.ativo = 1
+                    AND mt.ativo = 1
+                    AND t.ativo = 1
+                    AND m.ano = ?
+                    " . ($schoolId ? " AND t.ref_ref_cod_escola = ? " : "") . "
+                    AND (
+                        UPPER(TRIM(t.nm_turma)) = 'AEE'
+                        OR UPPER(t.nm_turma) LIKE 'AEE %'
+                        OR UPPER(t.nm_turma) LIKE '% AEE'
+                        OR UPPER(t.nm_turma) LIKE '% AEE %'
+                        OR UPPER(t.nm_turma) LIKE '%ATENDIMENTO EDUCACIONAL ESPECIALIZADO%'
+                        OR UPPER(t.nm_turma) LIKE '%ATEN. EDUCA. ESPECIA.%'
+                    )";
+
+            $params = [date('Y')];
+            if ($schoolId) {
+                $params[] = $schoolId;
+            }
+
+            $result = DB::select($sql, $params);
+            return $result[0]->total ?? 0;
+
+        } catch (\Exception $e) {
+            error_log('Erro ao buscar alunos AEE: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
     private function getAlunosSemCPFValido($schoolId = null)
     {
         try {
-            $sql = "SELECT 
+            $sql = "SELECT DISTINCT
                         a.cod_aluno,
                         p.nome,
                         public.formata_cpf(f.cpf) as cpf,
                         m.ref_ref_cod_escola as escola_id
                     FROM pmieducar.aluno a
-                    INNER JOIN cadastro.pessoa p ON p.idpes = a.ref_idpes
-                    INNER JOIN cadastro.fisica f ON f.idpes = p.idpes
-                    INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
+                    INNER JOIN cadastro.pessoa p
+                        ON p.idpes = a.ref_idpes
+                    INNER JOIN cadastro.fisica f
+                        ON f.idpes = p.idpes
+                    INNER JOIN pmieducar.matricula m
+                        ON m.ref_cod_aluno = a.cod_aluno
                     WHERE a.ativo = 1
                     AND m.ativo = 1
                     AND m.ano = ?
@@ -456,7 +545,6 @@ return new class
 					        '888.888.888-88','999.999.999-99'
 					    )
                     )
-                    GROUP BY a.cod_aluno, p.nome, f.cpf, m.ref_ref_cod_escola
                     ORDER BY p.nome";
 
             $params = [date('Y')];
@@ -465,13 +553,12 @@ return new class
             }
 
             $result = DB::select($sql, $params);
-            
+
             $alunos = collect($result)->map(function ($item) {
                 return [
                     'cod_aluno' => $item->cod_aluno,
                     'nome' => $item->nome,
-                    'cpf' => $this->formatarCPFNumerico($item->cpf),
-                    'escola_id' => $item->escola_id
+                    'cpf' => $this->formatarCPFNumerico($item->cpf)
                 ];
             });
 
@@ -480,60 +567,9 @@ return new class
                 'alunos' => $alunos
             ];
 
-        } catch (Exception $e) {
-            error_log('Erro ao buscar alunos sem CPF válido: ' . $e->getMessage());
-            return $this->getAlunosSemCPFValidoFallback($schoolId);
-        }
-    }
-
-    /**
-     * Método fallback simplificado
-     */
-    private function getAlunosSemCPFValidoFallback($schoolId = null)
-    {
-        try {
-            $sql = "SELECT 
-                        a.cod_aluno,
-                        p.nome,
-                        f.cpf
-                    FROM pmieducar.aluno a
-                    INNER JOIN cadastro.pessoa p ON p.idpes = a.ref_idpes
-                    INNER JOIN cadastro.fisica f ON f.idpes = p.idpes
-                    INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
-                    WHERE a.ativo = 1
-                    AND m.ativo = 1
-                    AND m.ano = ?
-                    " . ($schoolId ? " AND m.ref_ref_cod_escola = ? " : "") . "
-                    AND (f.cpf IS NULL OR f.cpf = 0 OR f.cpf = 00000000000)
-                    ORDER BY p.nome";
-
-            $params = [date('Y')];
-            if ($schoolId) {
-                $params[] = $schoolId;
-            }
-
-            $result = DB::select($sql, $params);
-            
-            $alunos = collect($result)->map(function ($item) {
-                return [
-                    'cod_aluno' => $item->cod_aluno,
-                    'nome' => $item->nome,
-                    'cpf' => $this->formatarCPFNumerico($item->cpf),
-                    'escola_id' => null
-                ];
-            });
-
-            return [
-                'quantidade' => count($result),
-                'alunos' => $alunos
-            ];
-
-        } catch (Exception $e) {
-            error_log('Erro no fallback de alunos sem CPF: ' . $e->getMessage());
-            return [
-                'quantidade' => 0,
-                'alunos' => []
-            ];
+        } catch (\Exception $e) {
+            error_log('Erro ao buscar alunos sem CPF: ' . $e->getMessage());
+            return ['quantidade' => 0, 'alunos' => []];
         }
     }
 
@@ -574,81 +610,60 @@ return new class
      */
     private function formatarCPFNumerico($cpfNumerico)
     {
-        if ($cpfNumerico === null) {
+        if ($cpfNumerico === null || $cpfNumerico == 0) {
             return 'Não informado';
         }
-
         $cpfString = str_pad((string)$cpfNumerico, 11, '0', STR_PAD_LEFT);
-        
-        if ($cpfString === '00000000000' || $cpfNumerico == 0) {
+        if ($cpfString === '00000000000') {
             return '000.000.000-00';
         }
-
-        if (strlen($cpfString) === 11) {
-            return substr($cpfString, 0, 3) . '.' . substr($cpfString, 3, 3) . '.' . substr($cpfString, 6, 3) . '-' . substr($cpfString, 9, 2);
-        }
-
-        return $cpfString;
+        return substr($cpfString, 0, 3) . '.' . substr($cpfString, 3, 3) . '.' . substr($cpfString, 6, 3) . '-' . substr($cpfString, 9, 2);
     }
 
-    /**
-     * Gera a lista HTML de alunos sem CPF válido
-     */
     private function gerarListaAlunosSemCPF($alunos)
     {
         if (empty($alunos)) {
             return '
                 <div style="text-align: center; padding: 40px; color: #666;">
                     <div style="font-size: 48px; margin-bottom: 10px;">🎉</div>
-                    <h4 style="margin: 0 0 10px 0;">Nenhum aluno sem CPF válido encontrado</h4>
-                    <p style="margin: 0;">Todos os alunos estão com CPF cadastrado corretamente.</p>
+                    <h4>Todos os alunos estão com CPF cadastrado corretamente!</h4>
                 </div>
             ';
         }
 
         $html = '
-            <div style="margin-bottom: 15px; font-size: 14px; color: #666;">
-                Clique em "Editar CPF" para corrigir o cadastro do aluno.
-            </div>
-            <table style="width: 100%; border-collapse: collapse;">
+            <table class="alunos-table">
                 <thead>
-                    <tr style="background: #f8f9fa;">
-                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Nome do Aluno</th>
-                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">CPF Atual</th>
-                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #dee2e6;">Ação</th>
+                    <tr>
+                        <th>Nome do Aluno</th>
+                        <th>CPF Atual</th>
+                        <th style="text-align: center">Ação</th>
                     </tr>
                 </thead>
                 <tbody>';
 
         foreach ($alunos as $aluno) {
-            $cpfFormatado = $aluno['cpf'];
-            $isCPFInvalido = $cpfFormatado === '000.000.000-00' || $cpfFormatado === 'Não informado';
-            $cpfDisplay = $isCPFInvalido ? '<span style="color: #dc3545; font-weight: bold;">' . $cpfFormatado . '</span>' : $cpfFormatado;
-            
             $html .= '
-                <tr style="border-bottom: 1px solid #f0f0f0;">
-                    <td style="padding: 12px; vertical-align: middle;">' . htmlspecialchars($aluno['nome']) . '</td>
-                    <td style="padding: 12px; vertical-align: middle; font-family: monospace;">' . $cpfDisplay . '</td>
-                    <td style="padding: 12px; text-align: center; vertical-align: middle;">
-                        <button type="button"
-                                onclick="editarAluno(' . $aluno['cod_aluno'] . ')"
-                                style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                            Editar CPF
-                        </button>
-                    </td>
-                </tr>
-            ';
+                    <tr>
+                        <td>' . htmlspecialchars($aluno['nome']) . '</td>
+                        <td><span style="color: #dc3545; font-weight: bold;">' . $aluno['cpf'] . '</span></td>
+                        <td style="text-align: center">
+                            <button type="button" 
+                                    class="btn-editar-cpf" 
+                                    onclick="editarAluno(' . $aluno['cod_aluno'] . ')">
+                                ✏️ Editar CPF
+                            </button>
+                        </td>
+                    </tr>';
         }
 
-        $html .= '</tbody>
+        $html .= '
+                </tbody>
             </table>';
 
         return $html;
     }
 
-    /**
-     * Obtém o total de alunos matriculados
-     */
     private function getTotalAlunosMatriculados($schoolId = null)
     {
         try {
@@ -656,91 +671,40 @@ return new class
                 $sql = "SELECT COUNT(DISTINCT a.cod_aluno) as total 
                         FROM pmieducar.aluno a
                         INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
-                        WHERE a.ativo = 1
-                        AND m.ativo = 1 
-                        AND m.ano = ?
-                        AND m.ref_ref_cod_escola = ?";
-
+                        WHERE a.ativo = 1 AND m.ativo = 1 AND m.ano = ? AND m.ref_ref_cod_escola = ?";
                 $result = DB::select($sql, [date('Y'), $schoolId]);
-                return $result[0]->total ?? 0;
+            } else {
+                $sql = "SELECT COUNT(DISTINCT a.cod_aluno) as total 
+                        FROM pmieducar.aluno a
+                        INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
+                        WHERE a.ativo = 1 AND m.ativo = 1 AND m.ano = ?";
+                $result = DB::select($sql, [date('Y')]);
             }
-
-            return $this->getTotalAlunosFromDirectSQL();
-
-        } catch (Exception $e) {
+            return $result[0]->total ?? 0;
+        } catch (\Exception $e) {
             error_log('Erro ao buscar total de alunos: ' . $e->getMessage());
-            return $this->getTotalAlunosFromDirectSQL();
+            return 0;
         }
     }
 
-    /**
-     * Obtém o total de turmas ativas
-     */
     private function getTotalTurmasAtivas($schoolId = null)
     {
         try {
             if ($schoolId) {
                 $sql = "SELECT COUNT(cod_turma) as total 
                         FROM pmieducar.turma 
-                        WHERE ativo = 1 
-                        AND ano = ? 
-                        AND visivel = true
-                        AND ref_ref_cod_escola = ?";
-
+                        WHERE ativo = 1 AND ano = ? AND visivel = true AND ref_ref_cod_escola = ?";
                 $result = DB::select($sql, [date('Y'), $schoolId]);
-                return $result[0]->total ?? 0;
+            } else {
+                $sql = "SELECT COUNT(cod_turma) as total 
+                        FROM pmieducar.turma 
+                        WHERE ativo = 1 AND ano = ? AND visivel = true";
+                $result = DB::select($sql, [date('Y')]);
             }
-
-            return $this->getTotalTurmasFromSQL();
-
-        } catch (Exception $e) {
+            return $result[0]->total ?? 0;
+        } catch (\Exception $e) {
             error_log('Erro ao buscar total de turmas: ' . $e->getMessage());
-            return $this->getTotalTurmasFromSQL();
-        }
-    }
-
-    /**
-     * Método fallback para turmas
-     */
-    private function getTotalTurmasFromSQL()
-    {
-        try {
-            $sql = "SELECT COUNT(cod_turma) as total 
-                    FROM pmieducar.turma 
-                    WHERE ativo = 1 
-                    AND ano = ? 
-                    AND visivel = true";
-
-            $result = DB::select($sql, [date('Y')]);
-            return $result[0]->total ?? 0;
-
-        } catch (Exception $e) {
-            error_log('Erro na consulta SQL de turmas: ' . $e->getMessage());
             return 0;
-        }
-    }
-
-    /**
-     * Método fallback para alunos
-     */
-    private function getTotalAlunosFromDirectSQL()
-    {
-        try {
-            $sql = "SELECT COUNT(DISTINCT cod_aluno) as total 
-                    FROM pmieducar.aluno 
-                    WHERE ativo = 1 
-                    AND cod_aluno IN (
-                        SELECT ref_cod_aluno 
-                        FROM pmieducar.matricula 
-                        WHERE ativo = 1 
-                        AND ano = ?
-                    )";
-
-            $result = DB::select($sql, [date('Y')]);
-            return $result[0]->total ?? 0;
-        } catch (Exception $e) {
-            error_log('Erro na consulta SQL de alunos: ' . $e->getMessage());
-            return 0; 
         }
     }
 };
