@@ -23,6 +23,23 @@ x-php: &php
     REDIS_HOST: redis
     DB_HOST: postgres
     PGPASSWORD: ieducar
+    # docker/php/install-extra-packages.sh (laravel-permission-entrypoint); ver .env.example
+    RUN_EXTRA_PACKAGES_INSTALL: ${RUN_EXTRA_PACKAGES_INSTALL:-false}
+    STALE_EXTRA_PACKAGES_LOCK_MINUTES: ${STALE_EXTRA_PACKAGES_LOCK_MINUTES:-45}
+    ENABLE_PACKAGE_REPORTS: ${ENABLE_PACKAGE_REPORTS:-false}
+    ENABLE_PACKAGE_EDUCACENSO: ${ENABLE_PACKAGE_EDUCACENSO:-false}
+    ENABLE_PACKAGE_TRANSPORTE: ${ENABLE_PACKAGE_TRANSPORTE:-false}
+    ENABLE_PACKAGE_PRE_MATRICULA: ${ENABLE_PACKAGE_PRE_MATRICULA:-false}
+    ENABLE_PACKAGE_DESPESAS: ${ENABLE_PACKAGE_DESPESAS:-false}
+    ENABLE_PACKAGE_MERENDA: ${ENABLE_PACKAGE_MERENDA:-false}
+    GIT_TOKEN: ${GIT_TOKEN:-}
+    PACKAGE_REF_REPORTS: ${PACKAGE_REF_REPORTS:-}
+    PACKAGE_REF_EDUCACENSO: ${PACKAGE_REF_EDUCACENSO:-}
+    PACKAGE_REF_TRANSPORTE: ${PACKAGE_REF_TRANSPORTE:-}
+    PACKAGE_REF_PRE_MATRICULA: ${PACKAGE_REF_PRE_MATRICULA:-}
+    PACKAGE_REF_DESPESAS: ${PACKAGE_REF_DESPESAS:-}
+    PACKAGE_REF_MERENDA: ${PACKAGE_REF_MERENDA:-}
+    MERENDA_INSTALL_SCRIPT: ${MERENDA_INSTALL_SCRIPT:-}
   extra_hosts:
     - host.docker.internal:host-gateway
 
@@ -49,8 +66,10 @@ services:
     <<: *php
     container_name: ieducar-fpm
     user: root
+    # Script no volume (./) — evita bind extra em /usr/local/bin (docker-compose 1.29 + Docker novo: KeyError ContainerConfig).
     entrypoint:
-      - /usr/local/bin/laravel-permission-entrypoint.sh
+      - /bin/sh
+      - /var/www/ieducar/docker/php/laravel-permission-entrypoint.sh
       - /usr/local/bin/docker-php-entrypoint
     command: ["php-fpm"]
 
@@ -59,7 +78,8 @@ services:
     container_name: ieducar-horizon
     user: root
     entrypoint:
-      - /usr/local/bin/laravel-permission-entrypoint.sh
+      - /bin/sh
+      - /var/www/ieducar/docker/php/laravel-permission-entrypoint.sh
     command: ["php", "/var/www/ieducar/artisan", "horizon"]
     restart: always
 
@@ -69,6 +89,8 @@ services:
     links:
       - fpm
     working_dir: /var/www/ieducar
+    environment:
+      WAIT_FPM_MAX_SEC: ${WAIT_FPM_MAX_SEC:-900}
     entrypoint: ["/wait-and-start.sh"]
     command: ["nginx", "-g", "daemon off;"]
     volumes:

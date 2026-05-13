@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8d0e05ae0b19bae908772a67f44d2d4c",
+    "content-hash": "38244d86c57b20eef2c28a777630c9db",
     "packages": [
         {
             "name": "ankurk91/laravel-eloquent-relationships",
@@ -3887,6 +3887,36 @@
                 "source": "https://github.com/MarkBaker/PHPMatrix/tree/3.0.1"
             },
             "time": "2022-12-02T22:17:43+00:00"
+        },
+        {
+            "name": "merenda/merenda-escolar",
+            "version": "2.11.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/merenda/merenda-escolar",
+                "reference": "22a1a20182014d4b9d0013ea26b19b4934a59261"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Merenda\\Providers\\MerendaEscolarServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Merenda\\": "app/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Sistema de Merenda Escolar integrado ao i-Educar",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "monolog/monolog",
@@ -12707,5 +12737,5 @@
         "ext-zip": "*"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }

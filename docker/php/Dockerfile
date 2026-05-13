@@ -79,6 +79,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 COPY laravel-permission-entrypoint.sh /usr/local/bin/laravel-permission-entrypoint.sh
 RUN chmod +x /usr/local/bin/laravel-permission-entrypoint.sh
 
+COPY fpm-healthcheck.sh /usr/local/bin/fpm-healthcheck.sh
+RUN chmod +x /usr/local/bin/fpm-healthcheck.sh
+
 # Argumentos para UID e GID do usuário do host
 # Esses valores devem ser passados pelo docker-compose.yml
 # para garantir que os arquivos gerados no volume montado
