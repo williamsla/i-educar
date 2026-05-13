@@ -16,29 +16,25 @@ return new class
     {
         // Obter o usuário logado e sua escola
         $user = $this->getCurrentUser();
-        $schoolId = $this->getUserSchoolId($user);
-        
+
+        // Verificar se é administrador
+        $isAdmin = $this->isAdminUser($user);
+        $schoolsIds = $isAdmin ? null : $this->getSchoolsIdByUser($user);
         // Verificar se veio da edição de CPF via session FLASH
         $cpfAtualizado = Session::has('cpf_atualizado');
         if ($cpfAtualizado) {
             Session::forget('cpf_atualizado');
         }
-        
-        // Verificar se é administrador
-        $isAdmin = $this->isAdminUser($user);
-        
+                
         // Buscar dados
-        $totalAlunos = $this->getTotalAlunosMatriculados($isAdmin ? null : $schoolId);
-        $totalTurmasAtivas = $this->getTotalTurmasAtivas($isAdmin ? null : $schoolId);
+        $totalAlunos = $this->getTotalAlunosMatriculados($schoolsIds);
+        $totalTurmasAtivas = $this->getTotalTurmasAtivas($schoolsIds);
         
         // ALUNOS SEM CPF
-        $alunosSemCPF = $this->getAlunosSemCPFValido($isAdmin ? null : $schoolId);
+        $alunosSemCPF = $this->getAlunosSemCPFValido($schoolsIds);
         
         // ALUNOS MATRICULADOS NO AEE
-        $matriculasAEE = $this->getAlunosMatriculadosAEE($isAdmin ? null : $schoolId);
-
-        // Obter nome da escola para exibição
-        $schoolName = $isAdmin ? 'Todas as Escolas' : $this->getSchoolName($schoolId);
+        $matriculasAEE = $this->getMatriculasAEE($schoolsIds);
         
         $quantidadeSemCPF = $alunosSemCPF['quantidade'];
 
@@ -183,8 +179,7 @@ return new class
                 <div class="dashboard-container">
                     <div class="welcome-section">
                         <h1>Bem-vindo ao i-Educar</h1>
-                        ' . ($schoolName ? '<p style="color: #666; margin-top: 5px; font-size: 16px;">Escola: ' . htmlspecialchars($schoolName) . '</p>' : '') . '
-                        ' . ($isAdmin ? '<p style="color: #666; margin-top: 5px; font-size: 14px;">👑 Visualizando dados de todas as escolas</p>' : '') . '
+                        ' . '<p style="color: #666; margin-top: 5px; font-size: 14px;">Exibindo dados das escolas vinculadas ao seu perfil administrativo</p>' . '
                     </div>
                     
                     <div id="successMessage" class="success-message" style="' . ($cpfAtualizado ? 'display: block;' : 'display: none;') . '">
@@ -289,7 +284,7 @@ return new class
                     </div>
 
                     <div class="quick-summary-section">
-                        <h2>Resumo Rápido - ' . ($schoolName ? htmlspecialchars($schoolName) : 'Sua Escola') . '</h2>
+                        <h2>Resumo Rápido</h2>
                         <div class="summary-grid">
                             <div class="summary-item">
                                 <div class="summary-label">Total de Alunos Matriculados</div>
@@ -432,25 +427,17 @@ return new class
         }
     }
 
-    private function getUserSchoolId($user)
+    private function getSchoolsIdByUser($user)
     {
         if (!$user) {
             return null;
         }
 
         try {
-            $userSchool = LegacyUserSchool::where('ref_cod_usuario', $user->cod_usuario)
-                ->where('escola_atual', 1)
-                ->first();
-
-            if ($userSchool) {
-                return $userSchool->ref_cod_escola;
-            }
-
-            $firstSchool = LegacyUserSchool::where('ref_cod_usuario', $user->cod_usuario)
-                ->first();
-
-            return $firstSchool ? $firstSchool->ref_cod_escola : null;
+            
+            $schools = LegacyUserSchool::where('ref_cod_usuario', $user->cod_usuario)->get();
+            $schoolsIds = $schools->pluck('ref_cod_escola')->toArray();
+            return $schoolsIds;
 
         } catch (\Exception $e) {
             error_log('Erro ao obter escola do usuário: ' . $e->getMessage());
@@ -458,67 +445,10 @@ return new class
         }
     }
 
-    private function getSchoolName($schoolId)
-    {
-        if (!$schoolId) {
-            return null;
-        }
-
-        try {
-            $school = LegacySchool::find($schoolId);
-            
-            if (!$school) {
-                return null;
-            }
-            
-            return $school->name ?? $school->nome ?? $school->nm_escola ?? 'Escola #' . $schoolId;
-            
-        } catch (\Exception $e) {
-            error_log('Erro ao obter nome da escola: ' . $e->getMessage());
-            return 'Escola #' . $schoolId;
-        }
-    }
-
-    private function getAlunosMatriculadosAEE($schoolId = null)
+    private function getAlunosSemCPFValido($schoolIds = null)
     {
         try {
-            $sql = "SELECT COUNT(DISTINCT m.ref_cod_aluno) as total
-                    FROM pmieducar.matricula m
-                    INNER JOIN pmieducar.matricula_turma mt
-                        ON mt.ref_cod_matricula = m.cod_matricula
-                    INNER JOIN pmieducar.turma t
-                        ON t.cod_turma = mt.ref_cod_turma
-                    WHERE m.ativo = 1
-                    AND mt.ativo = 1
-                    AND t.ativo = 1
-                    AND m.ano = ?
-                    " . ($schoolId ? " AND t.ref_ref_cod_escola = ? " : "") . "
-                    AND (
-                        UPPER(TRIM(t.nm_turma)) = 'AEE'
-                        OR UPPER(t.nm_turma) LIKE 'AEE %'
-                        OR UPPER(t.nm_turma) LIKE '% AEE'
-                        OR UPPER(t.nm_turma) LIKE '% AEE %'
-                        OR UPPER(t.nm_turma) LIKE '%ATENDIMENTO EDUCACIONAL ESPECIALIZADO%'
-                        OR UPPER(t.nm_turma) LIKE '%ATEN. EDUCA. ESPECIA.%'
-                    )";
-
-            $params = [date('Y')];
-            if ($schoolId) {
-                $params[] = $schoolId;
-            }
-
-            $result = DB::select($sql, $params);
-            return $result[0]->total ?? 0;
-
-        } catch (\Exception $e) {
-            error_log('Erro ao buscar alunos AEE: ' . $e->getMessage());
-            return 0;
-        }
-    }
-
-    private function getAlunosSemCPFValido($schoolId = null)
-    {
-        try {
+            [$schoolSql, $schoolParams] = $this->sqlSchoolIdsInClause('m.ref_ref_cod_escola', $schoolIds);
             $sql = "SELECT DISTINCT
                         a.cod_aluno,
                         p.nome,
@@ -534,7 +464,7 @@ return new class
                     WHERE a.ativo = 1
                     AND m.ativo = 1
                     AND m.ano = ?
-                    " . ($schoolId ? " AND m.ref_ref_cod_escola = ? " : "") . "
+                    {$schoolSql}
                     AND (
                         f.cpf IS null
                         OR f.cpf = 0
@@ -547,10 +477,7 @@ return new class
                     )
                     ORDER BY p.nome";
 
-            $params = [date('Y')];
-            if ($schoolId) {
-                $params[] = $schoolId;
-            }
+            $params = array_merge([date('Y')], $schoolParams);
 
             $result = DB::select($sql, $params);
 
@@ -576,9 +503,10 @@ return new class
     /**
      * Obtém matrículas AEE
      */
-    private function getMatriculasAEE($schoolId = null)
+    private function getMatriculasAEE($schoolIds = null)
     {
         try {
+            [$schoolSql, $schoolParams] = $this->sqlSchoolIdsInClause('m.ref_ref_cod_escola', $schoolIds);
             $sql = "SELECT COUNT(DISTINCT m.cod_matricula) as total
                     FROM pmieducar.matricula m
                     INNER JOIN pmieducar.matricula_turma mt ON mt.ref_cod_matricula = m.cod_matricula
@@ -586,20 +514,17 @@ return new class
                     WHERE m.ativo = 1
                     AND mt.ativo = 1
                     AND m.ano = ?
-                    " . ($schoolId ? " AND m.ref_ref_cod_escola = ? " : "") . "
+                    {$schoolSql}
                     AND (
                         LOWER(s.nm_serie) LIKE '%aee%'
                     )";
 
-            $params = [date('Y')];
-            if ($schoolId) {
-                $params[] = $schoolId;
-            }
+            $params = array_merge([date('Y')], $schoolParams);
 
             $result = DB::select($sql, $params);
             return $result[0]->total ?? 0;
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             error_log('Erro ao buscar matrículas AEE: ' . $e->getMessage());
             return 0;
         }
@@ -664,22 +589,18 @@ return new class
         return $html;
     }
 
-    private function getTotalAlunosMatriculados($schoolId = null)
+    private function getTotalAlunosMatriculados($schoolIds = null)
     {
         try {
-            if ($schoolId) {
-                $sql = "SELECT COUNT(DISTINCT a.cod_aluno) as total 
-                        FROM pmieducar.aluno a
-                        INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
-                        WHERE a.ativo = 1 AND m.ativo = 1 AND m.ano = ? AND m.ref_ref_cod_escola = ?";
-                $result = DB::select($sql, [date('Y'), $schoolId]);
-            } else {
-                $sql = "SELECT COUNT(DISTINCT a.cod_aluno) as total 
-                        FROM pmieducar.aluno a
-                        INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
-                        WHERE a.ativo = 1 AND m.ativo = 1 AND m.ano = ?";
-                $result = DB::select($sql, [date('Y')]);
-            }
+            $year = (int) date('Y');
+            [$schoolSql, $schoolParams] = $this->sqlSchoolIdsInClause('m.ref_ref_cod_escola', $schoolIds);
+            $sql = "SELECT COUNT(DISTINCT a.cod_aluno) as total 
+                    FROM pmieducar.aluno a
+                    INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
+                    WHERE a.ativo = 1 AND m.ativo = 1 AND m.ano = ?{$schoolSql}";
+            $params = array_merge([$year], $schoolParams);
+            $result = DB::select($sql, $params);
+
             return $result[0]->total ?? 0;
         } catch (\Exception $e) {
             error_log('Erro ao buscar total de alunos: ' . $e->getMessage());
@@ -687,24 +608,43 @@ return new class
         }
     }
 
-    private function getTotalTurmasAtivas($schoolId = null)
+    private function getTotalTurmasAtivas($schoolIds = null)
     {
         try {
-            if ($schoolId) {
-                $sql = "SELECT COUNT(cod_turma) as total 
-                        FROM pmieducar.turma 
-                        WHERE ativo = 1 AND ano = ? AND visivel = true AND ref_ref_cod_escola = ?";
-                $result = DB::select($sql, [date('Y'), $schoolId]);
-            } else {
-                $sql = "SELECT COUNT(cod_turma) as total 
-                        FROM pmieducar.turma 
-                        WHERE ativo = 1 AND ano = ? AND visivel = true";
-                $result = DB::select($sql, [date('Y')]);
-            }
+            $year = (int) date('Y');
+            [$schoolSql, $schoolParams] = $this->sqlSchoolIdsInClause('ref_ref_cod_escola', $schoolIds);
+            $sql = "SELECT COUNT(cod_turma) as total 
+                    FROM pmieducar.turma 
+                    WHERE ativo = 1 AND ano = ? AND visivel = true{$schoolSql}";
+            $params = array_merge([$year], $schoolParams);
+            $result = DB::select($sql, $params);
+
             return $result[0]->total ?? 0;
         } catch (\Exception $e) {
             error_log('Erro ao buscar total de turmas: ' . $e->getMessage());
             return 0;
         }
+    }
+
+    /**
+     * Monta filtro SQL por lista de escolas com bind seguro (não use implode na mão em IN).
+     *
+     * @param  array<int>|null  $schoolIds  null = sem filtro; [] = nenhuma escola (resultado vazio)
+     * @return array{0: string, 1: array<int>}
+     */
+    private function sqlSchoolIdsInClause(string $columnSql, ?array $schoolIds): array
+    {
+        if ($schoolIds === null) {
+            return ['', []];
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $schoolIds)));
+        if ($ids === []) {
+            return [' AND 1 = 0 ', []];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        return [" AND {$columnSql} IN ({$placeholders}) ", $ids];
     }
 };
