@@ -12,6 +12,8 @@ ARG PACKAGE_REF_TRANSPORTE=
 ARG PACKAGE_REF_PRE_MATRICULA=
 ARG PACKAGE_REF_DESPESAS=
 ARG PACKAGE_REF_MERENDA=
+ARG PACKAGE_REPO_MERENDA=
+ARG PACKAGE_REPO_DESPESAS=
 FROM composer:${COMPOSER_VERSION} AS composer_bin
 
 FROM php:${PHP_VERSION}-fpm-alpine
@@ -28,6 +30,8 @@ ARG PACKAGE_REF_TRANSPORTE
 ARG PACKAGE_REF_PRE_MATRICULA
 ARG PACKAGE_REF_DESPESAS
 ARG PACKAGE_REF_MERENDA
+ARG PACKAGE_REPO_MERENDA
+ARG PACKAGE_REPO_DESPESAS
 
 LABEL maintainer="Portabilis <contato@portabilis.com.br>"
 
@@ -93,6 +97,19 @@ COPY --chown=www-data:www-data . /var/www/ieducar
 # .dockerignore omite tests/; autoload-dev do composer.json referencia tests/Unit (classmap).
 RUN mkdir -p bootstrap/cache tests/Unit \
     && rm -f bootstrap/cache/*.php
+
+# composer.json exige path packages/merenda/merenda-escolar antes do primeiro install.
+COPY docker/php/pre-composer-path-repos.sh /tmp/pre-composer-path-repos.sh
+RUN --mount=type=secret,id=git_token,required=false \
+    chmod +x /tmp/pre-composer-path-repos.sh \
+    && export GIT_TOKEN="$(cat /run/secrets/git_token 2>/dev/null | tr -d '\n' || true)" \
+    && ENABLE_PACKAGE_DESPESAS=${ENABLE_PACKAGE_DESPESAS} \
+    PACKAGE_REF_MERENDA=${PACKAGE_REF_MERENDA} \
+    PACKAGE_REF_DESPESAS=${PACKAGE_REF_DESPESAS} \
+    PACKAGE_REPO_MERENDA="${PACKAGE_REPO_MERENDA}" \
+    PACKAGE_REPO_DESPESAS="${PACKAGE_REPO_DESPESAS}" \
+    sh /tmp/pre-composer-path-repos.sh \
+    && rm -f /tmp/pre-composer-path-repos.sh
 
 RUN composer install \
     --no-dev \

@@ -50,13 +50,10 @@ else
   echo ">> Secret git_token: nao montado (GIT_TOKEN e GIT_TOKEN_FILE vazios)."
 fi
 
-needs_git_token="false"
-if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ] || [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
-  needs_git_token="true"
-fi
-if [ "${needs_git_token}" = "true" ] && [ -z "${GIT_SECRET_ARGS}" ]; then
-  echo "ERRO: ENABLE_PACKAGE_DESPESAS ou ENABLE_PACKAGE_MERENDA exige token para clone privado." >&2
-  echo "      Defina GIT_TOKEN no ambiente OU GIT_TOKEN_FILE=/caminho/ficheiro com o token (uma linha)." >&2
+# Dockerfile.prod: pre-composer-path-repos.sh clona merenda (path obrigatorio no composer.json) antes do composer install.
+if [ -z "${GIT_SECRET_ARGS}" ]; then
+  echo "ERRO: defina GIT_TOKEN no ambiente OU GIT_TOKEN_FILE com o token (uma linha)." >&2
+  echo "      O build da imagem APP clona merenda antes do composer install (ver docker/php/pre-composer-path-repos.sh)." >&2
   echo "      Com sudo use: sudo -E env GIT_TOKEN=... $0 ..." >&2
   exit 1
 fi
