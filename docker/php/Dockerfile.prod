@@ -14,6 +14,8 @@ ARG PACKAGE_REF_DESPESAS=
 ARG PACKAGE_REF_MERENDA=
 ARG PACKAGE_REPO_MERENDA=
 ARG PACKAGE_REPO_DESPESAS=
+ARG MERENDA_PACKAGE_VERSION=2.11.0
+ARG MERENDA_INSTALL_SCRIPT=
 FROM composer:${COMPOSER_VERSION} AS composer_bin
 
 FROM php:${PHP_VERSION}-fpm-alpine
@@ -32,6 +34,8 @@ ARG PACKAGE_REF_DESPESAS
 ARG PACKAGE_REF_MERENDA
 ARG PACKAGE_REPO_MERENDA
 ARG PACKAGE_REPO_DESPESAS
+ARG MERENDA_PACKAGE_VERSION
+ARG MERENDA_INSTALL_SCRIPT=
 
 LABEL maintainer="Portabilis <contato@portabilis.com.br>"
 
@@ -98,12 +102,14 @@ COPY --chown=www-data:www-data . /var/www/ieducar
 RUN mkdir -p bootstrap/cache tests/Unit \
     && rm -f bootstrap/cache/*.php
 
-# composer.json exige path packages/merenda/merenda-escolar antes do primeiro install.
+# Path repos opcionais (merenda, despesas) antes do primeiro composer install — ver pre-composer-path-repos.sh.
 COPY docker/php/pre-composer-path-repos.sh /tmp/pre-composer-path-repos.sh
 RUN --mount=type=secret,id=git_token,required=false \
     chmod +x /tmp/pre-composer-path-repos.sh \
     && export GIT_TOKEN="$(cat /run/secrets/git_token 2>/dev/null | tr -d '\n' || true)" \
-    && ENABLE_PACKAGE_DESPESAS=${ENABLE_PACKAGE_DESPESAS} \
+    && ENABLE_PACKAGE_MERENDA=${ENABLE_PACKAGE_MERENDA} \
+    ENABLE_PACKAGE_DESPESAS=${ENABLE_PACKAGE_DESPESAS} \
+    MERENDA_PACKAGE_VERSION=${MERENDA_PACKAGE_VERSION} \
     PACKAGE_REF_MERENDA=${PACKAGE_REF_MERENDA} \
     PACKAGE_REF_DESPESAS=${PACKAGE_REF_DESPESAS} \
     PACKAGE_REPO_MERENDA="${PACKAGE_REPO_MERENDA}" \
@@ -138,6 +144,10 @@ RUN --mount=type=secret,id=git_token,required=false \
     PACKAGE_REF_PRE_MATRICULA=${PACKAGE_REF_PRE_MATRICULA} \
     PACKAGE_REF_DESPESAS=${PACKAGE_REF_DESPESAS} \
     PACKAGE_REF_MERENDA=${PACKAGE_REF_MERENDA} \
+    MERENDA_PACKAGE_VERSION=${MERENDA_PACKAGE_VERSION} \
+    MERENDA_INSTALL_SCRIPT="${MERENDA_INSTALL_SCRIPT}" \
+    PACKAGE_REPO_MERENDA="${PACKAGE_REPO_MERENDA}" \
+    PACKAGE_REPO_DESPESAS="${PACKAGE_REPO_DESPESAS}" \
     /usr/local/bin/install-extra-packages.sh \
     && rm -f /usr/local/bin/install-extra-packages.sh \
     && rm -f bootstrap/cache/*.php

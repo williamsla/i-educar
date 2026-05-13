@@ -50,10 +50,12 @@ else
   echo ">> Secret git_token: nao montado (GIT_TOKEN e GIT_TOKEN_FILE vazios)."
 fi
 
-# Dockerfile.prod: pre-composer-path-repos.sh clona merenda (path obrigatorio no composer.json) antes do composer install.
-if [ -z "${GIT_SECRET_ARGS}" ]; then
-  echo "ERRO: defina GIT_TOKEN no ambiente OU GIT_TOKEN_FILE com o token (uma linha)." >&2
-  echo "      O build da imagem APP clona merenda antes do composer install (ver docker/php/pre-composer-path-repos.sh)." >&2
+needs_git_token="false"
+if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ] || [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
+  needs_git_token="true"
+fi
+if [ "${needs_git_token}" = "true" ] && [ -z "${GIT_SECRET_ARGS}" ]; then
+  echo "ERRO: ENABLE_PACKAGE_MERENDA ou ENABLE_PACKAGE_DESPESAS exige GIT_TOKEN ou GIT_TOKEN_FILE (clone privado antes do composer install)." >&2
   echo "      Com sudo use: sudo -E env GIT_TOKEN=... $0 ..." >&2
   exit 1
 fi
@@ -74,6 +76,9 @@ docker buildx build \
   --build-arg PACKAGE_REF_PRE_MATRICULA="${PACKAGE_REF_PRE_MATRICULA:-}" \
   --build-arg PACKAGE_REF_DESPESAS="${PACKAGE_REF_DESPESAS:-}" \
   --build-arg PACKAGE_REF_MERENDA="${PACKAGE_REF_MERENDA:-}" \
+  --build-arg MERENDA_PACKAGE_VERSION="${MERENDA_PACKAGE_VERSION:-2.11.0}" \
+  --build-arg PACKAGE_REPO_MERENDA="${PACKAGE_REPO_MERENDA:-}" \
+  --build-arg PACKAGE_REPO_DESPESAS="${PACKAGE_REPO_DESPESAS:-}" \
   ${GIT_SECRET_ARGS} \
   -t "${APP_IMAGE}" \
   --push \

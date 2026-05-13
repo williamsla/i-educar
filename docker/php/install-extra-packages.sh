@@ -196,6 +196,16 @@ if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
     "packages/merenda/merenda-escolar" \
     "${PACKAGE_REF_MERENDA:-}"
 
+  if [ -f packages/merenda/merenda-escolar/composer.json ]; then
+    merenda_ver="${MERENDA_PACKAGE_VERSION:-2.11.0}"
+    composer config --json repositories.merenda \
+      '{"type":"path","url":"packages/merenda/merenda-escolar","options":{"symlink":true}}' \
+      --no-interaction 2>/dev/null || true
+    if ! composer show merenda/merenda-escolar >/dev/null 2>&1; then
+      composer require "merenda/merenda-escolar:${merenda_ver}" --no-update --no-interaction || true
+    fi
+  fi
+
   merenda_install="${MERENDA_INSTALL_SCRIPT:-}"
   if [ -z "$merenda_install" ] || [ ! -f "$merenda_install" ]; then
     merenda_install=$(find packages/merenda/merenda-escolar -type f -name instalar_modulo.sh 2>/dev/null | head -n 1 || true)

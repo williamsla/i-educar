@@ -2,8 +2,8 @@
 set -eu
 cd /var/www/ieducar
 
-# Clones minimos para repositorios "path" do composer.json existirem antes do primeiro
-# `composer install` na imagem de producao (install-extra-packages corre depois).
+# Clones minimos para repositorios "path" existirem antes do primeiro `composer install`
+# na imagem de producao. Merenda e opcional (ENABLE_PACKAGE_MERENDA).
 
 clone_path_repo() {
   repo_url="$1"
@@ -22,16 +22,26 @@ clone_path_repo() {
   rm -rf "$target_dir/.git"
 }
 
-# merenda/merenda-escolar esta em "require" — o path tem de existir antes do composer install.
-if [ ! -f packages/merenda/merenda-escolar/composer.json ]; then
-  if [ -z "${GIT_TOKEN:-}" ]; then
-    echo "ERRO: GIT_TOKEN e obrigatorio no build para clonar merenda (composer.json exige packages/merenda/merenda-escolar)." >&2
-    exit 1
+register_merenda_with_composer() {
+  merenda_ver="${MERENDA_PACKAGE_VERSION:-2.11.0}"
+  composer config --json repositories.merenda \
+    '{"type":"path","url":"packages/merenda/merenda-escolar","options":{"symlink":true}}' \
+    --no-interaction
+  composer require "merenda/merenda-escolar:${merenda_ver}" --no-install --no-interaction
+}
+
+if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
+  if [ ! -f packages/merenda/merenda-escolar/composer.json ]; then
+    if [ -z "${GIT_TOKEN:-}" ]; then
+      echo "ERRO: GIT_TOKEN e obrigatorio para clonar merenda (ENABLE_PACKAGE_MERENDA=true)." >&2
+      exit 1
+    fi
+    clone_path_repo \
+      "${PACKAGE_REPO_MERENDA:-https://${GIT_TOKEN}@github.com/williamsla/merenda.git}" \
+      "packages/merenda/merenda-escolar" \
+      "${PACKAGE_REF_MERENDA:-}"
   fi
-  clone_path_repo \
-    "${PACKAGE_REPO_MERENDA:-https://${GIT_TOKEN}@github.com/williamsla/merenda.git}" \
-    "packages/merenda/merenda-escolar" \
-    "${PACKAGE_REF_MERENDA:-}"
+  register_merenda_with_composer
 fi
 
 if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
