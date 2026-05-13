@@ -1,7 +1,5 @@
 <?php
 
-use iEducar\Support\View\SelectOptions;
-
 return new class extends clsListagem
 {
     public $pessoa_logada;
@@ -50,21 +48,14 @@ return new class extends clsListagem
             'Curso',
             'Série',
             'Turma',
-            'Função exercida',
-            'Tipo de vínculo',
+            'Turno',
+            'Professor de área específica',
+            'Disciplinas',
         ]);
 
         $this->campoOculto(nome: 'ref_cod_servidor', valor: $this->servidor_id);
 
         $this->inputsHelper()->dynamic(helperNames: ['ano', 'instituicao', 'escola', 'curso', 'serie', 'turma'], inputOptions: ['required' => false]);
-
-        $resources_funcao = SelectOptions::funcoesExercidaServidor();
-        $options = ['label' => 'Função exercida', 'resources' => $resources_funcao, 'value' => $this->funcao_exercida];
-        $this->inputsHelper()->select(attrName: 'funcao_exercida', inputOptions: $options);
-
-        $resources_tipo = SelectOptions::tiposVinculoServidor();
-        $options = ['label' => 'Tipo do vínculo', 'resources' => $resources_tipo, 'value' => $this->tipo_vinculo];
-        $this->inputsHelper()->select(attrName: 'tipo_vinculo', inputOptions: $options);
 
         // Paginador
         $this->limite = 20;
@@ -113,8 +104,9 @@ return new class extends clsListagem
                     $url->l(text: $registro['nm_curso'], path: $path, options: $options),
                     $url->l(text: $registro['nm_serie'], path: $path, options: $options),
                     $url->l(text: $registro['nm_turma'], path: $path, options: $options),
-                    $url->l(text: $resources_funcao[$registro['funcao_exercida']], path: $path, options: $options),
-                    $url->l(text: $resources_tipo[$registro['tipo_vinculo']], path: $path, options: $options),
+                    $url->l(text: $registro['nm_turno'], path: $path, options: $options),
+                    $url->l(text: ((int) $registro['permite_lancar_faltas_componente'] === 1 ? 'Sim' : 'Não'), path: $path, options: $options),
+                    $url->l(text: $registro['disciplinas'], path: $path, options: $options),
                 ]);
             }
         }

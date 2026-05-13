@@ -624,11 +624,108 @@ class PessoaController extends ApiCoreController
 
     protected function reativarPessoa()
     {
-        return [];
+        $existenceOptions = ['schema_name' => 'cadastro', 'field_name' => 'idpes'];
+
+        if (!$this->validatesPresenceOf('id')
+            || !$this->validatesExistenceOf('fisica', $this->getRequest()->id, $existenceOptions)) {
+            return [];
+        }
+
+        $id = (int) $this->getRequest()->id;
+
+        $individual = LegacyIndividual::query()->find($id);
+
+        if ($individual === null) {
+            return [];
+        }
+
+        $individual->ativo = 1;
+        $individual->ref_usuario_exc = null;
+        $individual->data_exclusao = null;
+        $individual->save();
+
+        return ['reativado' => true];
     }
 
     protected function dadosUnificacaoPessoa()
     {
-        return [];
+        $pessoasIds = $this->getRequest()->pessoas_ids ?? '';
+        $ids = [];
+
+        if (is_array($pessoasIds)) {
+            foreach ($pessoasIds as $id) {
+                if (is_numeric($id)) {
+                    $ids[] = (int) $id;
+                }
+            }
+        } else {
+            foreach (explode(',', (string) $pessoasIds) as $id) {
+                $id = (int) trim($id);
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+        }
+
+        $ids = array_values(array_unique($ids));
+
+        if ($ids === []) {
+            return ['pessoas' => []];
+        }
+
+        $idsList = implode(',', $ids);
+
+        $sql = "
+            SELECT
+                p.idpes AS idpes,
+                COALESCE(NULLIF(
+                    concat_ws(', ',
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM pmieducar.aluno al
+                            WHERE al.ref_idpes = p.idpes AND al.ativo = 1
+                        ) THEN 'Aluno(a)' END,
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM portal.funcionario fu
+                            WHERE fu.ref_cod_pessoa_fj = p.idpes AND fu.ativo = 1
+                        ) THEN 'Servidor(a)' END
+                    ),
+                    ''
+                ), 'Sem vínculo') AS vinculo,
+                p.nome AS nome,
+                COALESCE(to_char(f.data_nasc, 'dd/mm/yyyy'), 'Não consta') AS data_nascimento,
+                COALESCE(NULLIF(trim(f.sexo::text), ''), 'Não consta') AS sexo,
+                COALESCE(f.cpf::varchar, 'Não consta') AS cpf,
+                COALESCE(d.rg, 'Não consta') AS rg,
+                COALESCE(p_mae.nome, 'Não consta') AS pessoa_mae
+            FROM cadastro.pessoa p
+            INNER JOIN cadastro.fisica f ON f.idpes = p.idpes
+            LEFT JOIN cadastro.documento d ON d.idpes = p.idpes
+            LEFT JOIN cadastro.pessoa p_mae ON p_mae.idpes = f.idpes_mae
+            WHERE p.idpes IN ({$idsList})
+              AND f.ativo = 1
+        ";
+
+        $rows = $this->fetchPreparedQuery($sql, [], false);
+
+        if (! is_array($rows)) {
+            return ['pessoas' => []];
+        }
+
+        $pessoas = [];
+
+        foreach ($rows as $row) {
+            $pessoas[] = [
+                'idpes' => (int) $row['idpes'],
+                'vinculo' => $this->toUtf8($row['vinculo'], ['transform' => true]),
+                'nome' => $this->toUtf8($row['nome'], ['transform' => true]),
+                'data_nascimento' => $row['data_nascimento'],
+                'sexo' => $row['sexo'],
+                'cpf' => $row['cpf'],
+                'rg' => $this->toUtf8($row['rg'], ['transform' => true]),
+                'pessoa_mae' => $this->toUtf8($row['pessoa_mae'], ['transform' => true]),
+            ];
+        }
+
+        return ['pessoas' => $pessoas];
     }
 }

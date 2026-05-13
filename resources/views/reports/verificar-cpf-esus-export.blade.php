@@ -88,6 +88,9 @@
         <p><span class="label">Ano letivo considerado:</span> {{ $ano_letivo }}</p>
         <p><span class="label">Total de CPF(s) extraídos do relatório eSUS:</span> {{ $cpfs_extraidos }}</p>
         <p><span class="label">Cidadãos sem matrícula ativa neste ano:</span> {{ count($itens) }}</p>
+        @if (! empty($excluir_sem_cpf_somente_cns))
+            <p><span class="label">Filtro aplicado na verificação:</span> foram excluídos os registros sem CPF no arquivo (somente cartão CNS).</p>
+        @endif
     </div>
 
     @php
@@ -126,17 +129,37 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 22%;">CPF</th>
-                <th style="width: 48%;">Nome completo</th>
-                <th style="width: 18%;">Data de nascimento</th>
+                <th style="width: 12%;">CPF / CNS</th>
+                <th style="width: 18%;">Nome completo</th>
+                <th style="width: 8%;">Data de nascimento</th>
+                <th style="width: 22%;">Endereço</th>
+                <th style="width: 12%;">Último atendimento de saúde</th>
+                <th style="width: 14%;">Última matrícula ou transferência</th>
             </tr>
         </thead>
         <tbody>
             @foreach ($itens as $row)
                 <tr>
-                    <td>{{ $row['cpf'] ?? '' }}</td>
+                    <td>
+                        @if (! empty($row['cpf']))
+                            {{ $row['cpf'] }}
+                        @elseif (! empty($row['cns']))
+                            @php
+                                $cns = (string) $row['cns'];
+                                $cnsFmt = strlen($cns) === 15
+                                    ? substr($cns, 0, 3).' '.substr($cns, 3, 4).' '.substr($cns, 7, 4).' '.substr($cns, 11, 4)
+                                    : $cns;
+                            @endphp
+                            CNS {{ $cnsFmt }}
+                        @else
+                            —
+                        @endif
+                    </td>
                     <td>{{ $row['nome'] ?? '—' }}</td>
                     <td>{{ $row['data_nascimento'] ?? '—' }}</td>
+                    <td>{{ $row['endereco'] ?? '—' }}</td>
+                    <td>{{ $row['ultima_atualizacao_cadastral'] ?? '—' }}</td>
+                    <td>{{ $row['data_ultima_matricula_ou_transferencia'] ?? '—' }}</td>
                 </tr>
             @endforeach
         </tbody>

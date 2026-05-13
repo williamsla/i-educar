@@ -15,6 +15,9 @@ return new class extends clsCadastro
     /** Ano letivo para checagem de matrícula (padrão: ano atual). */
     public $ano_letivo;
 
+    /** Quando marcado, não inclui na lista quem veio só com CNS no arquivo (sem CPF). */
+    public $esus_excluir_sem_cpf_somente_cns;
+
     public function Formular()
     {
         $this->title = 'Verificar CPFs - Relatório eSUS';
@@ -84,10 +87,17 @@ return new class extends clsCadastro
 
         $this->campoArquivo(
             nome: 'arquivo_pdf',
-            campo: 'Arquivo PDF (relatório eSUS - Acompanhamento de cidadãos vinculados)',
+            campo: 'Arquivo PDF/CSV (relatório eSUS - Acompanhamento de cidadãos vinculados)',
             valor: '',
             tamanho: 50,
-            descricao: 'Envie um PDF com CPFs no formato XXX.XXX.XXX-XX. Tamanho máximo: 20 MB.'
+            descricao: 'Envie um arquivo PDF ou CSV com os dados do eSUS. Tamanho máximo: 20 MB.'
+        );
+
+        $this->campoCheck(
+            nome: 'esus_excluir_sem_cpf_somente_cns',
+            campo: 'Excluir da análise registros sem CPF no arquivo (somente cartão CNS)',
+            valor: $this->esus_excluir_sem_cpf_somente_cns ?? '',
+            desc: 'Marcado: não entram na lista nem no PDF exportado as linhas em que só há CNS (sem CPF na planilha/PDF). Desmarcado: inclui todos os identificadores.'
         );
 
         $this->array_botao[] = 'Verificar';
@@ -100,14 +110,14 @@ return new class extends clsCadastro
     }
 
     /**
-     * Executa a extração de CPFs do PDF e a verificação no cadastro.
+     * Executa a extração de CPFs do arquivo (PDF/CSV) e a verificação no cadastro.
      */
     private function executarVerificacao(): array
     {
         $file = $_FILES['arquivo_pdf'] ?? null;
 
         if (! $file || empty($file['tmp_name']) || ! is_uploaded_file($file['tmp_name'])) {
-            $this->_mensagem = 'Selecione um arquivo PDF para enviar.';
+            $this->_mensagem = 'Selecione um arquivo PDF ou CSV para enviar.';
             $this->sucesso = false;
 
             return [
@@ -119,15 +129,15 @@ return new class extends clsCadastro
         }
 
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        if ($ext !== 'pdf') {
-            $this->_mensagem = 'O arquivo deve ser do tipo PDF.';
+        if (! in_array($ext, ['pdf', 'csv'], true)) {
+            $this->_mensagem = 'O arquivo deve ser do tipo PDF ou CSV.';
             $this->sucesso = false;
 
             return [
                 'cpfs_extraidos' => 0,
                 'ano_letivo' => (int) ($this->ano_letivo ?? date('Y')),
                 'cpfs_nao_cadastrados' => [],
-                'erro' => 'Formato inválido. Use apenas arquivos PDF.',
+                'erro' => 'Formato inválido. Use apenas arquivos PDF ou CSV.',
             ];
         }
 
@@ -159,12 +169,16 @@ return new class extends clsCadastro
             ];
         }
 
+        $excluirSomenteCnsSemCpf = ! empty($this->esus_excluir_sem_cpf_somente_cns);
+
         $service = app(EsusPdfCpfService::class);
-        $resultado = $service->processarPdf($file['tmp_name'], $anoLetivo);
+        $resultado = $ext === 'csv'
+            ? $service->processarCsv($file['tmp_name'], $anoLetivo, $excluirSomenteCnsSemCpf)
+            : $service->processarPdf($file['tmp_name'], $anoLetivo, $excluirSomenteCnsSemCpf);
 
         if (! empty($resultado['erro'])) {
             VerificarCpfEsusExportController::limparExportacao();
-            $this->_mensagem = 'Erro ao processar o PDF: ' . $resultado['erro'];
+            $this->_mensagem = 'Erro ao processar o arquivo: ' . $resultado['erro'];
             $this->sucesso = false;
         } else {
             $this->sucesso = true;
@@ -173,7 +187,7 @@ return new class extends clsCadastro
             if ($n === 0) {
                 VerificarCpfEsusExportController::limparExportacao();
                 $this->_mensagem = sprintf(
-                    'Foram encontrados %d CPF(s) no PDF. Todos possuem matrícula ativa em %d.',
+                    'Foram encontrados %d CPF(s) no arquivo. Todos possuem matrícula ativa em %d.',
                     $resultado['cpfs_extraidos'],
                     $ano
                 );
@@ -181,10 +195,11 @@ return new class extends clsCadastro
                 VerificarCpfEsusExportController::armazenarParaExportacao(
                     (int) $resultado['cpfs_extraidos'],
                     $ano,
-                    $resultado['cpfs_nao_cadastrados']
+                    $resultado['cpfs_nao_cadastrados'],
+                    (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false)
                 );
                 $this->_mensagem = sprintf(
-                    'Foram encontrados %d CPF(s) no PDF. %d não possuem matrícula ativa em %d. Veja o resumo e use Exportar relatório em PDF para a lista completa.',
+                    'Foram encontrados %d CPF(s) no arquivo. %d não possuem matrícula ativa em %d. Veja o resumo e use Exportar relatório em PDF para a lista completa.',
                     $resultado['cpfs_extraidos'],
                     $n,
                     $ano
@@ -218,13 +233,13 @@ return new class extends clsCadastro
 
         if ($n === 0) {
             $texto = sprintf(
-                '<strong>Resumo:</strong> %d CPF(s) lidos do PDF. Ano letivo <strong>%d</strong>. Todos possuem matrícula ativa neste ano.',
+                '<strong>Resumo:</strong> %d CPF(s) lidos do arquivo. Ano letivo <strong>%d</strong>. Todos possuem matrícula ativa neste ano.',
                 $total,
                 $ano
             );
         } else {
             $texto = sprintf(
-                '<strong>Resumo:<br/>Ano letivo <strong>%d</strong>. <br/></strong> %d CPF(s) lidos do PDF. <br/><strong>%d</strong> sem matrícula ativa (aluno e matrícula ativos).',
+                '<strong>Resumo:<br/>Ano letivo <strong>%d</strong>. <br/></strong> %d CPF(s) lidos do arquivo. <br/><strong>%d</strong> sem matrícula ativa (aluno e matrícula ativos).',
                 $ano,
                 $total,                
                 $n
@@ -235,7 +250,7 @@ return new class extends clsCadastro
 
         if ($n > 0) {
             $exportUrl = url('/relatorios/verificar-cpf-esus/exportar');
-            $html .= '<tr><td class="formmdtd" colspan="2"><span class="form"><a href="' . htmlspecialchars($exportUrl) . '" target="_blank" rel="noopener" class="decorated"><strong>Exportar relatório em PDF</strong></a> — abre somente CPF, nome e data de nascimento para imprimir ou salvar como PDF.</span></td></tr>';
+            $html .= '<tr><td class="formmdtd" colspan="2"><span class="form"><a href="' . htmlspecialchars($exportUrl) . '" target="_blank" rel="noopener" class="decorated"><strong>Exportar relatório em PDF</strong></a> — CPF/CNS, nome, nascimento, endereço (sem CEP), último atendimento de saúde, data da última matrícula ou transferência no cadastro escolar.</span></td></tr>';
         }
 
         $this->addHtml($html);

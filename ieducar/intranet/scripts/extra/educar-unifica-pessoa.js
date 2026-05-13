@@ -345,9 +345,9 @@ function montaTabela(response) {
       </tr>
   `;
 
-  response.pessoas.each(function(value, id) {
+  $j.each(response.pessoas || [], function(id, value) {
     html += '<tr id="' + value.idpes + '" class="linha_listagem">';
-    html += '<td><input onclick="validaCheckPessoaPrincipal(this)" type="checkbox" class="check_principal" id="check_principal_' + value.idpes + '"</td>';
+    html += '<td><input onclick="validaCheckPessoaPrincipal(this)" type="checkbox" class="check_principal" id="check_principal_' + value.idpes + '" /></td>';
     html += '<td id="vinculo_'+ value.idpes +'"><a target="_new" href="/intranet/atendidos_det.php?cod_pessoa=' + value.idpes + '">'+ value.vinculo +'</a></td>';
     html += '<td><a target="_new" href="/intranet/atendidos_det.php?cod_pessoa=' + value.idpes + '">'+ value.nome +'</a></td>';
     html += '<td><a target="_new" href="/intranet/atendidos_det.php?cod_pessoa=' + value.idpes + '">'+ value.data_nascimento +'</a></td>';
@@ -480,7 +480,7 @@ function contabilizaVinculos(pessoas) {
   let alunos = 0;
   let servidores = 0;
 
-  pessoas.each(function(value, id) {
+  $j.each(pessoas || [], function(id, value) {
     let vinculos = value.vinculo.split(', ');
 
     if ($j.inArray('Aluno(a)',vinculos) != -1) {

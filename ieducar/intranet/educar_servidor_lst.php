@@ -99,14 +99,14 @@ return new class extends clsListagem
 
         // Filtro de alocação (se necessário)
         if (request()->has('servidor_sem_alocacao') && !empty($this->ref_cod_escola) && !empty($this->ano_letivo)) {
-            $query->whereDoesntHave('allocations', function($q) {
+            $query->whereDoesntHave('employeeAllocations', function($q) {
                 $q->where('ref_cod_escola', $this->ref_cod_escola)
                   ->where('ano', $this->ano_letivo)
                   ->where('ativo', 1);
             });
         } elseif (!empty($this->ref_cod_escola) && !empty($this->ano_letivo)) {
             // Filtro normal por escola e ano
-            $query->whereHas('allocations', function($q) {
+            $query->whereHas('employeeAllocations', function($q) {
                 $q->where('ref_cod_escola', $this->ref_cod_escola)
                   ->where('ano', $this->ano_letivo)
                   ->where('ativo', 1);

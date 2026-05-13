@@ -10,13 +10,18 @@
     var $serieField = getElementFor('serie');
     var $ano = getElementFor('ano');
 
-    var handleGetSeries = function(resources) {
-      var selectOptions = jsonResourcesToSelectOptions(resources['options']);
-      updateSelect($serieField, selectOptions, "Selecione uma série");
-    }
-
     var updateSeries = function(){
+      const currentSerieId = $serieField.val();
       resetSelect($serieField);
+
+      const onSeriesLoaded = function(resources) {
+        var selectOptions = jsonResourcesToSelectOptions(resources['options']);
+        updateSelect($serieField, selectOptions, "Selecione uma série");
+        if (currentSerieId !== '' && currentSerieId != null) {
+          $serieField.val(String(currentSerieId));
+        }
+        $serieField.change();
+      };
 
       if ($instituicaoField.val() && $escolaField.val() && $cursoField.val() && $cursoField.is(':enabled')) {
         $serieField.children().first().html('Aguarde carregando...');
@@ -31,7 +36,7 @@
         var options = {
           url: urlForGetSeries,
           dataType: 'json',
-          success: handleGetSeries
+          success: onSeriesLoaded
         };
 
         getResources(options);
@@ -47,13 +52,13 @@
         var options = {
           url: urlForGetSeries,
           dataType: 'json',
-          success: handleGetSeries
+          success: onSeriesLoaded
         };
 
         getResources(options);
+      } else {
+        $serieField.change();
       }
-
-      $serieField.change();
     };
 
     // bind onchange event

@@ -28,6 +28,16 @@ clone_or_update_repo() {
   rm -rf "$target_dir/.git"
 }
 
+# Git 2.35+: Composer/plugins invocam git no bind mount com dono do host vs UID do contentor.
+ensure_git_safe_directories() {
+  if ! git config --global --get-all safe.directory 2>/dev/null | grep -Fxq '/var/www/ieducar'; then
+    git config --global --add safe.directory /var/www/ieducar 2>/dev/null || true
+  fi
+  if ! git config --global --get-all safe.directory 2>/dev/null | grep -Fxq '*'; then
+    git config --global --add safe.directory '*' 2>/dev/null || true
+  fi
+}
+
 strip_sudo_from_script() {
   script_path="$1"
   if [ -f "$script_path" ]; then
@@ -86,6 +96,8 @@ run_readme_artisan_after_composer() {
 }
 
 ensure_laravel_runtime_dirs
+
+ensure_git_safe_directories
 
 installed_any_package=0
 
@@ -176,24 +188,49 @@ if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
 fi
 
 if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
+  mkdir -p packages/merenda
+
   require_git_token
   clone_or_update_repo \
     "${PACKAGE_REPO_MERENDA:-https://${GIT_TOKEN}@github.com/williamsla/merenda.git}" \
-    "packages/merenda"
+    "packages/merenda/merenda-escolar" \
+    "${PACKAGE_REF_MERENDA:-}"
 
-  strip_sudo_from_script "packages/merenda/merenda-escolar/instalar_modulo.sh"
-  ensure_laravel_runtime_dirs
+  merenda_install="${MERENDA_INSTALL_SCRIPT:-}"
+  if [ -z "$merenda_install" ] || [ ! -f "$merenda_install" ]; then
+    merenda_install=$(find packages/merenda/merenda-escolar -type f -name instalar_modulo.sh 2>/dev/null | head -n 1 || true)
+  fi
+  # Caminhos legados (estrutura antiga do repo).
+  if [ -z "$merenda_install" ] || [ ! -f "$merenda_install" ]; then
+    for candidate in \
+      "packages/merenda/merenda-escolar/instalar_modulo.sh" \
+      "packages/merenda/instalar_modulo.sh"
+    do
+      if [ -f "$candidate" ]; then
+        merenda_install="$candidate"
+        break
+      fi
+    done
+  fi
 
-  chmod +x packages/merenda/merenda-escolar/instalar_modulo.sh    
-  run_if_exists "packages/merenda/merenda-escolar/instalar_modulo.sh"
+  if [ -n "$merenda_install" ] && [ -f "$merenda_install" ]; then
+    strip_sudo_from_script "$merenda_install"
+    ensure_laravel_runtime_dirs
+    chmod +x "$merenda_install"
+    sh "$merenda_install"
+  else
+    echo "AVISO: instalar_modulo.sh nao encontrado em packages/merenda." >&2
+    echo "AVISO: Defina MERENDA_INSTALL_SCRIPT com o caminho completo no contentor (ex.: packages/merenda/subpasta/instalar_modulo.sh)." >&2
+  fi
 
   installed_any_package=1
 fi
 
 if [ "$installed_any_package" = "1" ]; then
   ensure_laravel_runtime_dirs
-  
-  composer plug-and-play:update 
+
+  ensure_git_safe_directories
+  composer plug-and-play:update
 
   apply_artisan_build_env
   run_readme_artisan_after_composer

@@ -18,6 +18,7 @@ CITY_INDEX="${CITY_INDEX:-1}"
 ENV_FILE="${ENV_FILE:-docker/.env.registry}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.multicidade.registry.yml}"
 FORCE_POST_DEPLOY="${FORCE_POST_DEPLOY:-false}"
+RUNTIME_ENV_FILE="${RUNTIME_ENV_FILE:-.env}"
 
 php_service="php_cidade${CITY_INDEX}"
 fpm_service="fpm_cidade${CITY_INDEX}"
@@ -26,6 +27,19 @@ redis_service="redis_cidade${CITY_INDEX}"
 
 compose() {
   docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
+}
+
+load_runtime_env() {
+  if [ ! -f "${RUNTIME_ENV_FILE}" ]; then
+    echo ">> Arquivo de runtime nao encontrado (${RUNTIME_ENV_FILE}); seguindo sem carregar variaveis extras."
+    return 0
+  fi
+
+  echo ">> Carregando variaveis de runtime de ${RUNTIME_ENV_FILE}"
+  set -a
+  # shellcheck disable=SC1090
+  . "${RUNTIME_ENV_FILE}"
+  set +a
 }
 
 container_id() {
@@ -44,6 +58,8 @@ image_id_from_container() {
 old_php_cid="$(container_id "${php_service}")"
 old_fpm_cid="$(container_id "${fpm_service}")"
 old_nginx_cid="$(container_id "${nginx_service}")"
+
+load_runtime_env
 
 old_php_image="$(image_id_from_container "${old_php_cid}")"
 old_fpm_image="$(image_id_from_container "${old_fpm_cid}")"
@@ -78,33 +94,33 @@ fi
 if [ "${images_changed}" = "true" ]; then
   echo ">> Nova imagem detectada. Executando pos-deploy da cidade ${CITY_INDEX}"
 
-  compose exec "${php_service}" sh -lc '
+  compose exec -T "${php_service}" sh -lc '
     [ "${DB_CONNECTION:-}" = "pgsql" ] || { echo "ERRO: DB_CONNECTION=${DB_CONNECTION:-vazio} (esperado: pgsql)"; exit 1; }
     [ "${CACHE_DRIVER:-}" = "redis" ] || { echo "ERRO: CACHE_DRIVER=${CACHE_DRIVER:-vazio} (esperado: redis)"; exit 1; }
     [ "${CACHE_STORE:-}" = "redis" ] || { echo "ERRO: CACHE_STORE=${CACHE_STORE:-vazio} (esperado: redis)"; exit 1; }
   '
 
-  compose exec "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
+  compose exec -T "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
 
-  compose exec "${php_service}" php artisan storage:link || true
-  compose exec "${php_service}" php artisan migrate --force
+  compose exec -T "${php_service}" php artisan storage:link || true
+  compose exec -T "${php_service}" php artisan migrate --force
 
-  if compose exec "${php_service}" sh -lc "[ -d packages/portabilis/i-educar-reports-package ]"; then
-    if compose exec "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:link"; then
-      compose exec "${php_service}" php artisan community:reports:link --no-interaction || true
+  # Imagem registry pode nao ter packages/portabilis/... (build sem ENABLE_PACKAGE_REPORTS).
+  # O gatilho correto e' o comando Artisan registado (plug-and-play / composer).
+  if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
+    echo ">> Relatorios: link/install/publish (pacote presente na app)"
+    if compose exec -T "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:link"; then
+      compose exec -T "${php_service}" php artisan community:reports:link --no-interaction || true
     fi
-    if compose exec "${php_service}" sh -lc "php artisan list --raw 2>/dev/null | awk '{print \$1}' | grep -qx community:reports:install"; then
-      compose exec "${php_service}" php artisan community:reports:install --no-interaction &
-      pid1=$!
-      compose exec "${fpm_service}" php artisan community:reports:install --no-interaction &
-      pid2=$!
-      wait "${pid1}" "${pid2}" || true
-    fi
-    compose exec "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
+
+    compose exec -T "${fpm_service}" php artisan community:reports:install --no-interaction || true
+    # publish grava em disco da app; php_* e fpm_* nao partilham camada gravada (registry).
+    compose exec -T "${php_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
+    compose exec -T "${fpm_service}" php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction || true
     # Jasper grava/compila ficheiros em ReportSources; e os containers (php/fpm) podem
     # nao ter permissao suficiente se a instalacao correu como root.
     for svc in "${php_service}" "${fpm_service}"; do
-      compose exec "${svc}" sh -lc '
+      compose exec -T "${svc}" sh -lc '
         for d in \
           ieducar/modules/Reports \
           ieducar/modules/Reports/ReportSources \
@@ -117,9 +133,11 @@ if [ "${images_changed}" = "true" ]; then
         done
       ' || true
     done
+  else
+    echo ">> Relatorios: ignorados (comando community:reports:install inexistente). Para incluir na imagem: build com ENABLE_PACKAGE_REPORTS=true (ver docker/php/Dockerfile.prod)."
   fi
 
-  compose exec "${php_service}" php artisan optimize:clear || true
+  compose exec -T "${php_service}" php artisan optimize:clear || true
 else
   echo ">> Imagens inalteradas. Pos-deploy ignorado."
 fi

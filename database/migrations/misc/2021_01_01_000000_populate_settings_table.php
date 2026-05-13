@@ -105,6 +105,7 @@ class PopulateSettingsTable extends Migration
             'legacy.report.remote_factory.username' => null,
             'legacy.report.remote_factory.password' => null,
             'legacy.report.remote_factory.logo_name' => null,
+            'legacy.report.logo_file_name' => 'brasil.png',
             'legacy.educacenso.enable_export' => 1,
         ];
 

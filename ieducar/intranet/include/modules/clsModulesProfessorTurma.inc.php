@@ -708,11 +708,22 @@ class clsModulesProfessorTurma extends Model
                 t.nm_turma,
                 t.cod_turma as ref_cod_turma,
                 t.ref_ref_cod_serie as ref_cod_serie,
-                textcat_all(s.nm_serie) AS nm_serie,
+                textcat_all(DISTINCT s.nm_serie) AS nm_serie,
                 t.ref_cod_curso,
                 textcat_all(DISTINCT c.nm_curso) AS nm_curso,
                 t.ref_ref_cod_escola as ref_cod_escola,
-                p.nome as nm_escola
+                p.nome as nm_escola,
+                CASE pt.turno_id
+                    WHEN 1 THEN 'Matutino'
+                    WHEN 2 THEN 'Vespertino'
+                    WHEN 3 THEN 'Noturno'
+                    ELSE '-'
+                END AS nm_turno,
+                COALESCE(
+                    string_agg(DISTINCT cc.nome, ', ' ORDER BY cc.nome)
+                        FILTER (WHERE COALESCE(ac.agrupar_descritores, false) = false),
+                    '-'
+                ) AS disciplinas
             FROM {$this->_tabela} pt
         ";
         $filtros = '
@@ -722,6 +733,9 @@ class clsModulesProfessorTurma extends Model
             JOIN pmieducar.curso c ON s.ref_cod_curso = c.cod_curso
             JOIN pmieducar.escola e ON t.ref_ref_cod_escola = e.cod_escola
             JOIN cadastro.pessoa p ON e.ref_idpes = p.idpes
+            LEFT JOIN modules.professor_turma_disciplina ptd ON ptd.professor_turma_id = pt.id
+            LEFT JOIN modules.componente_curricular cc ON cc.id = ptd.componente_curricular_id
+            LEFT JOIN modules.area_conhecimento ac ON ac.id = cc.area_conhecimento_id
         WHERE true ';
 
         $whereAnd = ' AND ';
@@ -778,7 +792,7 @@ class clsModulesProfessorTurma extends Model
         }
 
         $db = new clsBanco;
-        $countCampos = count(explode(',', $this->_campos_lista)) + 8;
+        $countCampos = count(explode(',', $this->_campos_lista)) + 10;
         $resultado = [];
 
         $groupBy = '
@@ -871,6 +885,12 @@ class clsModulesProfessorTurma extends Model
             $db = new clsBanco;
             $sql = "SELECT id FROM {$this->_tabela} pt WHERE ano = '{$this->ano}' AND turma_id = '{$this->turma_id}'
                AND instituicao_id = '{$this->instituicao_id}' AND servidor_id = '{$this->servidor_id}' ";
+
+            if (is_numeric($this->turno_id)) {
+                $sql .= " AND turno_id = '{$this->turno_id}'";
+            } else {
+                $sql .= ' AND turno_id IS NULL';
+            }
 
             if (is_numeric($this->id)) {
                 $sql .= " AND id <> {$this->id}";

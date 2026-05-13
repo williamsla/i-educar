@@ -1,6 +1,6 @@
 {
     "name": "portabilis/i-educar",
-    "description": "Software livre de gestão escolar",
+    "description": "Software livre de gest\u00e3o escolar",
     "type": "project",
     "license": "GPL-2.0-or-later",
     "version": "2.10.0",
@@ -10,7 +10,7 @@
     ],
     "authors": [
         {
-            "name": "Portábilis",
+            "name": "Port\u00e1bilis",
             "email": "contato@portabilis.com.br",
             "homepage": "https://portabilis.com.br"
         }
@@ -43,6 +43,7 @@
         "league/flysystem-ftp": "^3.0",
         "league/flysystem-sftp-v3": "^3.0",
         "maatwebsite/excel": "^3.1",
+        "merenda/merenda-escolar": "2.11.0",
         "phpoffice/phpspreadsheet": "^1.8",
         "predis/predis": "^2.3",
         "psr/simple-cache": "^3.0",
@@ -81,7 +82,8 @@
             "Database\\Factories\\": "database/factories/",
             "Database\\Custom\\": "database/custom/",
             "Database\\Seeders\\": "database/seeders/",
-            "iEducar\\": "src"
+            "iEducar\\": "src",
+            "iEducar\\Packages\\DespesaEscolar\\": "packages/despesas-escolar/src/"
         }
     },
     "autoload-dev": {
@@ -143,8 +145,25 @@
         "allow-plugins": {
             "dex/composer-plug-and-play": true,
             "pestphp/pest-plugin": true
+        },
+        "audit": {
+            "block-insecure": false
         }
     },
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "name": "merenda",
+            "type": "path",
+            "url": "packages/merenda/merenda-escolar",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "packages/despesas-escolar"
+        }
+    ]
 }

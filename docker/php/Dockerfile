@@ -29,6 +29,7 @@ RUN apk add --update \
     openjdk8  \
     postgresql17-client \
     postgresql-dev \
+    su-exec \
     ttf-dejavu \
     unzip \
     openssh \
@@ -75,18 +76,37 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+COPY laravel-permission-entrypoint.sh /usr/local/bin/laravel-permission-entrypoint.sh
+RUN chmod +x /usr/local/bin/laravel-permission-entrypoint.sh
+
+COPY fpm-healthcheck.sh /usr/local/bin/fpm-healthcheck.sh
+RUN chmod +x /usr/local/bin/fpm-healthcheck.sh
+
 # Argumentos para UID e GID do usuário do host
 # Esses valores devem ser passados pelo docker-compose.yml
 # para garantir que os arquivos gerados no volume montado
 # tenham o mesmo proprietário do usuário no host (ex: ieducar)
-ARG HOST_UID
-ARG HOST_GID
+# Padrão se o build não receber --build-arg (evita `addgroup -g` sem GID).
+ARG HOST_UID=1001
+ARG HOST_GID=1001
 
 # Criação de grupo e usuário com UID e GID iguais ao do host
 # Isso garante que arquivos criados dentro do container tenham
 # as mesmas permissões do usuário do host (evita problemas com volumes)
 RUN addgroup -g ${HOST_GID} ieducar && \
     adduser -u ${HOST_UID} -G ieducar -s /bin/sh -D ieducar
+
+# A imagem oficial aponta error_log (e às vezes access.log) para /proc/self/fd/*.
+# Com o master do FPM rodando como usuário não-root (su-exec ieducar no
+# laravel-permission-entrypoint), abrir stderr pode falhar com EACCES e o FPM
+# não sobe. Logs passam para arquivos em /tmp (gravável por qualquer UID).
+RUN set -eu; \
+    for f in /usr/local/etc/php-fpm.conf /usr/local/etc/php-fpm.d/*.conf; do \
+        if [ -f "$f" ]; then \
+            sed -i 's#/proc/self/fd/2#/tmp/php-fpm-error.log#g' "$f"; \
+            sed -i 's#/proc/self/fd/1#/tmp/php-fpm-access.log#g' "$f" || true; \
+        fi; \
+    done
 
 # Define o usuário padrão do container para evitar execução como root
 USER ieducar

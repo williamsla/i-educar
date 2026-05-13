@@ -14,6 +14,7 @@ composer-plug-and-play.lock
 laravel-echo-server.json
 package-lock.json
 
+i-Educar
 ieducar-*.tar.gz
 .setup
 .env
@@ -25,6 +26,8 @@ docker-compose.override.yml
 /node_modules
 /public/hot
 /public/storage
+/public/vendor/merenda
+/import
 /storage/*.key
 /storage/*/.gitignore
 Homestead.json

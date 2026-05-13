@@ -522,7 +522,8 @@ return new class
             $sql = "SELECT DISTINCT
                         a.cod_aluno,
                         p.nome,
-                        f.cpf
+                        public.formata_cpf(f.cpf) as cpf,
+                        m.ref_ref_cod_escola as escola_id
                     FROM pmieducar.aluno a
                     INNER JOIN cadastro.pessoa p
                         ON p.idpes = a.ref_idpes
@@ -535,11 +536,14 @@ return new class
                     AND m.ano = ?
                     " . ($schoolId ? " AND m.ref_ref_cod_escola = ? " : "") . "
                     AND (
-                        f.cpf IS NULL
+                        f.cpf IS null
                         OR f.cpf = 0
-                        OR f.cpf = 00000000000
-                        OR CAST(f.cpf AS TEXT) LIKE '000%'
-                        OR LENGTH(CAST(f.cpf AS TEXT)) < 11
+					    OR public.formata_cpf(f.cpf) !~ '^[0-9.-]{14}$' -- não tem exatamente 11 dígitos
+					    OR public.formata_cpf(f.cpf) IN (
+					        '000.000.000-00','111.111.111-11','222.222.222-22','333.333.333-33',
+					        '444.444.444-44','555.555.555-55','666.666.666-66','777.777.777-77',
+					        '888.888.888-88','999.999.999-99'
+					    )
                     )
                     ORDER BY p.nome";
 
@@ -569,6 +573,41 @@ return new class
         }
     }
 
+    /**
+     * Obtém matrículas AEE
+     */
+    private function getMatriculasAEE($schoolId = null)
+    {
+        try {
+            $sql = "SELECT COUNT(DISTINCT m.cod_matricula) as total
+                    FROM pmieducar.matricula m
+                    INNER JOIN pmieducar.matricula_turma mt ON mt.ref_cod_matricula = m.cod_matricula
+                    INNER JOIN pmieducar.serie s ON s.cod_serie = m.ref_ref_cod_serie
+                    WHERE m.ativo = 1
+                    AND mt.ativo = 1
+                    AND m.ano = ?
+                    " . ($schoolId ? " AND m.ref_ref_cod_escola = ? " : "") . "
+                    AND (
+                        LOWER(s.nm_serie) LIKE '%aee%'
+                    )";
+
+            $params = [date('Y')];
+            if ($schoolId) {
+                $params[] = $schoolId;
+            }
+
+            $result = DB::select($sql, $params);
+            return $result[0]->total ?? 0;
+
+        } catch (Exception $e) {
+            error_log('Erro ao buscar matrículas AEE: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Formata CPF numérico para exibição
+     */
     private function formatarCPFNumerico($cpfNumerico)
     {
         if ($cpfNumerico === null || $cpfNumerico == 0) {

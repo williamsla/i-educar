@@ -17,6 +17,8 @@ services:
     depends_on:
       - redis_cidade1
     command: ["sh", "-lc", "sleep infinity"]
+    volumes:
+      - ieducar_storage_cidade1:/var/www/ieducar/storage
 
   fpm_cidade1:
     <<: *app-image
@@ -26,6 +28,8 @@ services:
     depends_on:
       - redis_cidade1
     command: ["php-fpm", "-F"]
+    volumes:
+      - ieducar_storage_cidade1:/var/www/ieducar/storage
 
   nginx_cidade1:
     <<: *nginx-image
@@ -37,9 +41,222 @@ services:
       FPM_UPSTREAM: fpm_cidade1
     ports:
       - "${PORTA_CIDADE1:-81}:80"
+    volumes:
+      - ieducar_storage_cidade1:/var/www/ieducar/storage
 
   redis_cidade1:
     image: redis:8-alpine
     container_name: ieducar-redis-${CIDADE1_SLUG:-cidade1}-prod
     restart: unless-stopped
 
+  php_cidade2:
+    <<: *app-image
+    container_name: ieducar-php-${CIDADE2_SLUG:-cidade2}-prod
+    env_file:
+      - ${ENV_CIDADE2_FILE:-.env.cidade2}
+    depends_on:
+      - redis_cidade2
+    command: ["sh", "-lc", "sleep infinity"]
+    volumes:
+      - ieducar_storage_cidade2:/var/www/ieducar/storage
+
+  fpm_cidade2:
+    <<: *app-image
+    container_name: ieducar-fpm-${CIDADE2_SLUG:-cidade2}-prod
+    env_file:
+      - ${ENV_CIDADE2_FILE:-.env.cidade2}
+    depends_on:
+      - redis_cidade2
+    command: ["php-fpm", "-F"]
+    volumes:
+      - ieducar_storage_cidade2:/var/www/ieducar/storage
+
+  nginx_cidade2:
+    <<: *nginx-image
+    container_name: ieducar-nginx-${CIDADE2_SLUG:-cidade2}-prod
+    depends_on:
+      - fpm_cidade2
+    environment:
+      SERVER_NAME: ${SERVER_NAME_CIDADE2:-ieducar.cidade2.local}
+      FPM_UPSTREAM: fpm_cidade2
+    ports:
+      - "${PORTA_CIDADE2:-82}:80"
+    volumes:
+      - ieducar_storage_cidade2:/var/www/ieducar/storage
+
+  redis_cidade2:
+    image: redis:8-alpine
+    container_name: ieducar-redis-${CIDADE2_SLUG:-cidade2}-prod
+    restart: unless-stopped
+
+
+  php_cidade3:
+    <<: *app-image
+    container_name: ieducar-php-${CIDADE3_SLUG:-cidade3}-prod
+    env_file:
+      - ${ENV_CIDADE3_FILE:-.env.cidade3}
+    depends_on:
+      - redis_cidade3
+    command: ["sh", "-lc", "sleep infinity"]
+    volumes:
+      - ieducar_storage_cidade3:/var/www/ieducar/storage
+
+  fpm_cidade3:
+    <<: *app-image
+    container_name: ieducar-fpm-${CIDADE3_SLUG:-cidade3}-prod
+    env_file:
+      - ${ENV_CIDADE3_FILE:-.env.cidade3}
+    depends_on:
+      - redis_cidade3
+    command: ["php-fpm", "-F"]
+    volumes:
+      - ieducar_storage_cidade3:/var/www/ieducar/storage
+
+  nginx_cidade3:
+    <<: *nginx-image
+    container_name: ieducar-nginx-${CIDADE3_SLUG:-cidade3}-prod
+    depends_on:
+      - fpm_cidade3
+    environment:
+      SERVER_NAME: ${SERVER_NAME_CIDADE3:-ieducar.cidade3.local}
+      FPM_UPSTREAM: fpm_cidade3
+    ports:
+      - "${PORTA_CIDADE3:-83}:80"
+    volumes:
+      - ieducar_storage_cidade3:/var/www/ieducar/storage
+
+  redis_cidade3:
+    image: redis:8-alpine
+    container_name: ieducar-redis-${CIDADE3_SLUG:-cidade3}-prod
+    restart: unless-stopped
+
+
+  php_cidade4:
+    <<: *app-image
+    container_name: ieducar-php-${CIDADE4_SLUG:-cidade4}-prod
+    env_file:
+      - ${ENV_CIDADE4_FILE:-.env.cidade4}
+    depends_on:
+      - redis_cidade4
+    command: ["sh", "-lc", "sleep infinity"]
+    volumes:
+      - ieducar_storage_cidade4:/var/www/ieducar/storage
+
+  fpm_cidade4:
+    <<: *app-image
+    container_name: ieducar-fpm-${CIDADE4_SLUG:-cidade4}-prod
+    env_file:
+      - ${ENV_CIDADE4_FILE:-.env.cidade4}
+    depends_on:
+      - redis_cidade4
+    command: ["php-fpm", "-F"]
+    volumes:
+      - ieducar_storage_cidade4:/var/www/ieducar/storage
+
+  nginx_cidade4:
+    <<: *nginx-image
+    container_name: ieducar-nginx-${CIDADE4_SLUG:-cidade4}-prod
+    depends_on:
+      - fpm_cidade4
+    environment:
+      SERVER_NAME: ${SERVER_NAME_CIDADE4:-ieducar.cidade4.local}
+      FPM_UPSTREAM: fpm_cidade4
+    ports:
+      - "${PORTA_CIDADE4:-84}:80"
+    volumes:
+      - ieducar_storage_cidade4:/var/www/ieducar/storage
+
+  redis_cidade4:
+    image: redis:8-alpine
+    container_name: ieducar-redis-${CIDADE4_SLUG:-cidade4}-prod
+    restart: unless-stopped
+
+
+  php_cidade5:
+    <<: *app-image
+    container_name: ieducar-php-${CIDADE5_SLUG:-cidade5}-prod
+    env_file:
+      - ${ENV_CIDADE5_FILE:-.env.cidade5}
+    depends_on:
+      - redis_cidade5
+    command: ["sh", "-lc", "sleep infinity"]
+    volumes:
+      - ieducar_storage_cidade5:/var/www/ieducar/storage
+
+  fpm_cidade5:
+    <<: *app-image
+    container_name: ieducar-fpm-${CIDADE5_SLUG:-cidade5}-prod
+    env_file:
+      - ${ENV_CIDADE5_FILE:-.env.cidade5}
+    depends_on:
+      - redis_cidade5
+    command: ["php-fpm", "-F"]
+    volumes:
+      - ieducar_storage_cidade5:/var/www/ieducar/storage
+
+  nginx_cidade5:
+    <<: *nginx-image
+    container_name: ieducar-nginx-${CIDADE5_SLUG:-cidade5}-prod
+    depends_on:
+      - fpm_cidade5
+    environment:
+      SERVER_NAME: ${SERVER_NAME_CIDADE5:-ieducar.cidade5.local}
+      FPM_UPSTREAM: fpm_cidade5
+    ports:
+      - "${PORTA_CIDADE5:-85}:80"
+    volumes:
+      - ieducar_storage_cidade5:/var/www/ieducar/storage
+
+  redis_cidade5:
+    image: redis:8-alpine
+    container_name: ieducar-redis-${CIDADE5_SLUG:-cidade5}-prod
+    restart: unless-stopped
+
+
+  php_cidade6:
+    <<: *app-image
+    container_name: ieducar-php-${CIDADE6_SLUG:-cidade6}-prod
+    env_file:
+      - ${ENV_CIDADE6_FILE:-.env.cidade6}
+    depends_on:
+      - redis_cidade6
+    command: ["sh", "-lc", "sleep infinity"]
+    volumes:
+      - ieducar_storage_cidade6:/var/www/ieducar/storage
+
+  fpm_cidade6:
+    <<: *app-image
+    container_name: ieducar-fpm-${CIDADE6_SLUG:-cidade6}-prod
+    env_file:
+      - ${ENV_CIDADE6_FILE:-.env.cidade6}
+    depends_on:
+      - redis_cidade6
+    command: ["php-fpm", "-F"]
+    volumes:
+      - ieducar_storage_cidade6:/var/www/ieducar/storage
+
+  nginx_cidade6:
+    <<: *nginx-image
+    container_name: ieducar-nginx-${CIDADE6_SLUG:-cidade6}-prod
+    depends_on:
+      - fpm_cidade6
+    environment:
+      SERVER_NAME: ${SERVER_NAME_CIDADE6:-ieducar.cidade6.local}
+      FPM_UPSTREAM: fpm_cidade6
+    ports:
+      - "${PORTA_CIDADE6:-86}:80"
+    volumes:
+      - ieducar_storage_cidade6:/var/www/ieducar/storage
+
+  redis_cidade6:
+    image: redis:8-alpine
+    container_name: ieducar-redis-${CIDADE6_SLUG:-cidade6}-prod
+    restart: unless-stopped
+
+volumes:
+  ieducar_storage_cidade1:
+  ieducar_storage_cidade2:
+  ieducar_storage_cidade3:
+  ieducar_storage_cidade4:
+  ieducar_storage_cidade5:
+  ieducar_storage_cidade6:
