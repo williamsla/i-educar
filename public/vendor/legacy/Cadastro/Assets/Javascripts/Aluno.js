@@ -2620,14 +2620,29 @@ function canShowParentsFields() {
         $j("#pais_origem_nome").val("");
       }
 
-      $j("#postal_code").val(person_details.cep);
+      var cepEdicao =
+        person_details.cep ||
+        (person_details.postal_code != null &&
+        String(person_details.postal_code).replace(/\D/g, "").length
+          ? String(person_details.postal_code).replace(/\D/g, "")
+          : "");
+      if (cepEdicao && String(cepEdicao).indexOf("-") === -1 && String(cepEdicao).length === 8) {
+        cepEdicao =
+          String(cepEdicao).substring(0, 5) + "-" + String(cepEdicao).substring(5, 8);
+      }
+      $j("#postal_code").val(cepEdicao);
       $j("#ddd_telefone_fixo").val(person_details.ddd_fone_fixo);
       $j("#telefone_fixo").val(person_details.fone_fixo);
       $j("#ddd_telefone_cel").val(person_details.ddd_fone_mov);
       $j("#telefone_cel").val(person_details.fone_mov);
       $j("#pais_residencia").val(person_details.pais_residencia);
 
-      if ($j("#postal_code").val()) {
+      var temEnderecoSalvo =
+        $j("#postal_code").val() ||
+        person_details.city_id ||
+        person_details.address;
+
+      if (temEnderecoSalvo) {
         $j("#city_city").removeAttr("disabled");
         $j("#neighborhood").removeAttr("disabled");
         $j("#address").removeAttr("disabled");
@@ -2640,13 +2655,13 @@ function canShowParentsFields() {
         $j("#neighborhood").val(person_details.neighborhood);
         $j("#city_id").val(person_details.city_id);
 
-        if (person_details.city_id) {
+        if (person_details.city_id && person_details.city_name) {
           $j("#city_city").val(
             person_details.city_id +
             " - " +
             person_details.city_name +
             " (" +
-            person_details.state_abbreviation +
+            (person_details.state_abbreviation || "") +
             ")"
           );
         }

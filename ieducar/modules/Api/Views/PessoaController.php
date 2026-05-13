@@ -207,11 +207,19 @@ class PessoaController extends ApiCoreController
         if ($has) {
             $place = $has->place;
             $details['postal_code'] = $place->postal_code;
+            $details['cep'] = int2CEP($place->postal_code);
             $details['address'] = $place->address;
             $details['number'] = $place->number;
             $details['complement'] = $place->complement;
             $details['neighborhood'] = $place->neighborhood;
             $details['city_id'] = $place->city_id;
+
+            if ($place->city_id && $place->relationLoaded('city') && $place->city) {
+                $details['city_name'] = $this->toUtf8($place->city->name, ['transform' => true]);
+                if ($place->city->relationLoaded('state') && $place->city->state) {
+                    $details['state_abbreviation'] = $place->city->state->abbreviation;
+                }
+            }
         }
 
         if ($details['idmun_nascimento']) {
