@@ -10,6 +10,9 @@ x-php: &php
   working_dir: /var/www/ieducar
   volumes:
     - ./:/var/www/ieducar
+    # Repositório clone ao lado do i-educar (../i-educar-reports-package). O FPM/Horizon
+    # precisam do mesmo mount que o serviço `php` (composer só no `php` não basta).
+    - ../i-educar-reports-package:/var/www/ieducar/packages/portabilis/i-educar-reports-package
   links:
     - postgres
     - redis
@@ -60,9 +63,6 @@ services:
       DB_HOST: postgres
       PGPASSWORD: ieducar
     working_dir: /var/www/ieducar
-    volumes:
-      - ./:/var/www/ieducar
-      - ../i-educar-reports-package:/var/www/ieducar/packages/portabilis/i-educar-reports-package
     entrypoint: ["sh", "/usr/local/bin/entrypoint.sh"] 
 
   fpm:

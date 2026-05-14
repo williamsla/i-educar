@@ -17,7 +17,27 @@ clone_or_update_repo() {
   target_dir="$2"
   repo_ref="${3:-}"
 
-  rm -rf "$target_dir"
+  # rm -rf no próprio path falha com "Resource busy" quando target_dir é bind mount
+  # (ex.: ../i-educar-reports-package no docker-compose).
+  if ! rm -rf "$target_dir" 2>/dev/null; then
+    if [ ! -d "$target_dir" ]; then
+      echo "ERRO: não foi possível preparar '$target_dir'." >&2
+      exit 1
+    fi
+    # Já há pacote no mount: não apagar conteúdo do host; só alinhar ref opcional.
+    if [ -f "$target_dir/composer.json" ]; then
+      echo ">> '$target_dir' não removível (típico: bind mount); a reutilizar árvore existente."
+      if [ -n "$repo_ref" ] && [ -d "$target_dir/.git" ]; then
+        git -C "$target_dir" fetch origin 2>/dev/null || true
+        git -C "$target_dir" checkout "$repo_ref" 2>/dev/null || true
+      fi
+      return 0
+    fi
+    echo ">> '$target_dir' não removível; a limpar conteúdo para git clone."
+    find "$target_dir" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  fi
+
+  mkdir -p "$target_dir"
   git clone "$repo_url" "$target_dir"
 
   if [ -n "$repo_ref" ]; then
@@ -77,14 +97,19 @@ artisan_cmd_exists() {
   php artisan list --raw 2>/dev/null | awk '{print $1}' | grep -qx "$name"
 }
 
-# Passos README apos plug-and-play que nao exigem DB.
+# Passos README após plug-and-play. O install de relatórios usa BD; em build sem DB falha
+# (esperado). No arranque do FPM com Postgres, costuma correr; se falhar, migrate + comando manual.
 run_readme_artisan_after_composer() {
   apply_artisan_build_env
 
   if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ] && [ -d packages/portabilis/i-educar-reports-package ]; then
-    echo ">> README relatórios (build): community:reports:link e publish de assets"
+    echo ">> README relatórios: community:reports:link, community:reports:install, publish de assets"
     if artisan_cmd_exists community:reports:link; then
       php artisan community:reports:link --no-interaction || true
+    fi
+    if artisan_cmd_exists community:reports:install; then
+      php artisan community:reports:install --no-interaction || \
+        echo ">> AVISO: community:reports:install falhou (BD/migrate pendente?). Execute após migrate: php artisan community:reports:install" >&2
     fi
     php artisan vendor:publish --tag=reports-assets --ansi --force --no-interaction 2>/dev/null || true
   fi
