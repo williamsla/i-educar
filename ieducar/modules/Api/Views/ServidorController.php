@@ -84,11 +84,13 @@ class ServidorController extends ApiCoreController
 
         $params = [$instituicaoId];
 
+        $updatedAtExpr = 'greatest(p.data_rev::timestamp(0), f.data_rev::timestamp(0), s.updated_at, sa.data_cadastro)';
+
         $where = '';
 
         if ($modified) {
             $params[] = $modified;
-            $where = ' AND greatest(p.data_rev::timestamp(0), s.updated_at) >= $2';
+            $where = ' AND ' . $updatedAtExpr . ' >= $2';
         }
 
         $sql = "
@@ -99,7 +101,7 @@ class ServidorController extends ApiCoreController
                 s.ativo as ativo,
                 sa.ref_cod_escola as escola_id,
                 func.nm_funcao as nm_funcao,
-                greatest(p.data_rev::timestamp(0), s.updated_at) as updated_at
+                {$updatedAtExpr} as updated_at
             FROM pmieducar.servidor s
             LEFT JOIN pmieducar.servidor_alocacao sa ON sa.ref_cod_servidor = s.cod_servidor AND sa.ativo = 1
             LEFT JOIN pmieducar.servidor_funcao sf on sf.cod_servidor_funcao = sa.ref_cod_servidor_funcao 
