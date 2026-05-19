@@ -188,7 +188,8 @@ class RegraController extends ApiCoreController
                   ra.nota_maxima_geral,
                   ra.nota_maxima_exame_final AS nota_maxima_exame,
                   ra.regra_diferenciada_id,
-                  ra.updated_at
+                  ra.updated_at,
+                  ra.media
               FROM modules.regra_avaliacao ra
               WHERE true
                   AND ra.instituicao_id = $1 '. $where . '
@@ -204,7 +205,7 @@ class RegraController extends ApiCoreController
                 'tipo_nota', 'tipo_presenca', 'parecer_descritivo',
                 'tipo_recuperacao', 'media_recuperacao_paralela', 'nota_maxima_geral',
                 'nota_maxima_exame', 'updated_at', 'regra_diferenciada_id',
-                'tipo_calculo_recuperacao_paralela',
+                'tipo_calculo_recuperacao_paralela', 'media'
             ];
 
             $_regras = Portabilis_Array_Utils::filterSet($_regras, $attrs);
