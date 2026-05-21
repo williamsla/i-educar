@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\LegacyEnrollment;
 use App\Models\LegacyEvaluationRule;
 use App\Models\LegacyInstitution;
 use App\Models\LegacyRegistration;
@@ -32,10 +33,37 @@ class DiarioApiController extends ApiCoreController
         $this->removeHtmlTagsService = new RemoveHtmlTagsStringService;
     }
 
+    protected function getAnoLetivoFromRequest(): ?int
+    {
+        $ano = $this->getRequest()->ano ?? $this->getRequest()->ano_escolar;
+
+        return is_numeric($ano) ? (int) $ano : null;
+    }
+
+    protected function getSerieIdFromRequest(): ?int
+    {
+        $serieId = $this->getRequest()->serie_id ?? $this->getRequest()->ref_cod_serie;
+
+        if (!is_numeric($serieId) && $this->getRequest()->matricula_id) {
+            $registration = LegacyRegistration::query()->find($this->getRequest()->matricula_id);
+            $serieId = $registration?->ref_ref_cod_serie;
+        }
+
+        if (!is_numeric($serieId) && $this->getRequest()->turma_id) {
+            $schoolClass = LegacySchoolClass::query()->find($this->getRequest()->turma_id);
+
+            if ($schoolClass && !$schoolClass->multiseriada) {
+                $serieId = $schoolClass->ref_ref_cod_serie;
+            }
+        }
+
+        return is_numeric($serieId) ? (int) $serieId : null;
+    }
+
     protected function validatesCanChangeDiarioForAno()
     {
         $escola = App_Model_IedFinder::getEscola($this->getRequest()->escola_id);
-        $ano = LegacySchoolAcademicYear::query()->whereSchool($this->getRequest()->escola_id)->whereYearEq($this->getRequest()->ano)->first([
+        $ano = LegacySchoolAcademicYear::query()->whereSchool($this->getRequest()->escola_id)->whereYearEq($this->getAnoLetivoFromRequest())->first([
             'ativo',
             'andamento',
         ]);
@@ -44,12 +72,12 @@ class DiarioApiController extends ApiCoreController
             $ano['ativo'] == 1 && $ano['andamento'] == 2;
 
         if ($escola['bloquear_lancamento_diario_anos_letivos_encerrados'] == '1' && $anoLetivoEncerrado) {
-            $this->messenger->append("O ano letivo '{$this->getRequest()->ano}' está encerrado, esta escola está configurada para não permitir alterar o diário de anos letivos encerrados.");
+            $this->messenger->append("O ano letivo '{$this->getAnoLetivoFromRequest()}' está encerrado, esta escola está configurada para não permitir alterar o diário de anos letivos encerrados.");
 
             return false;
         }
 
-        $objBloqueioAnoLetivo = new clsPmieducarBloqueioAnoLetivo($this->getRequest()->instituicao_id, $this->getRequest()->ano);
+        $objBloqueioAnoLetivo = new clsPmieducarBloqueioAnoLetivo($this->getRequest()->instituicao_id, $this->getAnoLetivoFromRequest());
         $bloqueioAnoLetivo = $objBloqueioAnoLetivo->detalhe();
 
         if ($bloqueioAnoLetivo) {
@@ -311,13 +339,33 @@ class DiarioApiController extends ApiCoreController
         return $this->validatesPresenceOf(['instituicao_id',
             'escola_id',
             'curso_id',
-            'curso_id',
-            'serie_id',
             'turma_id',
-            'ano',
             'etapa']) &&
-        $this->validatesPresenceOfMatriculaIdOrComponenteCurricularId() &&
+        $this->validatesSerieIdForGetMatriculas() &&
+        $this->validatesAnoLetivoForGetMatriculas() &&
         $this->validatesCanChangeDiarioForAno();
+    }
+
+    protected function validatesSerieIdForGetMatriculas()
+    {
+        if (is_numeric($this->getSerieIdFromRequest())) {
+            return true;
+        }
+
+        $this->messenger->append("É necessário receber uma variavel 'serie_id'");
+
+        return false;
+    }
+
+    protected function validatesAnoLetivoForGetMatriculas()
+    {
+        if (is_numeric($this->getAnoLetivoFromRequest())) {
+            return true;
+        }
+
+        $this->messenger->append("É necessário receber uma variavel 'ano'");
+
+        return false;
     }
 
     protected function canPost()
@@ -325,7 +373,44 @@ class DiarioApiController extends ApiCoreController
         return $this->validatesPresenceOf('etapa') &&
         $this->validatesPresenceOf('matricula_id') &&
         $this->canChange() &&
-        $this->validatesPeriodoLancamentoFaltasNotas();
+        $this->validatesPeriodoLancamentoFaltasNotas() &&
+        $this->validatesMatriculaTransferidaCursouEtapa();
+    }
+
+    protected function validatesMatriculaTransferidaCursouEtapa()
+    {
+        $enrollment = $this->getEnrollmentDaMatriculaNaTurma();
+
+        if (!$enrollment || !$enrollment->transferido) {
+            return true;
+        }
+
+        if ($this->matriculaTransferidaCursouEtapa($enrollment, (int) $this->getRequest()->turma_id, $this->getRequest()->etapa)) {
+            return true;
+        }
+
+        $this->messenger->append(
+            'Não é permitido lançar notas ou faltas em etapas em que o aluno transferido não frequentou.',
+            'error'
+        );
+
+        return false;
+    }
+
+    protected function getEnrollmentDaMatriculaNaTurma(): ?LegacyEnrollment
+    {
+        $matriculaId = $this->getRequest()->matricula_id ?? $this->getCurrentMatriculaId();
+        $turmaId = $this->getRequest()->turma_id;
+
+        if (!$matriculaId || !$turmaId) {
+            return null;
+        }
+
+        return LegacyEnrollment::query()
+            ->where('ref_cod_matricula', $matriculaId)
+            ->where('ref_cod_turma', $turmaId)
+            ->orderByDesc('sequencial')
+            ->first();
     }
 
     protected function canPostNota()
@@ -368,23 +453,29 @@ class DiarioApiController extends ApiCoreController
         // $this->validatesInexistenceNotasInNextEtapas() &&
         
         return $this->canDelete() &&
+        $this->validatesPresenceOf('matricula_id') &&
         $this->validatesPresenceOf('componente_curricular_id') &&
         $this->validatesInexistenceOfNotaExame() &&
-        $this->validatesPeriodoLancamentoFaltasNotas();
+        $this->validatesPeriodoLancamentoFaltasNotas() &&
+        $this->validatesMatriculaTransferidaCursouEtapa();
     }
 
     protected function canDeleteFalta()
     {
         return $this->canDelete() &&
+        $this->validatesPresenceOf('matricula_id') &&
         $this->validatesInexistenceFaltasInNextEtapas() &&
-        $this->validatesPeriodoLancamentoFaltasNotas();
+        $this->validatesPeriodoLancamentoFaltasNotas() &&
+        $this->validatesMatriculaTransferidaCursouEtapa();
     }
 
     protected function canDeleteParecer()
     {
         return $this->canDelete() &&
+        $this->validatesPresenceOf('matricula_id') &&
         $this->validatesEtapaParecer() &&
-        $this->validatesPresenceOfComponenteCurricularIdIfParecerComponente();
+        $this->validatesPresenceOfComponenteCurricularIdIfParecerComponente() &&
+        $this->validatesMatriculaTransferidaCursouEtapa();
     }
 
     // responders
@@ -817,27 +908,17 @@ class DiarioApiController extends ApiCoreController
                         $query->when($this->getRequest()->matricula_id, function ($query) {
                             $query->where('ref_cod_matricula', $this->getRequest()->matricula_id);
                         });
-                        $query->where(function ($query) {
-                            $relocationDate = $this->getRelocationDate();
+                        /** @var \App\Models\Builders\LegacyEnrollmentBuilder $query */
+                        $query->whereValid();
 
-                            /** @var Builder $query */
-                            $query->where('ativo', 1);
-                            $query->when($relocationDate, function ($query) use ($relocationDate) {
-                                /** @var Builder $query */
-                                $query->orWhere(function ($query) use ($relocationDate) {
-                                    /** @var Builder $query */
-                                    $query->where('data_exclusao', '>', $relocationDate);
-                                    $query->where(function ($query) {
-                                        /** @var Builder $query */
-                                        $query->orWhere('transferido', true);
-                                        $query->orWhere('remanejado', true);
-                                        $query->orWhere('reclassificado', true);
-                                        $query->orWhere('abandono', true);
-                                        $query->orWhere('falecido', true);
-                                    });
-                                });
+                        $relocationDate = $this->getRelocationDate();
+
+                        if ($relocationDate) {
+                            $query->orWhere(function ($query) use ($relocationDate) {
+                                $query->where('matricula_turma.ativo', 0);
+                                $query->where('matricula_turma.data_exclusao', '>', $relocationDate);
                             });
-                        });
+                        }
                         $query->with([
                             'registration' => function ($query) {
                                 $query->with([
@@ -866,14 +947,24 @@ class DiarioApiController extends ApiCoreController
                             '
                         );
 
-                        $query->whereHas('registration', function ($query) {
-                            $query->where('ref_ref_cod_serie', $this->getRequest()->ref_cod_serie);
+                        $serieId = $this->getSerieIdFromRequest();
+                        $anoLetivo = $this->getAnoLetivoFromRequest();
+
+                        $query->whereHas('registration', function ($query) use ($serieId, $anoLetivo) {
+                            if (!$this->getRequest()->matricula_id) {
+                                if ($serieId) {
+                                    $query->where('ref_ref_cod_serie', $serieId);
+                                }
+
+                                if ($anoLetivo) {
+                                    $query->where('ano', $anoLetivo);
+                                }
+                            }
+
                             $query->whereHas('student', function ($query) {
                                 $query->where('ativo', 1);
                             });
                         });
-
-                        $query->where('ativo', 1);
                     },
                 ])
                 ->whereKey($this->getRequest()->turma_id)
@@ -893,7 +984,7 @@ class DiarioApiController extends ApiCoreController
             // de arredondamento para as duas tabelas e regras de recuperação.
 
             // no multisseriado deve-se escolher/obter a série filtrada na tela, pois a turma possui mais de uma regra de avaliação em cada série
-            $evaluationRule = $schoolClass->getEvaluationRule($this->getRequest()->ref_cod_serie);
+            $evaluationRule = $schoolClass->getEvaluationRule($this->getSerieIdFromRequest());
 
             $evaluationRule->load('roundingTable.roundingValues');
             $evaluationRule->load('conceptualRoundingTable.roundingValues');
@@ -931,8 +1022,13 @@ class DiarioApiController extends ApiCoreController
                 // seta id da matricula a ser usado pelo metodo serviceBoletim
                 $this->setCurrentMatriculaId($matriculaId);
 
-                if (!($enrollment->remanejado || $enrollment->transferido || $enrollment->abandono || $enrollment->reclassificado || $enrollment->falecido)) {
-                    $matricula['componentes_curriculares'] = $this->loadComponentesCurricularesForMatricula($matriculaId, $turmaId, $serieId);
+                if (!($enrollment->remanejado || $enrollment->abandono || $enrollment->reclassificado || $enrollment->falecido)) {
+                    $matricula['componentes_curriculares'] = $this->loadComponentesCurricularesForMatricula(
+                        $matriculaId,
+                        $turmaId,
+                        $serieId,
+                        $enrollment
+                    );
                 }
 
                 $matricula['bloquear_troca_de_situacao'] = $registration->isLockedToChangeStatus();
@@ -945,6 +1041,7 @@ class DiarioApiController extends ApiCoreController
                     $matricula['situacao_deslocamento'] = 'Remanejado';
                 } elseif ($enrollment->transferido) {
                     $matricula['situacao_deslocamento'] = 'Transferido';
+                    $matricula['etapas_permitidas'] = $this->getEtapasPermitidasMatriculaTransferida($enrollment, $turmaId);
                 } elseif ($enrollment->abandono) {
                     $matricula['situacao_deslocamento'] = 'Deixou de Frequentar';
                 } elseif ($enrollment->reclassificado) {
@@ -1165,12 +1262,107 @@ class DiarioApiController extends ApiCoreController
 
     // outros metodos auxiliares
 
-    protected function loadComponentesCurricularesForMatricula($matriculaId, $turmaId, $serieId)
+    /**
+     * Verifica se o aluno transferido esteve na turma por ao menos um dia da etapa.
+     */
+    protected function matriculaTransferidaCursouEtapa(LegacyEnrollment $enrollment, int $turmaId, $etapa): bool
     {
+        $etapasTurma = App_Model_IedFinder::getEtapasDaTurma($turmaId);
+
+        if (!is_numeric($etapa)) {
+            if (!in_array($etapa, ['Rc', 'An'], true)) {
+                return true;
+            }
+
+            foreach ($etapasTurma as $etapaTurma) {
+                if ($this->matriculaTransferidaCursouEtapaPorDatas(
+                    $enrollment->data_enturmacao,
+                    $enrollment->data_exclusao,
+                    $etapaTurma['data_inicio'] ?? null,
+                    $etapaTurma['data_fim'] ?? null
+                )) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        foreach ($etapasTurma as $etapaTurma) {
+            if ((int) $etapaTurma['sequencial'] !== (int) $etapa) {
+                continue;
+            }
+
+            return $this->matriculaTransferidaCursouEtapaPorDatas(
+                $enrollment->data_enturmacao,
+                $enrollment->data_exclusao,
+                $etapaTurma['data_inicio'] ?? null,
+                $etapaTurma['data_fim'] ?? null
+            );
+        }
+
+        return false;
+    }
+
+    /**
+     * Etapas numéricas em que o aluno transferido frequentou ao menos um dia letivo.
+     *
+     * @return int[]
+     */
+    protected function getEtapasPermitidasMatriculaTransferida(LegacyEnrollment $enrollment, int $turmaId): array
+    {
+        $etapasPermitidas = [];
+
+        foreach (App_Model_IedFinder::getEtapasDaTurma($turmaId) as $etapaTurma) {
+            if ($this->matriculaTransferidaCursouEtapaPorDatas(
+                $enrollment->data_enturmacao,
+                $enrollment->data_exclusao,
+                $etapaTurma['data_inicio'] ?? null,
+                $etapaTurma['data_fim'] ?? null
+            )) {
+                $etapasPermitidas[] = (int) $etapaTurma['sequencial'];
+            }
+        }
+
+        return $etapasPermitidas;
+    }
+
+    /**
+     * Há interseção entre o período de enturmação/saída e o intervalo da etapa.
+     * Ex.: saída ao fim da etapa 2 libera etapas 1 e 2 e bloqueia 3 e 4.
+     */
+    protected function matriculaTransferidaCursouEtapaPorDatas(
+        $dataEnturmacao,
+        $dataExclusao,
+        ?string $dataInicioEtapa,
+        ?string $dataFimEtapa
+    ): bool {
+        if (empty($dataInicioEtapa) || empty($dataFimEtapa) || empty($dataEnturmacao) || empty($dataExclusao)) {
+            return false;
+        }
+
+        $enturmacao = strtotime(date('Y-m-d', strtotime((string) $dataEnturmacao)));
+        $exclusao = strtotime(date('Y-m-d', strtotime((string) $dataExclusao)));
+        $inicioEtapa = strtotime(date('Y-m-d', strtotime($dataInicioEtapa)));
+        $fimEtapa = strtotime(date('Y-m-d', strtotime($dataFimEtapa)));
+
+        return $enturmacao <= $fimEtapa && $exclusao >= $inicioEtapa;
+    }
+
+    protected function loadComponentesCurricularesForMatricula(
+        $matriculaId,
+        $turmaId,
+        $serieId,
+        ?LegacyEnrollment $enrollment = null
+    ) {
         $componentesCurriculares = [];
 
         $componenteCurricularId = $this->getRequest()->componente_curricular_id;
         $etapa = $this->getRequest()->etapa;
+
+        if ($enrollment?->transferido && !$this->matriculaTransferidaCursouEtapa($enrollment, $turmaId, $etapa)) {
+            return $componentesCurriculares;
+        }
 
         $_componentesCurriculares = App_Model_IedFinder::getComponentesPorMatricula($matriculaId, null, null, $componenteCurricularId, $etapa, $turmaId);
 

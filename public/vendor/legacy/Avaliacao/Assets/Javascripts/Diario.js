@@ -30,6 +30,12 @@ $(function() {
     navegacaoTab(dataResponse.navegacao_tab);
 });
 
+function getSerieIdFromForm() {
+  var serieId = $j('#ref_cod_serie').val() || $j('#ref_ref_cod_serie').val();
+
+  return (serieId && serieId !== 'undefined') ? serieId : '';
+}
+
 //url builders
 var deleteResourceUrlBuilder = {
   buildUrl : function(urlBase, resourceName, additionalVars) {
@@ -40,7 +46,7 @@ var deleteResourceUrlBuilder = {
       instituicao_id : $j('#ref_cod_instituicao').val(),
       escola_id : $j('#ref_cod_escola').val(),
       curso_id : $j('#ref_cod_curso').val(),
-      serie_id : $j('#ref_ref_cod_serie').val(),
+      serie_id : getSerieIdFromForm(),
       turma_id : $j('#ref_cod_turma').val(),
       ano_escolar : $j('#ano').val(),
       etapa : $j('#etapa').val()
@@ -60,7 +66,7 @@ var postResourceUrlBuilder = {
       instituicao_id : $j('#ref_cod_instituicao').val(),
       escola_id : $j('#ref_cod_escola').val(),
       curso_id : $j('#ref_cod_curso').val(),
-      serie_id : $j('#ref_ref_cod_serie').val(),
+      serie_id : getSerieIdFromForm(),
       turma_id : $j('#ref_cod_turma').val(),
       ano_escolar : $j('#ano').val(),
       componente_curricular_id : $j('#ref_cod_componente_curricular').val(),
@@ -83,7 +89,7 @@ var getResourceUrlBuilder = {
       instituicao_id : $j('#ref_cod_instituicao').val(),
       escola_id : $j('#ref_cod_escola').val(),
       curso_id : $j('#ref_cod_curso').val(),
-      serie_id : $j('#ref_ref_cod_serie').val(),
+      serie_id : getSerieIdFromForm(),
       turma_id : $j('#ref_cod_turma').val(),
       ano_escolar : $j('#ano').val(),
       componente_curricular_id : $j('#ref_cod_componente_curricular').val(),
@@ -659,7 +665,7 @@ function deleteMedia($mediaFieldElement){
     instituicao_id : $j('#ref_cod_instituicao').val(),
     escola_id : $j('#ref_cod_escola').val(),
     curso_id : $j('#ref_cod_curso').val(),
-    serie_id : $j('#ref_ref_cod_serie').val(),
+    serie_id : getSerieIdFromForm(),
     turma_id : $j('#ref_cod_turma').val(),
     ano_escolar : $j('#ano').val(),
     componente_curricular_id : $mediaFieldElement.data('componente_curricular_id'),
@@ -748,7 +754,7 @@ function deleteNota($notaFieldElement) {
     instituicao_id : $j('#ref_cod_instituicao').val(),
     escola_id : $j('#ref_cod_escola').val(),
     curso_id : $j('#ref_cod_curso').val(),
-    serie_id : $j('#ref_ref_cod_serie').val(),
+    serie_id : getSerieIdFromForm(),
     turma_id : $j('#ref_cod_turma').val(),
     ano_escolar : $j('#ano').val(),
     componente_curricular_id : $notaFieldElement.data('componente_curricular_id'),
@@ -1126,6 +1132,9 @@ function handleSearch($resultTable, dataResponse) {
     $j('<td />').html(value.matricula_id).addClass('center').appendTo($linha);
 
     var descricaoAluno = `${value.aluno_id} - ${safeToUpperCase(value.nome)}`;
+    if (value.situacao_deslocamento) {
+      descricaoAluno += ` (${value.situacao_deslocamento})`;
+    }
     if(value.regra.id == regraDiferenciadaId){
       descricaoAluno = `* ${descricaoAluno}`;
     }
@@ -1138,12 +1147,20 @@ function handleSearch($resultTable, dataResponse) {
         updateComponenteCurricular($linha, value.matricula_id, value.componentes_curriculares[0], value.regra);
     }else{
       if(value.situacao_deslocamento){
+        var situacaoDeslocamento = value.situacao_deslocamento;
+        var etapaAtual = parseInt($j('#etapa').val(), 10);
+
+        if (value.etapas_permitidas && value.etapas_permitidas.length > 0 && !isNaN(etapaAtual)
+            && value.etapas_permitidas.indexOf(etapaAtual) === -1) {
+          situacaoDeslocamento = value.situacao_deslocamento + ' - sem frequência nesta etapa';
+        }
+
         var $situacaoTdDeslocamento = $j('<td />').addClass('situacao-matricula-cc')
                                   .attr('id', 'situacao-matricula-' + value.matricula_id)
                                   .data('matricula_id', value.matricula_id)
                                   .addClass('center')
                                   .addClass('matricula-situacao-deslocamento')
-                                  .html(value.situacao_deslocamento)
+                                  .html(situacaoDeslocamento)
                                   .appendTo($linha);
 
         var colCount = 0;
