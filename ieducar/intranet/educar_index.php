@@ -295,9 +295,9 @@ return new class
                                 </div>
                                 <div class="card-content">
                                     <ul>
-                                        <li><span class="item-bullet">•</span> Alunos por turma</li>
-                                        <li><span class="item-bullet">•</span> Quantitativo de matrículas</li>
-                                        <li><span class="item-bullet">•</span> Sistema presença</li>
+                                        <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Alunos por turma</li>
+                                        <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Quantitativo de matrículas</li>
+                                        <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Sistema presença</li>
                                     </ul>
                                 </div>
                             </div>
