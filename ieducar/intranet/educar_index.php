@@ -268,19 +268,40 @@ return new class
                             </div>
                         </div>
 
-                        <a href=\'../module/Avaliacao/diario\' style=\'text-decoration: none; color: inherit;\'><div class="card">
-                            <div class="card-header">
-                                <div class="card-icon-wrapper icon-movimentacao">
-                                    <div class="card-icon">🔄</div>
+                        <a href=\'../module/Avaliacao/diario\' style=\'text-decoration: none; color: inherit;\'>
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-icon-wrapper icon-movimentacao">
+                                        <div class="card-icon">🔄</div>
+                                    </div>
+                                    <h2>Movimentação</h2>
                                 </div>
-                                <h2>Movimentação</h2>
+                                <div class="card-content">
+                                    <ul>
+                                        <li><span class="item-bullet">•</span> Lançar notas recebidas de outra escola</li>
+                                    </ul>
+                                </div>
                             </div>
-                            <div class="card-content">
-                                <ul>
-                                    <li><span class="item-bullet">•</span> Lançar notas recebidas de outra escola</li>
-                                </ul>
+                        </a>
+
+                        <!-- NOVO CARD DE RELATÓRIOS -->
+                        <a href=\'../module/Reports/Index\' style=\'text-decoration: none; color: inherit;\'>
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-icon-wrapper icon-relatorios">
+                                        <div class="card-icon">📑</div>
+                                    </div>
+                                    <h2>Relatórios</h2>
+                                </div>
+                                <div class="card-content">
+                                    <ul>
+                                        <li><span class="item-bullet">•</span> Alunos por turma</li>
+                                        <li><span class="item-bullet">•</span> Quantitativo de matrículas</li>
+                                        <li><span class="item-bullet">•</span> Sistema presença</li>
+                                    </ul>
+                                </div>
                             </div>
-                        </div></a>
+                        </a>
                     </div>
 
                     <div class="quick-summary-section">
@@ -584,7 +605,7 @@ return new class
 
         $html .= '
                 </tbody>
-            </table>';
+             </table>';
 
         return $html;
     }
