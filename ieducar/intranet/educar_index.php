@@ -285,23 +285,21 @@ return new class
                         </a>
 
                         <!-- NOVO CARD DE RELATÓRIOS -->
-                        <a href=\'../module/Reports/Index\' style=\'text-decoration: none; color: inherit;\'>
-                            <div class="card">
-                                <div class="card-header">
-                                    <div class="card-icon-wrapper icon-relatorios">
-                                        <div class="card-icon">📑</div>
-                                    </div>
-                                    <h2>Relatórios</h2>
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon-wrapper icon-relatorios">
+                                    <div class="card-icon">📑</div>
                                 </div>
-                                <div class="card-content">
-                                    <ul>
-                                        <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Alunos por turma</li>
-                                        <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Quantitativo de matrículas</li>
-                                        <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Sistema presença</li>
-                                    </ul>
-                                </div>
+                                <h2>Relatórios</h2>
                             </div>
-                        </a>
+                            <div class="card-content">
+                                <ul>
+                                    <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Alunos por turma</a></li>
+                                    <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Quantitativo de matrículas</a></li>
+                                    <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Sistema presença</a></li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="quick-summary-section">
