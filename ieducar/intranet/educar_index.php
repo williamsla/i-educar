@@ -284,6 +284,22 @@ return new class
                             </div>
                         </a>
 
+                        <!-- NOVO CARD DE VERIFICAR ALUNOS DUPLICADOS -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon-wrapper icon-duplicados">
+                                    <div class="card-icon">👥</div>
+                                </div>
+                                <h2>Verificar alunos duplicados</h2>
+                            </div>
+                            <div class="card-content">
+                                <ul>
+                                    <li><a href="/intranet/educar_unifica_aluno.php" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Alunos duplicados</a></li>
+                                    <li><a href="/intranet/educar_unifica_pessoa.php" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Pessoas duplicadas</a></li>
+                                </ul>
+                            </div>
+                        </div>
+
                         <!-- NOVO CARD DE RELATÓRIOS -->
                         <div class="card">
                             <div class="card-header">
@@ -603,7 +619,7 @@ return new class
 
         $html .= '
                 </tbody>
-             </table>';
+             <td>';
 
         return $html;
     }
