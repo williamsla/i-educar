@@ -82,7 +82,8 @@
             "Database\\Factories\\": "database/factories/",
             "Database\\Custom\\": "database/custom/",
             "Database\\Seeders\\": "database/seeders/",
-            "iEducar\\": "src"
+            "iEducar\\": "src",
+            "iEducar\\Packages\\DespesaEscolar\\": "packages/despesas-escolar/src/"
         }
     },
     "autoload-dev": {
@@ -151,12 +152,11 @@
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
-    "repositories": [{
-        "name": "merenda",
-        "type": "path",
-        "url": "packages/merenda/merenda-escolar",
-        "options": {
-            "symlink": true
+    "repositories": [
+        
+        {
+            "type": "path",
+            "url": "packages/despesas-escolar"
         }
-    }]
+    ]
 }
