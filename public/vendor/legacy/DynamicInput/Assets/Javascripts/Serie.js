@@ -11,6 +11,10 @@
     var $ano = getElementFor('ano');
 
     var updateSeries = function(){
+      if ($serieField.is(':disabled')) {
+        return;
+      }
+
       const currentSerieId = $serieField.val();
       resetSelect($serieField);
 
