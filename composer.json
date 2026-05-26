@@ -153,14 +153,7 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "repositories": [
-        {
-            "name": "merenda",
-            "type": "path",
-            "url": "packages/merenda/merenda-escolar",
-            "options": {
-                "symlink": true
-            }
-        },
+        
         {
             "type": "path",
             "url": "packages/despesas-escolar"
