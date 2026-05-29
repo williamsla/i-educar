@@ -104,6 +104,13 @@ class ExportacaoXmlController extends Controller
                     continue; // Se não houver matrículas, pula para a próxima turma
                 }
 
+                $isProsic = false;
+                if ($turma->multiseriada == 1 
+                    && str_contains($turma->nm_turma, 'PROSIC') === true 
+                    && str_contains($turma->nm_turma, 'FASE') === true) {
+                    $isProsic = true;
+                }
+
                 $horarios = $this->getHorarios($turma->cod_turma);
                 if ($horarios->isEmpty()) {
                     $horarios = $this->getHorariosExterno($turma->cod_turma);
@@ -167,6 +174,9 @@ class ExportacaoXmlController extends Controller
                         if (in_array($aluno_curso_situacao, $alunos_ja_adicionados_na_escola)) {
                             $this->alerts[] = '     - Aluno ' . $matricula->nome . ' ' . $matricula->nome . ' duplicado.';
                             continue; // Pula alunos já adicionados na escola no mesmo curso e situação
+                        } else if (empty($matricula->data_nascimento)) { 
+                                $this->alerts[] = '     - Aluno ' . $matricula->nome . ' não possui data de nascimento cadastrada.';
+                                continue; // Pula alunos que não possuem data de nascimento cadastrada
                         } else {
                             $alunos_ja_adicionados_na_escola[] = $aluno_curso_situacao;
                         }
@@ -190,11 +200,7 @@ class ExportacaoXmlController extends Controller
                             $xmlAluno->addChild('edu:cpfAluno', $this->getCpfNumbers($matricula->cpf), $xml->getNamespaces()['edu']);
                         }
                         
-                        if (!empty($matricula->data_nascimento)) {
-                            $xmlAluno->addChild('edu:data_nascimento', $matricula->data_nascimento, $xml->getNamespaces()['edu']);
-                        } else {
-                            $this->alerts[] = '     - Aluno ' . $matricula->nome . ' não possui data de nascimento cadastrada.';
-                        }
+                        $xmlAluno->addChild('edu:data_nascimento', $matricula->data_nascimento, $xml->getNamespaces()['edu']);
 
                         $xmlAluno->addChild('edu:nome', $matricula->nome, $xml->getNamespaces()['edu']);
                         $xmlAluno->addChild('edu:pcd', $matricula->pcd > 0 ? '1' : '0', $xml->getNamespaces()['edu']);
@@ -239,6 +245,9 @@ class ExportacaoXmlController extends Controller
                 }
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 && count($series_adicionadas) > 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
+                if ($isProsic === true) {
+                    $xmlTurma->addChild('edu:prosic', 'true', $xml->getNamespaces()['edu']);
+                }
                 
             } // fim do bloco turma
 
@@ -282,7 +291,7 @@ class ExportacaoXmlController extends Controller
                 continue; // Diretor já foi adicionado anteriormente em campo específico
             }
 
-            if (!isset($serv->cpf)) {
+            if (!isset($serv->cpf) || empty($serv->cpf)) {
                 $this->alerts[] = '     - Servidor na função ' . $serv->nome . ' não possui CPF cadastrado.';
             } else {
                 $xmlProfissional = $xml->addChild('edu:profissional', null, $xml->getNamespaces()['edu']);
@@ -316,6 +325,8 @@ class ExportacaoXmlController extends Controller
     private function getCursoSigla($sigla_serie){
         if (str_contains($sigla_serie, "FUN")) {
             return 'FUN';
+        } elseif (str_contains($sigla_serie, 'FASE')) {
+            return 'PROSIC';
         } elseif (str_contains($sigla_serie, 'EJA')) {
             return 'EJA';
         } else {
