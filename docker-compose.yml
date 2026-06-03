@@ -25,7 +25,7 @@ x-php: &php
     CACHE_DRIVER: redis
     REDIS_HOST: redis
     DB_HOST: postgres
-    PGPASSWORD: ieducar
+    PGPASSWORD: ${DB_PASSWORD:-ieducar}
     # docker/php/install-extra-packages.sh (laravel-permission-entrypoint); ver .env.example
     RUN_EXTRA_PACKAGES_INSTALL: ${RUN_EXTRA_PACKAGES_INSTALL:-false}
     STALE_EXTRA_PACKAGES_LOCK_MINUTES: ${STALE_EXTRA_PACKAGES_LOCK_MINUTES:-45}
@@ -112,10 +112,10 @@ services:
     container_name: ieducar-postgres
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ieducar
-      POSTGRES_USER: ieducar
-      POSTGRES_PASSWORD: ieducar
-      PGUSER: ieducar
+      POSTGRES_DB: ${DB_DATABASE:-ieducar}
+      POSTGRES_USER: ${DB_USERNAME:-ieducar}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ieducar}
+      PGUSER: ${DB_USERNAME:-ieducar}
     volumes:
       - postgres:/var/lib/postgresql/data
       - ../backup:/backup

@@ -30,7 +30,7 @@ return new class extends clsCadastro
 
         $this->editar = false;
         if (isset($_GET['cod_agenda'])) {
-            $this->cod_agenda = $_GET['cod_agenda'];
+            $this->cod_agenda = (int) $_GET['cod_agenda'];
             $db = new clsBanco;
             $db->Consulta(consulta: "SELECT cod_agenda, ref_ref_cod_pessoa_exc, ref_ref_cod_pessoa_cad,  nm_agenda, publica, envia_alerta, data_cad, data_edicao, ref_ref_cod_pessoa_own FROM portal.agenda WHERE cod_agenda='{$this->cod_agenda}'");
             if ($db->ProximoRegistro()) {

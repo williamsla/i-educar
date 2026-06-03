@@ -42,7 +42,7 @@ class DiarioController extends ApiCoreController
     {
         $turmaId = $componentesTurma->value('cod_turma');
 
-        return Cache::remember('valid_component_' . $componenteCurricularId . '_schoolclass_' . $turmaId . '_grade_' . $registration->ref_ref_cod_serie, now()->addMinute(), function () use ($componenteCurricularId, $componentesTurma, $turmaId, $registration) {
+        return Cache::remember('valid_component_' . $componenteCurricularId . '_schoolclass_' . $turmaId . '_grade_' . $registration->ref_ref_cod_serie, now()->addMinutes(5), function () use ($componenteCurricularId, $componentesTurma, $turmaId, $registration) {
             $valid = $componentesTurma->when($registration->ref_ref_cod_serie, function (Collection $collection, int $serieId) {
                 return $collection->where('cod_serie', $serieId);
             })->contains($componenteCurricularId);
@@ -84,7 +84,7 @@ class DiarioController extends ApiCoreController
 
     protected function findMatricula($turmaId, $alunoId)
     {
-        return Cache::remember('matricula_id_' . $turmaId . '_' . $alunoId, now()->addMinute(), function () use ($turmaId, $alunoId) {
+        return Cache::remember('matricula_id_' . $turmaId . '_' . $alunoId, now()->addMinutes(5), function () use ($turmaId, $alunoId) {
             return LegacyRegistration::query()
                 ->active()
                 ->whereHas('enrollments', function ($q) use ($turmaId) {
@@ -383,21 +383,24 @@ class DiarioController extends ApiCoreController
 
     protected function getComponentesTurma(int $turmaId): Collection
     {
-        $disciplinaDispensada = LegacySchoolClass::query()->whereKey($turmaId)->value('ref_cod_disciplina_dispensada');
+        return Cache::remember('componentes_turma_id_' . $turmaId, now()->addMinutes(5), function () use ($turmaId) {
+            $disciplinaDispensada = LegacySchoolClass::query()
+                ->whereKey($turmaId)->value('ref_cod_disciplina_dispensada');
 
-        return Discipline::query()
-            ->where('cod_turma', $turmaId)
-            ->when($disciplinaDispensada, function ($q, $disciplinaDispensada) {
-                $q->where('id', '<>', $disciplinaDispensada);
-            })
-            ->with('knowledgeArea:id,agrupar_descritores')
-            ->orderBy('nome')
-            ->get([
-                'id',
-                'cod_turma',
-                'cod_serie',
-                'area_conhecimento_id',
-            ]);
+            return Discipline::query()
+                ->where('cod_turma', $turmaId)
+                ->when($disciplinaDispensada, function ($q, $disciplinaDispensada) {
+                    $q->where('id', '<>', $disciplinaDispensada);
+                })
+                ->with('knowledgeArea:id,agrupar_descritores')
+                ->orderBy('nome')
+                ->get([
+                    'id',
+                    'cod_turma',
+                    'cod_serie',
+                    'area_conhecimento_id',
+                ]);
+        });
     }
 
     protected function postFaltasPorComponente()
