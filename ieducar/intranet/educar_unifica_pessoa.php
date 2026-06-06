@@ -1,43 +1,42 @@
 <?php
-
+ 
 use App\Models\Individual;
 use App\Models\LogUnification;
 use App\Services\ValidationDataService;
 use iEducar\Modules\Unification\PersonLogUnification;
 use Illuminate\Support\Facades\DB;
-
+ 
 return new class extends clsCadastro
 {
     public $pessoas;
-
+ 
     public $pessoa_logada;
-
+ 
     public $tabela_pessoas = [];
-
+ 
     public $pessoa_duplicada;
-
+ 
     public $pagina_atual = 1;
     public $itens_por_pagina = 10;
-
+ 
     public function Formular()
     {
         $this->titulo = 'i-Educar - Unificação de pessoas';
         $this->processoAp = '9998878';
-
+ 
         $this->breadcrumb(currentPage: 'Unificação de pessoas', breadcrumbs: [
             url('intranet/educar_index.php') => 'Escola',
         ]);
     }
-
+ 
     public function Inicializar()
     {
         $retorno = 'Novo';
-
-        // Pegar página atual da URL
+ 
         if (isset($_GET['pagina'])) {
             $this->pagina_atual = (int) $_GET['pagina'];
         }
-
+ 
         $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(
             int_processo_ap: 9998878,
@@ -45,16 +44,14 @@ return new class extends clsCadastro
             int_soma_nivel_acesso: 7,
             str_pagina_redirecionar: 'index.php'
         );
-
+ 
         return $retorno;
     }
-
+ 
     public function Gerar()
     {
-        // Buscar possíveis duplicatas diretamente no PHP
         $duplicatas = $this->buscarPossiveisDuplicatas();
-        
-        // CSS para os cards acordeon
+ 
         echo "
         <style>
             .accordion-container {
@@ -67,6 +64,9 @@ return new class extends clsCadastro
                 border-radius: 8px;
                 overflow: hidden;
                 background-color: #fff;
+            }
+            .accordion-item.aviso-misto {
+                border-color: #ff9800;
             }
             .accordion-header {
                 background-color: #f5f5f5;
@@ -86,6 +86,7 @@ return new class extends clsCadastro
                 display: flex;
                 align-items: center;
                 gap: 10px;
+                flex-wrap: wrap;
             }
             .accordion-header .badge {
                 background-color: #4CAF50;
@@ -119,6 +120,7 @@ return new class extends clsCadastro
                 cursor: pointer;
                 margin-left: 15px;
                 font-size: 12px;
+                white-space: nowrap;
             }
             .btn-remover-grupo:hover {
                 background-color: #cc0000;
@@ -132,7 +134,7 @@ return new class extends clsCadastro
                 border: 1px solid #ddd;
                 padding: 10px;
                 text-align: left;
-                vertical-align: top;
+                vertical-align: middle;
             }
             .tabela-grupo th {
                 background-color: #4cae4f;
@@ -143,7 +145,7 @@ return new class extends clsCadastro
                 background-color: #f9f9f9;
             }
             .tabela-grupo tr:hover {
-                background-color: #f5f5f5;
+                background-color: #f0f7f0;
             }
             .btn-visualizar {
                 background-color: #2196F3;
@@ -190,6 +192,7 @@ return new class extends clsCadastro
             .radio-principal {
                 transform: scale(1.2);
                 margin: 0;
+                cursor: pointer;
             }
             .paginacao {
                 display: flex;
@@ -230,16 +233,131 @@ return new class extends clsCadastro
                 padding-bottom: 20px;
                 border-bottom: 1px solid #ddd;
             }
+            /* Badges de tipo de pessoa */
+            .badge-aluno {
+                background-color: #1976D2;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: bold;
+                display: inline-block;
+            }
+            .badge-responsavel {
+                background-color: #7B1FA2;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: bold;
+                display: inline-block;
+            }
+            .badge-outro {
+                background-color: #757575;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: bold;
+                display: inline-block;
+            }
+            /* Badge de aviso no header do grupo */
+            .badge-aviso-misto {
+                background-color: #FF6F00;
+                color: white;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+                display: inline-block;
+                animation: pulsar 1.5s infinite;
+            }
+            @keyframes pulsar {
+                0%   { opacity: 1; }
+                50%  { opacity: 0.65; }
+                100% { opacity: 1; }
+            }
+            /* Caixa de aviso dentro do conteúdo expandido */
+            .aviso-misto-box {
+                background-color: #FFF3E0;
+                border: 2px solid #FF9800;
+                border-radius: 6px;
+                padding: 12px 16px;
+                margin-bottom: 16px;
+                font-size: 13px;
+                color: #5D4037;
+                line-height: 1.6;
+            }
+            .aviso-misto-box strong {
+                color: #E65100;
+                font-size: 14px;
+            }
+            /* Aviso seguro */
+            .aviso-seguro-box {
+                background-color: #E8F5E9;
+                border: 1px solid #4CAF50;
+                border-radius: 6px;
+                padding: 10px 16px;
+                margin-bottom: 16px;
+                font-size: 13px;
+                color: #2E7D32;
+            }
+            /* Aviso: unifique alunos primeiro */
+            .aviso-aluno-primeiro-box {
+                background-color: #FFF8E1;
+                border: 2px solid #F57F17;
+                border-left: 6px solid #E65100;
+                border-radius: 6px;
+                padding: 16px;
+                margin-bottom: 16px;
+                font-size: 13px;
+                color: #4E342E;
+                display: flex;
+                gap: 14px;
+                align-items: flex-start;
+            }
+            .aviso-aluno-icone {
+                font-size: 32px;
+                line-height: 1;
+                flex-shrink: 0;
+            }
+            .aviso-aluno-texto {
+                line-height: 1.6;
+            }
+            .btn-ir-unifica-aluno {
+                display: inline-block;
+                margin-top: 10px;
+                background-color: #E65100;
+                color: white !important;
+                padding: 8px 18px;
+                border-radius: 5px;
+                text-decoration: none !important;
+                font-weight: bold;
+                font-size: 13px;
+                transition: background-color 0.2s;
+            }
+            .btn-ir-unifica-aluno:hover {
+                background-color: #BF360C;
+            }
+            /* Badge de aluno no header quando bloqueado */
+            .badge-aviso-aluno {
+                background-color: #E65100;
+                color: white;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+                display: inline-block;
+            }
         </style>
         ";
-        
-        // JavaScript para o acordeon e funcionalidades
+ 
         echo "
         <script>
         function toggleAccordion(grupoId) {
             var content = document.getElementById('accordion-content-' + grupoId);
             var icone = document.getElementById('icone-' + grupoId);
-            
+ 
             if (content.classList.contains('ativo')) {
                 content.classList.remove('ativo');
                 icone.classList.remove('rotacionado');
@@ -248,109 +366,133 @@ return new class extends clsCadastro
                 icone.classList.add('rotacionado');
             }
         }
-        
+ 
         function visualizarDadosPessoa(idpes, nomePessoa) {
             var url = '/intranet/atendidos_det.php?cod_pessoa=' + idpes;
             window.open(url, '_blank');
         }
-        
+ 
         function confirmaAnaliseDoGrupo(grupoId) {
             var checked = document.getElementById('check_confirma_grupo_' + grupoId).checked;
             var radioSelecionado = document.querySelector('input[name=\"principal_' + grupoId + '\"]:checked');
             var btnUnificar = document.getElementById('btn_unificar_grupo_' + grupoId);
-            
+            var checkEl = document.getElementById('check_confirma_grupo_' + grupoId);
+ 
+            // Se o checkbox está desabilitado, o grupo está bloqueado — nunca habilitar o botão
+            if (checkEl.disabled) {
+                btnUnificar.disabled = true;
+                return;
+            }
+ 
             if (radioSelecionado && checked) {
                 btnUnificar.disabled = false;
             } else {
                 btnUnificar.disabled = true;
             }
         }
-        
+ 
         function removerPessoaDoGrupo(grupoId, idpes) {
             var row = document.getElementById('row_' + grupoId + '_' + idpes);
             var totalPessoas = document.querySelectorAll('#' + grupoId + ' .linha_listagem_grupo').length;
-            
+ 
             if (totalPessoas <= 2) {
                 if (confirm('É necessário ao menos 2 pessoas para a unificação. Este grupo será removido. Deseja prosseguir?')) {
                     var grupo = document.getElementById(grupoId);
-                    grupo.remove();
+                    grupo.style.transition = 'opacity 0.4s';
+                    grupo.style.opacity = '0';
+                    setTimeout(function() { grupo.remove(); }, 400);
                 }
                 return;
             }
-            
+ 
             row.style.transition = 'opacity 0.4s';
             row.style.opacity = '0';
             setTimeout(function() {
                 row.remove();
                 var checkConfirm = document.getElementById('check_confirma_grupo_' + grupoId);
-                if (checkConfirm) {
-                    checkConfirm.checked = false;
-                }
+                if (checkConfirm) checkConfirm.checked = false;
                 var btnUnificar = document.getElementById('btn_unificar_grupo_' + grupoId);
-                if (btnUnificar) {
-                    btnUnificar.disabled = true;
-                }
+                if (btnUnificar) btnUnificar.disabled = true;
             }, 400);
         }
-        
+ 
         function removerGrupo(grupoId) {
             if (confirm('Deseja remover este grupo de unificação?')) {
                 var grupo = document.getElementById(grupoId);
                 grupo.style.transition = 'opacity 0.4s';
                 grupo.style.opacity = '0';
-                setTimeout(function() {
-                    grupo.remove();
-                }, 400);
+                setTimeout(function() { grupo.remove(); }, 400);
             }
         }
-        
+ 
         function unificarGrupo(grupoId) {
             var pessoaPrincipal = document.querySelector('input[name=\"principal_' + grupoId + '\"]:checked');
-            
+ 
             if (!pessoaPrincipal) {
                 alert('Selecione uma pessoa principal.');
                 return;
             }
-            
+ 
             var pessoaPrincipalValor = pessoaPrincipal.value;
             var pessoasIds = [];
-            
+            var temAluno = false;
+            var temResponsavel = false;
+ 
             document.querySelectorAll('#' + grupoId + ' .linha_listagem_grupo').forEach(function(row) {
                 var idpes = row.getAttribute('data-idpes');
-                if (idpes) pessoasIds.push(parseInt(idpes));
-            });
-            
-            if (confirm('Confirmar unificação dos ' + pessoasIds.length + ' pessoas deste grupo?\\n\\nPessoa principal: ' + pessoaPrincipalValor + '\\n\\nEsta ação não poderá ser desfeita!')) {
-                var dados = [];
-                dados.push({ idpes: parseInt(pessoaPrincipalValor), pessoa_principal: true });
-                
-                for (var i = 0; i < pessoasIds.length; i++) {
-                    if (pessoasIds[i] != pessoaPrincipalValor) {
-                        dados.push({ idpes: pessoasIds[i], pessoa_principal: false });
-                    }
+                var tipo  = row.getAttribute('data-tipo');
+                if (idpes) {
+                    pessoasIds.push(parseInt(idpes));
+                    if (tipo === 'aluno')       temAluno = true;
+                    if (tipo === 'responsavel') temResponsavel = true;
                 }
-                
+            });
+ 
+            var mensagemAviso = '';
+            if (temAluno && temResponsavel) {
+                mensagemAviso =
+                    '⚠️ ATENÇÃO! Este grupo contém ALUNOS e RESPONSÁVEIS.\\n' +
+                    'Unificar pode causar vínculos incorretos, históricos misturados\\n' +
+                    'e problemas no sistema de matrículas.\\n' +
+                    'Verifique cuidadosamente antes de prosseguir!\\n\\n';
+            }
+ 
+            var msgConfirmacao =
+                mensagemAviso +
+                'Confirmar unificação de ' + pessoasIds.length + ' pessoas deste grupo?\\n' +
+                'Pessoa principal: ID ' + pessoaPrincipalValor + '\\n\\n' +
+                'Esta ação não poderá ser desfeita!';
+ 
+            if (confirm(msgConfirmacao)) {
+                var dados = [{ idpes: parseInt(pessoaPrincipalValor), pessoa_principal: true }];
+ 
+                pessoasIds.forEach(function(id) {
+                    if (id != pessoaPrincipalValor) {
+                        dados.push({ idpes: id, pessoa_principal: false });
+                    }
+                });
+ 
                 var formData = document.createElement('form');
                 formData.method = 'post';
                 formData.action = 'educar_unifica_pessoa.php';
-                
+ 
                 var acao = document.createElement('input');
-                acao.type = 'hidden';
-                acao.name = 'tipoacao';
+                acao.type  = 'hidden';
+                acao.name  = 'tipoacao';
                 acao.value = 'Novo';
                 formData.appendChild(acao);
-                
+ 
                 var hiddenField = document.createElement('input');
-                hiddenField.type = 'hidden';
-                hiddenField.name = 'pessoas';
+                hiddenField.type  = 'hidden';
+                hiddenField.name  = 'pessoas';
                 hiddenField.value = JSON.stringify(dados);
                 formData.appendChild(hiddenField);
-                
+ 
                 document.body.appendChild(formData);
                 formData.submit();
             }
         }
-        
+ 
         function mudarPagina(pagina) {
             var url = new URL(window.location.href);
             url.searchParams.set('pagina', pagina);
@@ -358,51 +500,46 @@ return new class extends clsCadastro
         }
         </script>
         ";
-        
-        // ========== PARTE SUPERIOR: FORMULÁRIO ==========
+ 
+        // ========== FORMULÁRIO SUPERIOR ==========
         echo '<div class="formulario-superior">';
-        
         $this->acao_enviar = 'carregaDadosPessoas()';
         $this->campoTabelaInicio(nome: 'tabela_pessoas', arr_campos: ['Pessoa duplicada', 'Campo Pessoa duplicada'], arr_valores: $this->tabela_pessoas);
         $this->campoRotulo(nome: 'pessoa_label', campo: '', valor: 'Pessoa física a ser unificada <span class="campo_obrigatorio">*</span>');
         $this->campoTexto(nome: 'pessoa_duplicada', campo: 'Pessoa duplicada', valor: $this->pessoa_duplicada, tamanhovisivel: 50, tamanhomaximo: 255, expressao: true, duplo: false);
         $this->campoTabelaFim();
-        
         echo '</div>';
-        
-        // ========== PARTE INFERIOR: LISTAGEM DE DUPLICATAS ==========
+ 
+        // ========== LISTAGEM DE DUPLICATAS ==========
         if (!empty($duplicatas) && count($duplicatas) > 0) {
             echo '<div class="titulo-duplicatas">📋 Grupos de possíveis duplicatas encontrados</div>';
-            
-            $totalGrupos = count($duplicatas);
+ 
+            $totalGrupos  = count($duplicatas);
             $totalPaginas = ceil($totalGrupos / $this->itens_por_pagina);
-            
+ 
             if ($this->pagina_atual < 1) $this->pagina_atual = 1;
             if ($this->pagina_atual > $totalPaginas) $this->pagina_atual = $totalPaginas;
-            
-            $inicio = ($this->pagina_atual - 1) * $this->itens_por_pagina;
-            $gruposPagina = array_slice($duplicatas, $inicio, $this->itens_por_pagina);
-            
+ 
+            $inicio        = ($this->pagina_atual - 1) * $this->itens_por_pagina;
+            $gruposPagina  = array_slice($duplicatas, $inicio, $this->itens_por_pagina);
+ 
             echo '<div id="todos-grupos" class="accordion-container">';
-            
+ 
             foreach ($gruposPagina as $indice => $grupo) {
-                $indiceGlobal = $inicio + $indice;
-                $this->gerarCardGrupoAcordeon($grupo, $indiceGlobal);
+                $this->gerarCardGrupoAcordeon($grupo, $inicio + $indice);
             }
-            
+ 
             echo '</div>';
-            
+ 
             if ($totalPaginas > 1) {
                 echo '<div class="paginacao">';
-                
                 if ($this->pagina_atual > 1) {
                     echo '<a href="#" onclick="mudarPagina(1); return false;">« Primeira</a>';
                     echo '<a href="#" onclick="mudarPagina(' . ($this->pagina_atual - 1) . '); return false;">‹ Anterior</a>';
                 }
-                
+ 
                 $paginaInicio = max(1, $this->pagina_atual - 2);
-                $paginaFim = min($totalPaginas, $this->pagina_atual + 2);
-                
+                $paginaFim    = min($totalPaginas, $this->pagina_atual + 2);
                 for ($i = $paginaInicio; $i <= $paginaFim; $i++) {
                     if ($i == $this->pagina_atual) {
                         echo '<span class="pagina-ativa">' . $i . '</span>';
@@ -410,13 +547,13 @@ return new class extends clsCadastro
                         echo '<a href="#" onclick="mudarPagina(' . $i . '); return false;">' . $i . '</a>';
                     }
                 }
-                
+ 
                 if ($this->pagina_atual < $totalPaginas) {
                     echo '<a href="#" onclick="mudarPagina(' . ($this->pagina_atual + 1) . '); return false;">Próxima ›</a>';
                     echo '<a href="#" onclick="mudarPagina(' . $totalPaginas . '); return false;">Última »</a>';
                 }
-                
                 echo '</div>';
+ 
                 echo '<div style="text-align: center; margin: 10px 0 20px 0; color: #666;">';
                 echo 'Total de grupos: ' . $totalGrupos . ' | Página ' . $this->pagina_atual . ' de ' . $totalPaginas;
                 echo '</div>';
@@ -425,39 +562,123 @@ return new class extends clsCadastro
             echo "<div class='accordion-container'><p>✅ Nenhuma duplicata encontrada no sistema.</p></div>";
         }
  
-        $styles = ['/vendor/legacy/Cadastro/Assets/Stylesheets/UnificaPessoa.css'];
+        $styles  = ['/vendor/legacy/Cadastro/Assets/Stylesheets/UnificaPessoa.css'];
         $scripts = ['/vendor/legacy/Portabilis/Assets/Javascripts/ClientApi.js'];
         Portabilis_View_Helper_Application::loadStylesheet(viewInstance: $this, files: $styles);
         Portabilis_View_Helper_Application::loadJavascript(viewInstance: $this, files: $scripts);
     }
-    
+ 
     private function gerarCardGrupoAcordeon($grupo, $indice)
     {
-        $grupoId = 'grupo_' . $indice;
+        $grupoId       = 'grupo_' . $indice;
         $primeiraPessoa = $grupo[0];
-        $nomeGrupo = $primeiraPessoa['nome'];
-        $dataNasc = $primeiraPessoa['data_nascimento'];
-        $quantidade = count($grupo);
-        
+        $nomeGrupo     = $primeiraPessoa['nome'];
+        $dataNasc      = $primeiraPessoa['data_nascimento'];
+        $quantidade    = count($grupo);
+ 
+        // Detectar se o grupo tem tipos mistos (aluno + responsável)
+        $tipos = array_unique(array_column($grupo, 'tipo'));
+        $temAluno       = in_array('aluno', $tipos);
+        $temResponsavel = in_array('responsavel', $tipos);
+        $ehMisto        = $temAluno && $temResponsavel;
+ 
+        $classeItemMisto  = $ehMisto ? ' aviso-misto' : '';
+        if ($temMaisDeUmAluno) {
+            $classeItemMisto = ' aviso-misto'; // borda laranja também para grupo bloqueado
+        }
+ 
+        if ($temMaisDeUmAluno) {
+            $badgeAvisoHeader = '<span class="badge-aviso-aluno">⛔ Unifique os alunos primeiro</span>';
+        } elseif ($ehMisto) {
+            $badgeAvisoHeader = '<span class="badge-aviso-misto">⚠️ Tipos mistos</span>';
+        } else {
+            $badgeAvisoHeader = '';
+        }
+ 
         echo "
-        <div id='{$grupoId}' class='accordion-item'>
+        <div id='{$grupoId}' class='accordion-item{$classeItemMisto}'>
             <div class='accordion-header' onclick='toggleAccordion(\"{$grupoId}\")'>
                 <div class='titulo'>
                     <span class='icone' id='icone-{$grupoId}'>▶</span>
-                    <span>📋 Grupo " . ($indice + 1) . ": <strong>{$nomeGrupo}</strong> - Nascimento: {$dataNasc}</span>
+                    <span>📋 Grupo " . ($indice + 1) . ": <strong>{$nomeGrupo}</strong> — Nascimento: {$dataNasc}</span>
                     <span class='badge'>{$quantidade} pessoas</span>
+                    {$badgeAvisoHeader}
                 </div>
                 <div>
                     <button class='btn-remover-grupo' onclick='event.stopPropagation(); removerGrupo(\"{$grupoId}\")'>🗑️ Remover Grupo</button>
                 </div>
             </div>
             <div id='accordion-content-{$grupoId}' class='accordion-content'>
+        ";
+ 
+        // ---- Contar quantos são alunos no grupo ----
+        $qtdAlunos = count(array_filter($grupo, fn($p) => $p['tipo'] === 'aluno'));
+        $temMaisDeUmAluno = $qtdAlunos > 1;
+ 
+        // ---- Aviso dentro do conteúdo expandido ----
+        if ($temAluno && $temMaisDeUmAluno) {
+            // Grupo com 2+ alunos: bloquear e obrigar unificação de alunos primeiro
+            echo "
+                <div class='aviso-aluno-primeiro-box'>
+                    <div class='aviso-aluno-icone'>🎓</div>
+                    <div class='aviso-aluno-texto'>
+                        <strong>⛔ Unificação de pessoas bloqueada — unifique os ALUNOS primeiro!</strong><br><br>
+                        Este grupo possui <strong>{$qtdAlunos} pessoas com vínculo de Aluno</strong>.
+                        O sistema i-Educar exige que a unificação de alunos seja feita <strong>antes</strong>
+                        da unificação de pessoas físicas, pois:<br><br>
+                        &nbsp;• Ao unificar os alunos, o registro de pessoa física duplicada é removido automaticamente;<br>
+                        &nbsp;• Fazer a unificação de pessoas primeiro pode deixar vínculos de matrícula inconsistentes;<br>
+                        &nbsp;• Históricos escolares e turmas podem ser misturados incorretamente.<br><br>
+                        <a href='/intranet/educar_unifica_aluno.php' target='_blank' class='btn-ir-unifica-aluno'>
+                            🔗 Ir para Unificação de Alunos agora
+                        </a>
+                        <span style='display:block; margin-top:10px; font-size:12px; color:#7f4000;'>
+                            Após concluir a unificação de alunos, recarregue esta página — este grupo desaparecerá automaticamente.
+                        </span>
+                    </div>
+                </div>
+            ";
+        } elseif ($ehMisto) {
+            // Grupo misto (aluno + responsável) mas com apenas 1 aluno
+            echo "
+                <div class='aviso-misto-box'>
+                    <strong>⚠️ Atenção: este grupo contém ALUNOS e RESPONSÁVEIS!</strong><br>
+                    Unificar pessoas com vínculos diferentes pode causar:<br>
+                    &nbsp;• Vínculos incorretos entre alunos e responsáveis;<br>
+                    &nbsp;• Históricos escolares misturados;<br>
+                    &nbsp;• Problemas no sistema de matrículas.<br>
+                    <strong>Verifique cuidadosamente cada registro antes de prosseguir.</strong>
+                </div>
+            ";
+        } elseif ($temAluno) {
+            // Grupo só com alunos mas apenas 1: seguro
+            echo "
+                <div class='aviso-seguro-box'>
+                    ✅ Este grupo contém apenas ALUNOS. A unificação é considerada segura.
+                </div>
+            ";
+        } elseif ($temResponsavel) {
+            echo "
+                <div class='aviso-seguro-box'>
+                    ✅ Este grupo contém apenas RESPONSÁVEIS. A unificação é considerada segura.
+                </div>
+            ";
+        } else {
+            echo "
+                <div class='aviso-seguro-box'>
+                    ✅ Este grupo não possui vínculo específico de aluno ou responsável. A unificação é considerada segura.
+                </div>
+            ";
+        }
+ 
+        echo "
                 <table class='tabela-grupo'>
                     <thead>
                         <tr>
-                            <th>Principal</th>
+                            <th style='width:60px; text-align:center;'>Principal</th>
                             <th>Código</th>
                             <th>Nome</th>
+                            <th>Tipo</th>
                             <th>Data Nascimento</th>
                             <th>CPF</th>
                             <th>RG</th>
@@ -468,16 +689,32 @@ return new class extends clsCadastro
                     </thead>
                     <tbody>
         ";
-        
+ 
+        $primeiro = true;
         foreach ($grupo as $pessoa) {
             $nomeEscapado = addslashes($pessoa['nome']);
+            $tipo         = $pessoa['tipo'] ?? 'outro';
+            $checked      = $primeiro ? 'checked' : '';
+ 
+            switch ($tipo) {
+                case 'aluno':
+                    $tipoHtml = '<span class="badge-aluno">🎓 Aluno</span>';
+                    break;
+                case 'responsavel':
+                    $tipoHtml = '<span class="badge-responsavel">👤 Responsável</span>';
+                    break;
+                default:
+                    $tipoHtml = '<span class="badge-outro">📋 Outro</span>';
+            }
+ 
             echo "
-                <tr id='row_{$grupoId}_{$pessoa['idpes']}' class='linha_listagem_grupo' data-idpes='{$pessoa['idpes']}'>
-                    <td style='text-align: center;'>
-                        <input type='radio' class='radio-principal' name='principal_{$grupoId}' value='{$pessoa['idpes']}' onchange='confirmaAnaliseDoGrupo(\"{$grupoId}\")'>
+                <tr id='row_{$grupoId}_{$pessoa['idpes']}' class='linha_listagem_grupo' data-idpes='{$pessoa['idpes']}' data-tipo='{$tipo}'>
+                    <td style='text-align:center;'>
+                        <input type='radio' class='radio-principal' name='principal_{$grupoId}' value='{$pessoa['idpes']}' {$checked} onchange='confirmaAnaliseDoGrupo(\"{$grupoId}\")'>
                     </td>
                     <td><a target='_blank' href='/intranet/atendidos_det.php?cod_pessoa={$pessoa['idpes']}'>{$pessoa['idpes']}</a></td>
                     <td>{$pessoa['nome']}</td>
+                    <td>{$tipoHtml}</td>
                     <td>{$pessoa['data_nascimento']}</td>
                     <td>{$pessoa['cpf']}</td>
                     <td>{$pessoa['rg']}</td>
@@ -486,37 +723,57 @@ return new class extends clsCadastro
                     <td><a class='link_remove' onclick='removerPessoaDoGrupo(\"{$grupoId}\", {$pessoa['idpes']})'><b><u>EXCLUIR</u></b></a></td>
                 </tr>
             ";
+            $primeiro = false;
         }
-        
+ 
         echo "
                     </tbody>
                 </table>
                 <div class='confirmacao-grupo'>
-                    <input type='checkbox' id='check_confirma_grupo_{$grupoId}' onchange='confirmaAnaliseDoGrupo(\"{$grupoId}\")'>
-                    <label for='check_confirma_grupo_{$grupoId}'>
+                    <input type='checkbox' id='check_confirma_grupo_{$grupoId}' onchange='confirmaAnaliseDoGrupo(\"{$grupoId}\")' " . ($temMaisDeUmAluno ? "disabled title='Realize a unificação de alunos primeiro'" : "") . ">
+                    <label for='check_confirma_grupo_{$grupoId}' style='" . ($temMaisDeUmAluno ? "color:#999; cursor:not-allowed;" : "") . "'>
                         ✅ Confirmo a análise de que são a mesma pessoa, levando em conta a possibilidade de gêmeos cadastrados.
                     </label>
-                    <br>
-                    <button id='btn_unificar_grupo_{$grupoId}' class='btn-unificar-grupo' onclick='unificarGrupo(\"{$grupoId}\")' disabled>
-                        🔄 Unificar este grupo ({$quantidade} pessoas)
+                    <br><br>
+                    <button id='btn_unificar_grupo_{$grupoId}' class='btn-unificar-grupo' onclick='unificarGrupo(\"{$grupoId}\")' disabled " . ($temMaisDeUmAluno ? "title='Bloqueado: unifique os alunos primeiro em Unificação de Alunos'" : "") . ">
+                        " . ($temMaisDeUmAluno ? "⛔ Bloqueado — unifique os alunos primeiro" : "🔄 Unificar este grupo ({$quantidade} pessoas)") . "
                     </button>
+                    " . ($temMaisDeUmAluno ? "<br><small style='color:#E65100; margin-top:6px; display:inline-block;'>👆 Use o botão acima para ir à página de Unificação de Alunos.</small>" : "") . "
                 </div>
             </div>
         </div>
         ";
     }
-    
+ 
     private function buscarPossiveisDuplicatas()
     {
-        $db = new clsBanco();
+        $db  = new clsBanco();
         $sql = "
-            SELECT 
+            SELECT
                 f.idpes,
                 p.nome,
                 COALESCE(to_char(f.data_nasc, 'dd/mm/yyyy'), '') AS data_nascimento,
                 COALESCE(f.cpf::varchar, 'Não consta') AS cpf,
                 COALESCE(d.rg, 'Não consta') AS rg,
-                COALESCE(f.nome_mae, 'Não consta') AS nome_mae
+                COALESCE(f.nome_mae, 'Não consta') AS nome_mae,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM pmieducar.aluno
+                        WHERE ref_idpes = f.idpes AND ativo = 1
+                    ) AND EXISTS (
+                        SELECT 1 FROM pmieducar.servidor
+                        WHERE cod_servidor = f.idpes AND ativo = 1
+                    ) THEN 'aluno_responsavel'
+                    WHEN EXISTS (
+                        SELECT 1 FROM pmieducar.aluno
+                        WHERE ref_idpes = f.idpes AND ativo = 1
+                    ) THEN 'aluno'
+                    WHEN EXISTS (
+                        SELECT 1 FROM pmieducar.servidor
+                        WHERE cod_servidor = f.idpes AND ativo = 1
+                    ) THEN 'responsavel'
+                    ELSE 'outro'
+                END AS tipo
             FROM cadastro.fisica f
             JOIN cadastro.pessoa p ON p.idpes = f.idpes
             LEFT JOIN cadastro.documento d ON d.idpes = f.idpes
@@ -539,98 +796,97 @@ return new class extends clsCadastro
             )
             ORDER BY p.nome, f.data_nasc, f.idpes
         ";
-        
+ 
         $db->Consulta($sql);
-        
+ 
         $pessoas = [];
         while ($db->ProximoRegistro()) {
-            $row = $db->Tupla();
+            $row      = $db->Tupla();
             $pessoas[] = [
                 'idpes'           => (int) $row['idpes'],
                 'nome'            => $row['nome'],
                 'data_nascimento' => $row['data_nascimento'],
                 'cpf'             => $row['cpf'],
                 'rg'              => $row['rg'],
-                'nome_mae'        => $row['nome_mae']
+                'nome_mae'        => $row['nome_mae'],
+                'tipo'            => $row['tipo'],
             ];
         }
-        
+ 
         if (empty($pessoas)) {
             return [];
         }
-        
+ 
         $grupos = [];
         foreach ($pessoas as $pessoa) {
             $chave = $pessoa['nome'] . '|' . $pessoa['data_nascimento'];
-            if (!isset($grupos[$chave])) {
-                $grupos[$chave] = [];
-            }
             $grupos[$chave][] = $pessoa;
         }
-        
-        $grupos = array_filter($grupos, function($grupo) {
-            return count($grupo) > 1;
-        });
-        
+ 
+        $grupos = array_filter($grupos, fn($g) => count($g) > 1);
+ 
         return array_values($grupos);
     }
-
+ 
     private function validaDadosDaUnificacao($pessoa)
     {
         foreach ($pessoa as $item) {
             if (!array_key_exists(key: 'idpes', array: $item)) {
                 return false;
             }
-
             if (!array_key_exists(key: 'pessoa_principal', array: $item)) {
                 return false;
             }
         }
-
+ 
         return true;
     }
-
+ 
     private function buscaIdesDasPessoasParaUnificar($pessoas)
     {
-        return array_map(callback: static fn ($item) => (int) $item['idpes'],
-            array: array_filter(array: $pessoas, callback: static fn ($pessoas) => $pessoas['pessoa_principal'] === false)
+        return array_map(
+            callback: static fn ($item) => (int) $item['idpes'],
+            array: array_filter(
+                array: $pessoas,
+                callback: static fn ($p) => $p['pessoa_principal'] === false
+            )
         );
     }
-
+ 
     private function buscaPessoaPrincipal($pessoas)
     {
-        $pessoas = array_values(array_filter(array: $pessoas,
-            callback: static fn ($pessoas) => $pessoas['pessoa_principal'] === true)
-        );
-
+        $pessoas = array_values(array_filter(
+            array: $pessoas,
+            callback: static fn ($p) => $p['pessoa_principal'] === true
+        ));
+ 
         return current($pessoas)['idpes'];
     }
-
+ 
     private function createLog($mainId, $duplicatesId, $createdBy)
     {
-        $log = new LogUnification;
-        $log->type = PersonLogUnification::getType();
-        $log->main_id = $mainId;
-        $log->duplicates_id = json_encode(array_values($duplicatesId));
-        $log->created_by = $createdBy;
-        $log->updated_by = $createdBy;
+        $log               = new LogUnification;
+        $log->type         = PersonLogUnification::getType();
+        $log->main_id      = $mainId;
+        $log->duplicates_id   = json_encode(array_values($duplicatesId));
+        $log->created_by   = $createdBy;
+        $log->updated_by   = $createdBy;
         $log->duplicates_name = json_encode($this->getNamesOfUnifiedPeople($duplicatesId));
         $log->save();
-
+ 
         return $log->id;
     }
-
+ 
     private function getNamesOfUnifiedPeople($duplicatesId)
     {
         $names = [];
-
         foreach ($duplicatesId as $personId) {
             $names[] = Individual::findOrFail($personId)->real_name;
         }
-
+ 
         return $names;
     }
-
+ 
     public function makeExtra()
     {
         return '';

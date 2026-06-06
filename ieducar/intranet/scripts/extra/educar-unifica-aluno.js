@@ -96,32 +96,32 @@ function montaTabelaDadosAluno(response) {
     $j('tr#lista_dados_alunos_unificados').remove().animate({});
     $j('tr#unifica_aluno_titulo').remove().animate({});
 
-    $j('<tr id="lista_dados_alunos_unificados"><tr>').insertAfter($j('.tableDetalheLinhaSeparador').first().closest('tr')).hide().show('slow');
+    $j('<tr id="lista_dados_alunos_unificados"></td>').insertAfter($j('.tableDetalheLinhaSeparador').first().closest('tr')).hide().show('slow');
     $j(`
     <tr id="unifica_aluno_titulo">
       <td colspan="2">
         <h2 class="unifica_pessoa_h2">
           Selecione o(a) aluno(a) que tenha os dados relevantes mais completos.
         </h2>
-      </td>
-    </tr>
+       </td>
+     </tr>
   `).insertAfter($j('.tableDetalheLinhaSeparador').first().closest('tr')).hide().show('slow');
 
     let html = `
     <td colspan="2">
     <table id="tabela_alunos_unificados">
       <tr class="tr_title">
-        <td>Principal</th>
-        <td>Código</th>
-        <td>INEP</th>
-        <td>Nome</th>
-        <td>Data de Nascimento</th>
-        <td>CPF</th>
-        <td>RG</th>
-        <td>Nome da Mãe</th>
-        <td>Dados escolares</th>
-        <td>Ação</th>
-      </tr>
+         <th>Principal</th>
+         <th>Código</th>
+         <th>INEP</th>
+         <th>Nome</th>
+         <th>Data de Nascimento</th>
+         <th>CPF</th>
+         <th>RG</th>
+         <th>Nome da Mãe</th>
+         <th>Dados escolares</th>
+         <th>Ação</th>
+       </tr>
   `;
 
     response.alunos.each(function(aluno, id) {
@@ -351,11 +351,11 @@ function htmlTabelaMatriculas(matriculas) {
     let html = '<h4>Matrículas</h4>';
     html += '<table class="tabela-modal-dados-aluno">';
     html += '<tr class="tabela-modal-dados-aluno-titulo">';
-    html += '<td>Ano</th>';
-    html += '<td>Escola</th>';
-    html += '<td>Curso</th>';
-    html += '<td>Série</th>';
-    html += '<td>Turma</th>';
+    html += '<th>Ano</th>';
+    html += '<th>Escola</th>';
+    html += '<th>Curso</th>';
+    html += '<th>Série</th>';
+    html += '<th>Turma</th>';
     html += '</tr>';
 
     matriculas.each(function(matricula, id) {
@@ -377,11 +377,11 @@ function htmlTabelaHistoricos(historicos) {
     let html = '<h4>Históricos escolares</h4>';
     html += '<table class="tabela-modal-dados-aluno">';
     html += '<tr class="tabela-modal-dados-aluno-titulo">';
-    html += '<td>Ano</th>';
-    html += '<td>Escola</th>';
-    html += '<td>Curso</th>';
-    html += '<td>Serie</th>';
-    html += '<td>Situação</th>';
+    html += '<th>Ano</th>';
+    html += '<th>Escola</th>';
+    html += '<th>Curso</th>';
+    html += '<th>Serie</th>';
+    html += '<th>Situação</th>';
     html += '</tr>';
 
     historicos.each(function(historico, id) {
@@ -640,6 +640,89 @@ function mostrarLoading(mensagem) {
 function esconderLoading() {
     $j('#loading-overlay').remove();
 }
+
+// ============================================
+// FUNÇÕES PARA ACORDEON DOS GRUPOS
+// ============================================
+
+// Função para alternar o accordion
+window.toggleAccordion = function(grupoId) {
+    console.log('toggleAccordion chamado para:', grupoId);
+    var content = document.getElementById('accordion-content-' + grupoId);
+    var icone = document.getElementById('icone-' + grupoId);
+    
+    if (!content) {
+        console.log('Elemento não encontrado:', 'accordion-content-' + grupoId);
+        return;
+    }
+    
+    if (content.style.display === 'block') {
+        content.style.display = 'none';
+        if (icone) icone.classList.remove('rotacionado');
+        console.log('fechando grupo');
+    } else {
+        content.style.display = 'block';
+        if (icone) icone.classList.add('rotacionado');
+        console.log('abrindo grupo');
+    }
+};
+
+// Função para visualizar dados do aluno (usada nos cards)
+window.visualizarDadosAluno = function(codAluno, nomeAluno) {
+    var url = '/module/Api/Aluno?oper=get&resource=dadosMatriculasHistoricosAlunos&aluno_id=' + codAluno;
+    
+    fetch(url)
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            var html = '<h3>Dados do aluno: ' + nomeAluno + '</h3>';
+            
+            if (data.matriculas && data.matriculas.length > 0) {
+                html += '<h4>Matrículas</h4><table class="tabela-grupo"><thead><tr><th>Ano</th><th>Escola</th><th>Curso</th><th>Série</th><th>Turma</th></tr></thead><tbody>';
+                data.matriculas.forEach(function(m) {
+                    html += '<tr><td>' + (m.ano || '') + '</td><td>' + (m.escola || '') + '</td><td>' + (m.curso || '') + '</td><td>' + (m.serie || '') + '</td><td>' + (m.turma || '') + '</td></tr>';
+                });
+                html += '</tbody><table>';
+            }
+            
+            if (data.historicos && data.historicos.length > 0) {
+                html += '<h4>Históricos</h4><table class="tabela-grupo"><thead><tr><th>Ano</th><th>Escola</th><th>Curso</th><th>Série</th><th>Situação</th></tr></thead><tbody>';
+                data.historicos.forEach(function(h) {
+                    html += '<tr><td>' + (h.ano || '') + '</td><td>' + (h.escola || '') + '</td><td>' + (h.curso || '') + '</td><td>' + (h.serie || '') + '</td><td>' + (h.situacao || '') + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+            
+            if (html === '<h3>Dados do aluno: ' + nomeAluno + '</h3>') {
+                html += '<p>Nenhum dado encontrado.</p>';
+            }
+            
+            makeDialog({
+                content: html,
+                title: 'Dados Escolares - ' + nomeAluno,
+                width: '800px',
+                buttons: [{
+                    text: 'Fechar', 
+                    click: function() { 
+                        if (typeof $j !== 'undefined' && $j('#dialog-container').length) {
+                            $j('#dialog-container').dialog('close');
+                            $j('#dialog-container').dialog('destroy');
+                            $j('#dialog-container').remove();
+                        }
+                        var dialogs = document.querySelectorAll('.ui-dialog');
+                        for (var i = 0; i < dialogs.length; i++) {
+                            dialogs[i].remove();
+                        }
+                    }
+                }]
+            });
+        })
+        .catch(function(error) {
+            console.error('Erro:', error);
+            alert('Erro ao carregar dados do aluno');
+        });
+};
+
+console.log('Funções do acordeon carregadas com sucesso!');
 
 // ============================================
 // CARREGAMENTO AUTOMÁTICO AO INICIAR
