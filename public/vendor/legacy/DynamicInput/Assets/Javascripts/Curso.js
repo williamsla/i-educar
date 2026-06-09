@@ -66,7 +66,8 @@
       updateCursos();
     });
 
-    // Carrega os cursos automaticamente ao carregar a página (quando instituição/escola já estiverem preenchidos)
-    updateCursos();
+    if ($cursoField.is(':enabled')) {
+      updateCursos();
+    }
   });
 })(jQuery);

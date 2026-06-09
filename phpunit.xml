@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.1/phpunit.xsd" backupGlobals="true" bootstrap="vendor/autoload.php" colors="true">
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.1/phpunit.xsd"
+         backupGlobals="true"
+         bootstrap="vendor/autoload.php"
+         colors="true">
+
   <testsuites>
     <testsuite name="Diario">
       <directory suffix="Test.php">./tests/Api</directory>
@@ -18,22 +23,9 @@
       <directory suffix="Test.php">./tests/Unit</directory>
     </testsuite>
   </testsuites>
-  <coverage/>
-  <php>
-    <ini name="memory_limit" value="512M"/>
-    <server name="APP_ENV" value="testing"/>
-    <server name="BCRYPT_ROUNDS" value="4"/>
-    <server name="CACHE_STORE" value="array"/>
-    <server name="MAIL_MAILER" value="array"/>
-    <server name="QUEUE_CONNECTION" value="sync"/>
-    <server name="SESSION_DRIVER" value="array"/>
-    <server name="TELESCOPE_ENABLED" value="false"/>
-    <server name="APP_DEFAULT_HOST" value="localhost"/>
-    <server name="LEGACY_SEED_DATA" value="false"/>
-    <server name="API_ACCESS_KEY" value="ieducar-access-key"/>
-    <server name="API_SECRET_KEY" value="ieducar-secret-key"/>
-  </php>
-  <source>
+
+  <!-- 🔍 Cobertura explícita -->
+  <coverage processUncoveredFiles="true">
     <include>
       <directory suffix=".php">./app</directory>
       <directory suffix=".php">./ieducar</directory>
@@ -42,6 +34,7 @@
     <exclude>
       <directory>./packages</directory>
       <directory>./public</directory>
+      <directory>./tests</directory>
       <directory suffix="_xml.php">./ieducar</directory>
       <directory suffix="_xml2.php">./ieducar</directory>
       <file>ieducar/intranet/educar_busca_ativa_cad.php</file>
@@ -65,5 +58,20 @@
       <file>ieducar/modules/Educacenso/Views/IesAjaxController.php</file>
       <file>ieducar/modules/TabelaArredondamento/Views/TabelaTipoNotaAjax.php</file>
     </exclude>
-  </source>
+  </coverage>
+
+  <php>
+    <ini name="memory_limit" value="512M"/>
+    <server name="APP_ENV" value="testing"/>
+    <server name="BCRYPT_ROUNDS" value="4"/>
+    <server name="CACHE_STORE" value="array"/>
+    <server name="MAIL_MAILER" value="array"/>
+    <server name="QUEUE_CONNECTION" value="sync"/>
+    <server name="SESSION_DRIVER" value="array"/>
+    <server name="TELESCOPE_ENABLED" value="false"/>
+    <server name="APP_DEFAULT_HOST" value="localhost"/>
+    <server name="LEGACY_SEED_DATA" value="false"/>
+    <server name="API_ACCESS_KEY" value="ieducar-access-key"/>
+    <server name="API_SECRET_KEY" value="ieducar-secret-key"/>
+  </php>
 </phpunit>

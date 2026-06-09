@@ -132,6 +132,20 @@ return new class extends clsCadastro
 
     public function Novo()
     {
+        if (!$this->validaFormatoUrl(url: $this->url)) {
+            $this->mensagem = 'O campo Site deve conter uma URL válida (ex: https://www.exemplo.com.br).';
+            $this->busca_empresa = true;
+
+            return false;
+        }
+
+        if (!empty($this->email) && filter_var($this->email, FILTER_VALIDATE_EMAIL) === false) {
+            $this->mensagem = 'O campo E-mail deve conter um endereço de e-mail válido.';
+            $this->busca_empresa = true;
+
+            return false;
+        }
+
         if (!empty($this->cnpj) && validaCNPJ(cnpj: $this->cnpj) === false) {
             $this->mensagem = 'CNPJ inválido';
 
@@ -232,6 +246,21 @@ return new class extends clsCadastro
         return is_numeric(value: $telefone) && (strlen(string: $telefone) < 12);
     }
 
+    /**
+     * Valida se uma URL possui formato válido
+     *
+     * @param string $url A URL a validar
+     * @return bool True se válida, false caso contrário
+     */
+    private function validaFormatoUrl($url)
+    {
+        if (empty($url)) {
+            return true;
+        }
+
+        return filter_var(variable: $url, options: FILTER_VALIDATE_URL) !== false;
+    }
+
     protected function validaCaracteresPermitidosComplemento()
     {
         if (empty($this->complement)) {
@@ -244,6 +273,20 @@ return new class extends clsCadastro
 
     public function Editar()
     {
+        if (!$this->validaFormatoUrl(url: $this->url)) {
+            $this->mensagem = 'O campo Site deve conter uma URL válida (ex: https://www.exemplo.com.br).';
+            $this->busca_empresa = true;
+
+            return false;
+        }
+
+        if (!empty($this->email) && filter_var($this->email, FILTER_VALIDATE_EMAIL) === false) {
+            $this->mensagem = 'O campo E-mail deve conter um endereço de e-mail válido.';
+            $this->busca_empresa = true;
+
+            return false;
+        }
+
         if (!empty($this->cnpj) && validaCNPJ(cnpj: $this->cnpj) === false) {
             $this->mensagem = 'CNPJ inválido';
 

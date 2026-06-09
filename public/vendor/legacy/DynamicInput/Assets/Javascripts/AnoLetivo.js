@@ -41,6 +41,10 @@
     }
 
     var updateAnoEscolares = function(){
+      if ($anoLetivoField.is(':disabled')) {
+        return;
+      }
+
       resetSelect($anoLetivoField);
 
       if ($serieField.length) {
