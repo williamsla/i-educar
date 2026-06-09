@@ -2163,6 +2163,69 @@ class AlunoController extends ApiCoreController
         ];
     }
 
+    /**
+ * Busca possíveis duplicatas de alunos automaticamente
+ * 
+ * @return array
+ */
+protected function possiveisDuplicatas()
+{
+    // Buscar alunos com possíveis duplicatas (mesmo nome e data de nascimento)
+    $sql = "
+        SELECT 
+            a.cod_aluno AS codigo,
+            p.nome AS nome,
+            COALESCE(eca.cod_aluno_inep::varchar, 'Não consta') AS inep,
+            COALESCE(to_char(f.data_nasc, 'dd/mm/yyyy'), 'Não consta') AS data_nascimento,
+            COALESCE(f.cpf::varchar, 'Não consta') AS cpf,
+            COALESCE(d.rg, 'Não consta') AS rg,
+            COALESCE(relatorio.get_mae_aluno(a.cod_aluno), 'Não consta') AS mae_aluno
+        FROM pmieducar.aluno a
+        JOIN cadastro.pessoa p ON p.idpes = a.ref_idpes
+        JOIN cadastro.fisica f ON f.idpes = a.ref_idpes
+        LEFT JOIN cadastro.documento d ON d.idpes = a.ref_idpes
+        LEFT JOIN modules.educacenso_cod_aluno eca ON eca.cod_aluno = a.cod_aluno
+        WHERE a.ativo = 1
+        AND (p.nome, f.data_nasc) IN (
+            SELECT p2.nome, f2.data_nasc
+            FROM pmieducar.aluno a2
+            JOIN cadastro.pessoa p2 ON p2.idpes = a2.ref_idpes
+            JOIN cadastro.fisica f2 ON f2.idpes = a2.ref_idpes
+            WHERE a2.ativo = 1
+            GROUP BY p2.nome, f2.data_nasc
+            HAVING COUNT(*) > 1
+        )
+        ORDER BY p.nome, f.data_nasc, a.cod_aluno
+    ";
+    
+    $alunos = $this->fetchPreparedQuery($sql, [], false);
+    
+    if (empty($alunos)) {
+        return ['duplicatas' => []];
+    }
+    
+    // Converter os dados para UTF-8 se necessário
+    foreach ($alunos as &$aluno) {
+        $aluno['nome'] = $this->toUtf8($aluno['nome'], ['transform' => true]);
+        $aluno['mae_aluno'] = $this->toUtf8($aluno['mae_aluno'], ['transform' => true]);
+    }
+    
+    // Agrupar os alunos por nome + data de nascimento
+    $grupos = [];
+    foreach ($alunos as $aluno) {
+        $chave = $aluno['nome'] . '|' . $aluno['data_nascimento'];
+        if (!isset($grupos[$chave])) {
+            $grupos[$chave] = [];
+        }
+        $grupos[$chave][] = $aluno;
+    }
+    
+    // Reindexar os grupos
+    $grupos = array_values($grupos);
+    
+    return ['duplicatas' => $grupos];
+}
+
     protected function canGetUnificacoes()
     {
         return $this->validatesPresenceOf('escola');
@@ -2206,6 +2269,8 @@ class AlunoController extends ApiCoreController
             $this->appendResponse($this->deveHabilitarCampoRecursosProvaInep());
         } elseif ($this->isRequestFor('get', 'deve-obrigar-laudo-medico')) {
             $this->appendResponse($this->deveObrigarLaudoMedico());
+        } elseif ($this->isRequestFor('get', 'possiveisDuplicatas')) {
+            $this->appendResponse($this->possiveisDuplicatas());
         } else {
             $this->notImplementedOperationError();
         }
@@ -2226,7 +2291,7 @@ class AlunoController extends ApiCoreController
             ->getKeyValueArray('transtorno_educacenso');
 
         $arrayEducacensoDeficiencies = [];
-        foreach ($deficiencies as $deficiency) {
+        foreach ($deficiencias as $deficiency) {
             $deficiencyObject = LegacyDeficiency::find($deficiency);
 
             if (!$deficiencyObject) {
@@ -2268,3 +2333,4 @@ class AlunoController extends ApiCoreController
         ];
     }
 }
+?>
