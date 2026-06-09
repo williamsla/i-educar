@@ -137,7 +137,7 @@ return new class extends clsCadastro
                 vertical-align: middle;
             }
             .tabela-grupo th {
-                background-color: #4cae4f;
+                background-color: darkgray;
                 color: white;
                 font-weight: bold;
             }
@@ -148,8 +148,7 @@ return new class extends clsCadastro
                 background-color: #f0f7f0;
             }
             .btn-visualizar {
-                background-color: #2196F3;
-                color: white;
+                color: black;
                 border: none;
                 padding: 4px 10px;
                 border-radius: 3px;
@@ -157,7 +156,7 @@ return new class extends clsCadastro
                 font-size: 12px;
             }
             .btn-visualizar:hover {
-                background-color: #0b7dda;
+                background-color: darkgray;
             }
             .link_remove {
                 color: #ff4444;
@@ -172,7 +171,7 @@ return new class extends clsCadastro
                 border-left: 4px solid #4CAF50;
             }
             .btn-unificar-grupo {
-                background-color: #4CAF50;
+                background-color: darkblue;
                 color: white;
                 padding: 10px 20px;
                 border: none;
@@ -183,7 +182,7 @@ return new class extends clsCadastro
                 font-weight: bold;
             }
             .btn-unificar-grupo:disabled {
-                background-color: #cccccc;
+                background-color: lightblue;
                 cursor: not-allowed;
             }
             .btn-unificar-grupo:hover:not(:disabled) {
@@ -604,9 +603,11 @@ return new class extends clsCadastro
                     <span class='badge'>{$quantidade} pessoas</span>
                     {$badgeAvisoHeader}
                 </div>
-                <div>
-                    <button class='btn-remover-grupo' onclick='event.stopPropagation(); removerGrupo(\"{$grupoId}\")'>🗑️ Remover Grupo</button>
-                </div>
+                <!--
+                    <div>
+                        <button class='btn-remover-grupo' onclick='event.stopPropagation(); removerGrupo(\"{$grupoId}\")'>🗑️ Remover Grupo</button>
+                    </div>
+                -->
             </div>
             <div id='accordion-content-{$grupoId}' class='accordion-content'>
         ";
@@ -630,7 +631,7 @@ return new class extends clsCadastro
                         &nbsp;• Fazer a unificação de pessoas primeiro pode deixar vínculos de matrícula inconsistentes;<br>
                         &nbsp;• Históricos escolares e turmas podem ser misturados incorretamente.<br><br>
                         <a href='/intranet/educar_unifica_aluno.php' target='_blank' class='btn-ir-unifica-aluno'>
-                            🔗 Ir para Unificação de Alunos agora
+                            🔗 IR PARA UNIFICAÇÃO DE ALUNOS AGORA
                         </a>
                         <span style='display:block; margin-top:10px; font-size:12px; color:#7f4000;'>
                             Após concluir a unificação de alunos, recarregue esta página — este grupo desaparecerá automaticamente.
@@ -732,13 +733,13 @@ return new class extends clsCadastro
                 <div class='confirmacao-grupo'>
                     <input type='checkbox' id='check_confirma_grupo_{$grupoId}' onchange='confirmaAnaliseDoGrupo(\"{$grupoId}\")' " . ($temMaisDeUmAluno ? "disabled title='Realize a unificação de alunos primeiro'" : "") . ">
                     <label for='check_confirma_grupo_{$grupoId}' style='" . ($temMaisDeUmAluno ? "color:#999; cursor:not-allowed;" : "") . "'>
-                        ✅ Confirmo a análise de que são a mesma pessoa, levando em conta a possibilidade de gêmeos cadastrados.
+                        Confirmo a análise de que os cadastros referem-se a mesma pessoa.
                     </label>
                     <br><br>
                     <button id='btn_unificar_grupo_{$grupoId}' class='btn-unificar-grupo' onclick='unificarGrupo(\"{$grupoId}\")' disabled " . ($temMaisDeUmAluno ? "title='Bloqueado: unifique os alunos primeiro em Unificação de Alunos'" : "") . ">
                         " . ($temMaisDeUmAluno ? "⛔ Bloqueado — unifique os alunos primeiro" : "🔄 Unificar este grupo ({$quantidade} pessoas)") . "
                     </button>
-                    " . ($temMaisDeUmAluno ? "<br><small style='color:#E65100; margin-top:6px; display:inline-block;'>👆 Use o botão acima para ir à página de Unificação de Alunos.</small>" : "") . "
+                    " . ($temMaisDeUmAluno ? "<br><small style='color:#E65100; margin-top:6px; display:inline-block;'>👆 Use o botão 'IR PARA UNIFICAÇÃO DE ALUNOS AGORA'.</small>" : "") . "
                 </div>
             </div>
         </div>

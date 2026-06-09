@@ -124,7 +124,7 @@ return new class extends clsCadastro
                 vertical-align: middle;
             }
             .tabela-grupo th {
-                background-color: #4cae4f;
+                background-color: darkgray;
                 color: white;
                 font-weight: bold;
             }
@@ -180,15 +180,14 @@ return new class extends clsCadastro
  
             /* Botões de ação */
             .btn-visualizar {
-                background-color: #2196F3;
-                color: white;
+                color: black;
                 border: none;
                 padding: 4px 10px;
                 border-radius: 3px;
                 cursor: pointer;
                 font-size: 12px;
             }
-            .btn-visualizar:hover { background-color: #0b7dda; }
+            .btn-visualizar:hover { background-color: darkgray; }
             .link_remove {
                 color: #ff4444;
                 cursor: pointer;
@@ -203,9 +202,10 @@ return new class extends clsCadastro
                 background-color: #f9f9f9;
                 border-radius: 5px;
                 border-left: 4px solid #4CAF50;
+                font-size: 14px;
             }
             .btn-unificar-grupo {
-                background-color: #4CAF50;
+                background-color: darkblue;
                 color: white;
                 padding: 10px 22px;
                 border: none;
@@ -218,8 +218,9 @@ return new class extends clsCadastro
             .btn-unificar-grupo:disabled {
                 background-color: #cccccc;
                 cursor: not-allowed;
+                color: darkgray;
             }
-            .btn-unificar-grupo:hover:not(:disabled) { background-color: #45a049; }
+            .btn-unificar-grupo:hover:not(:disabled) { background-color: blue; }
             .radio-principal {
                 transform: scale(1.2);
                 margin: 0;
@@ -272,7 +273,7 @@ return new class extends clsCadastro
                 position: fixed;
                 top: 0; left: 0;
                 width: 100%; height: 100%;
-                background: rgba(0,0,0,0.55);
+                background: rgba(0,0,0,0.45);
                 z-index: 99999;
                 display: flex;
                 align-items: center;
@@ -282,145 +283,262 @@ return new class extends clsCadastro
             @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
             .modal-box {
                 background: #fff;
-                border-radius: 10px;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
                 padding: 0;
-                max-width: 700px;
-                width: 94%;
+                max-width: 920px;
+                width: 96%;
                 max-height: 88vh;
                 overflow-y: auto;
                 position: relative;
-                box-shadow: 0 8px 40px rgba(0,0,0,0.28);
+                box-shadow: 0 4px 24px rgba(0,0,0,0.12);
                 animation: slideUp 0.25s;
             }
             @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             .modal-header {
-                background: linear-gradient(135deg, #2e7d32, #4CAF50);
-                color: white;
-                padding: 20px 24px 16px 24px;
-                border-radius: 10px 10px 0 0;
-                display: flex;
-                align-items: flex-start;
-                gap: 14px;
-            }
-            .modal-header-icon { font-size: 36px; flex-shrink: 0; }
-            .modal-header-title { font-size: 17px; font-weight: bold; line-height: 1.4; }
-            .modal-header-sub { font-size: 13px; opacity: 0.88; margin-top: 4px; }
-            .modal-body { padding: 22px 24px; }
- 
-            /* Card do aluno recomendado dentro do modal */
-            .modal-card-recomendado {
-                background: #e8f5e9;
-                border: 2px solid #4CAF50;
-                border-radius: 8px;
-                padding: 14px 18px;
-                margin-bottom: 18px;
-            }
-            .modal-card-recomendado .titulo-card {
-                font-size: 14px;
-                font-weight: bold;
-                color: #2e7d32;
-                margin-bottom: 10px;
+                padding: 20px 24px 16px;
+                border-bottom: 1px solid #e8e8e8;
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                gap: 10px;
             }
-            .modal-card-recomendado .info-linha {
-                font-size: 13px;
+            .modal-header-icon {
+                font-size: 18px;
+                color: #555;
+                flex-shrink: 0;
+                line-height: 1;
+            }
+            .modal-header-title {
+                font-size: 16px;
+                font-weight: 600;
                 color: #333;
-                margin-bottom: 4px;
+                line-height: 1.4;
             }
-            .modal-card-recomendado .info-linha strong { color: #1b5e20; }
- 
-            /* Passos de como fazer */
-            .modal-passos { margin: 18px 0 0 0; }
-            .modal-passos .passo {
+            .modal-body { padding: 20px 24px 16px; }
+
+            .modal-secao-titulo {
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                color: #888;
+                text-transform: uppercase;
+                margin-bottom: 6px;
+            }
+            .modal-secao-subtitulo {
+                font-size: 14px;
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 12px;
+            }
+
+            /* Card do aluno recomendado dentro do modal */
+            .modal-card-recomendado {
+                background: #f1f8e9;
+                border: 1px solid #c8e6c9;
+                border-radius: 8px;
+                padding: 16px 18px 14px;
+                margin-bottom: 22px;
+            }
+            .modal-card-recomendado-topo {
                 display: flex;
-                gap: 14px;
-                margin-bottom: 14px;
-                align-items: flex-start;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 12px;
             }
-            .modal-passos .passo-num {
-                background: #4CAF50;
-                color: white;
+            .modal-avatar {
+                width: 40px;
+                height: 40px;
                 border-radius: 50%;
-                width: 28px;
-                height: 28px;
+                background: #c8e6c9;
+                color: #2e7d32;
+                font-size: 14px;
+                font-weight: 700;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-weight: bold;
-                font-size: 14px;
+                flex-shrink: 0;
+            }
+            .modal-nome-recomendado {
+                font-size: 15px;
+                font-weight: 700;
+                color: #2e7d32;
+                line-height: 1.3;
+            }
+            .modal-badge-recomendado {
+                display: inline-block;
+                font-size: 11px;
+                font-weight: 600;
+                color: #43a047;
+                margin-left: 6px;
+            }
+            .modal-card-detalhes {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px 24px;
+                font-size: 13px;
+                color: #444;
+                margin-bottom: 14px;
+            }
+            .modal-card-detalhes span {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+            }
+            .modal-card-detalhes .icone-detalhe {
+                color: #888;
+                font-size: 12px;
+            }
+            .modal-progresso-wrap {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .modal-progresso-barra {
+                flex: 1;
+                background: #e0e0e0;
+                border-radius: 4px;
+                height: 6px;
+                overflow: hidden;
+            }
+            .modal-progresso-preenchido {
+                height: 100%;
+                background: #4caf50;
+                border-radius: 4px;
+            }
+            .modal-progresso-texto {
+                font-size: 12px;
+                color: #666;
+                white-space: nowrap;
+            }
+
+            /* Passos de como fazer */
+            .modal-passos { margin: 22px 0 0 0; }
+            .modal-passos .passo {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 12px;
+                align-items: flex-start;
+            }
+            .modal-passos .passo-num {
+                background: #1976d2;
+                color: white;
+                border-radius: 50%;
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 600;
+                font-size: 12px;
                 flex-shrink: 0;
                 margin-top: 1px;
             }
             .modal-passos .passo-texto {
                 font-size: 13px;
-                color: #333;
+                color: #444;
                 line-height: 1.55;
+                padding-top: 2px;
             }
-            .modal-passos .passo-texto strong { color: #1b5e20; }
- 
+            .modal-passos .passo-texto strong { color: #333; font-weight: 600; }
+
             /* Tabela comparativa dentro do modal */
             .modal-tabela-comparativa {
                 width: 100%;
-                border-collapse: collapse;
+                border-collapse: separate;
+                border-spacing: 0;
                 font-size: 12px;
-                margin-top: 12px;
+                margin-top: 0;
                 margin-bottom: 4px;
+                border: 1px solid #e8e8e8;
+                border-radius: 8px;
+                overflow: hidden;
             }
             .modal-tabela-comparativa th {
-                background: #4cae4f;
-                color: white;
-                padding: 7px 10px;
+                background: #f5f5f5;
+                color: #555;
+                padding: 10px 12px;
                 text-align: left;
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                border-bottom: 1px solid #e8e8e8;
             }
             .modal-tabela-comparativa td {
-                border: 1px solid #e0e0e0;
-                padding: 7px 10px;
+                border-bottom: 1px solid #f0f0f0;
+                padding: 10px 12px;
                 vertical-align: middle;
+                color: #444;
             }
-            .modal-tabela-comparativa tr:nth-child(even) { background: #f9f9f9; }
-            .modal-tabela-comparativa .celula-ok { color: #2e7d32; font-weight: bold; }
-            .modal-tabela-comparativa .celula-vazio { color: #aaa; font-style: italic; }
-            .modal-tabela-comparativa .linha-recomendada-modal { background: #e8f5e9 !important; }
- 
+            .modal-tabela-comparativa tr:last-child td { border-bottom: none; }
+            .modal-tabela-comparativa .celula-vazio { color: #bbb; font-size: 12px; }
+            .modal-tabela-comparativa .linha-recomendada-modal { background: #f1f8e9 !important; }
+            .modal-tabela-comparativa .td-cadastro-cod {
+                font-weight: 700;
+                color: #2e7d32;
+                display: block;
+            }
+            .modal-tabela-comparativa .td-cadastro-cod.neutro { color: #333; font-weight: 600; }
+            .modal-tabela-comparativa .badge-rec-tabela {
+                display: block;
+                font-size: 11px;
+                font-weight: 600;
+                color: #43a047;
+                margin-top: 2px;
+            }
+            .modal-tabela-comparativa .celula-qtd {
+                color: #333;
+                font-weight: 500;
+            }
+            .modal-tabela-comparativa .celula-qtd .check-qtd { color: #4caf50; margin-right: 3px; }
+
             .modal-aviso-gemeos {
                 background: #fff8e1;
-                border: 1px solid #FFB300;
-                border-radius: 6px;
-                padding: 10px 14px;
-                font-size: 12px;
-                color: #5D4037;
-                margin-top: 14px;
+                border: 1px solid #d7ccc8;
+                border-radius: 8px;
+                padding: 12px 14px;
+                font-size: 13px;
+                color: #6d4c41;
+                margin-top: 18px;
+                line-height: 1.5;
             }
- 
+
             .modal-footer {
-                padding: 14px 24px 18px 24px;
+                padding: 14px 24px 18px;
                 border-top: 1px solid #eee;
                 display: flex;
                 justify-content: flex-end;
                 gap: 10px;
             }
             .btn-modal-ok {
-                background: #4CAF50;
-                color: white;
-                border: none;
-                padding: 9px 28px;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
+                background: darkblue;
+                color: #fff;
+                border: 1px solid #ccc;
+                padding: 8px 18px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
                 cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
             }
-            .btn-modal-ok:hover { background: #388e3c; }
+            .btn-modal-ok:hover { 
+                background: lightblue; 
+                color: #000; 
+                border: 1px solid #ccc;
+            }
             .btn-modal-fechar {
                 background: #fff;
-                border: 1px solid #aaa;
-                padding: 9px 22px;
-                border-radius: 5px;
-                font-size: 14px;
+                border: 1px solid #ccc;
+                padding: 8px 18px;
+                border-radius: 6px;
+                font-size: 13px;
+                color: #333;
                 cursor: pointer;
             }
-            .btn-modal-fechar:hover { background: #f0f0f0; }
+            .btn-modal-fechar:hover { background: #f5f5f5; }
  
             /* Modal de dados escolares (visualizar) */
             #modal-overlay-aluno .modal-box-aluno {
@@ -763,6 +881,20 @@ return new class extends clsCadastro
     }
  
     // ------------------------------------------------------------------
+    //  Extrai iniciais do nome para o avatar do modal
+    // ------------------------------------------------------------------
+    private function obterIniciaisNome(string $nome): string
+    {
+        $partes = array_values(array_filter(explode(' ', trim($nome))));
+
+        if (count($partes) >= 2) {
+            return strtoupper(mb_substr($partes[0], 0, 1) . mb_substr($partes[count($partes) - 1], 0, 1));
+        }
+
+        return strtoupper(mb_substr($partes[0] ?? 'A', 0, 2));
+    }
+
+    // ------------------------------------------------------------------
     //  Calcula pontuação de completude de um aluno (0–100)
     // ------------------------------------------------------------------
     private function calcularCompletude(array $aluno): int
@@ -817,9 +949,11 @@ return new class extends clsCadastro
                     <span class='badge'>{$quantidade} alunos</span>
                     {$badgeScore}
                 </div>
-                <div>
-                    <button class='btn-remover-grupo' onclick='event.stopPropagation(); removerGrupo(\"{$grupoId}\")'>🗑️ Remover</button>
-                </div>
+                <!--
+                    <div>
+                        <button class='btn-remover-grupo' onclick='event.stopPropagation(); removerGrupo(\"{$grupoId}\")'>🗑️ Remover</button>
+                    </div>
+                -->
             </div>
             <div id='accordion-content-{$grupoId}' class='accordion-content'>
                 <table class='tabela-grupo'>
@@ -888,7 +1022,7 @@ return new class extends clsCadastro
                 <div class='confirmacao-grupo'>
                     <input type='checkbox' id='check_confirma_grupo_{$grupoId}' onchange='confirmaAnaliseDoGrupo(\"{$grupoId}\")'>
                     <label for='check_confirma_grupo_{$grupoId}'>
-                        ✅ Confirmo a análise de que são a mesma pessoa, levando em conta a possibilidade de gêmeos cadastrados.
+                        Confirmo a análise de que os cadastros referem-se a mesma pessoa.
                     </label>
                     <br><br>
                     <button id='btn_unificar_grupo_{$grupoId}' class='btn-unificar-grupo' onclick='unificarGrupo(\"{$grupoId}\")' disabled>
@@ -916,72 +1050,66 @@ return new class extends clsCadastro
         $qtdHist   = $recomendado['qtd_historicos']  ?? 0;
         $quantidade = count($grupo);
  
+        $iniciaisRec = $this->obterIniciaisNome($recomendado['nome']);
+        $maeRecExib  = htmlspecialchars($maeRec !== 'Não consta' ? $maeRec : '— não consta');
+        $histRecTxt  = $qtdHist > 0 ? "{$qtdHist} histórico" . ($qtdHist > 1 ? 's' : '') : 'nenhum histórico';
+
         // Tabela comparativa
         $linhasComparativas = '';
         foreach ($grupo as $aluno) {
-            $ehRec    = ($aluno['codigo'] === $codRec);
-            $classTr  = $ehRec ? " class='linha-recomendada-modal'" : '';
-            $estrela  = $ehRec ? '⭐ ' : '';
-            $rotulo   = $ehRec ? '<strong>' . $estrela . 'Cód. ' . $aluno['codigo'] . ' (Recomendado)</strong>' : 'Cód. ' . $aluno['codigo'];
- 
+            $ehRec   = ($aluno['codigo'] === $codRec);
+            $classTr = $ehRec ? " class='linha-recomendada-modal'" : '';
+
             $tdVal = fn($v) => ($v !== 'Não consta' && $v !== '' && $v !== '0')
-                ? "<span class='celula-ok'>✔ {$v}</span>"
-                : "<span class='celula-vazio'>— não consta —</span>";
- 
-            $matStr  = ($aluno['qtd_matriculas'] ?? 0) > 0
-                ? "<span class='celula-ok'>✔ " . $aluno['qtd_matriculas'] . " matrícula(s)</span>"
-                : "<span class='celula-vazio'>— nenhuma —</span>";
-            $histStr = ($aluno['qtd_historicos'] ?? 0) > 0
-                ? "<span class='celula-ok'>✔ " . $aluno['qtd_historicos'] . " histórico(s)</span>"
-                : "<span class='celula-vazio'>— nenhum —</span>";
- 
+                ? htmlspecialchars((string) $v)
+                : "<span class='celula-vazio'>— não consta</span>";
+
+            $qtdMatAluno  = $aluno['qtd_matriculas'] ?? 0;
+            $qtdHistAluno = $aluno['qtd_historicos'] ?? 0;
+
+            $matStr = $qtdMatAluno > 0
+                ? "<span class='celula-qtd'><span class='check-qtd'>✓</span>{$qtdMatAluno}</span>"
+                : "<span class='celula-vazio'>— não consta</span>";
+            $histStr = $qtdHistAluno > 0
+                ? "<span class='celula-qtd'><span class='check-qtd'>✓</span>{$qtdHistAluno}</span>"
+                : "<span class='celula-vazio'>— não consta</span>";
+
+            $classCod = $ehRec ? '' : ' neutro';
+            $badgeRec = $ehRec ? "<span class='badge-rec-tabela'>Recomendado</span>" : '';
+
             $linhasComparativas .= "
                 <tr{$classTr}>
-                    <td>{$rotulo}</td>
+                    <td>
+                        <span class='td-cadastro-cod{$classCod}'>Cód. {$aluno['codigo']}</span>
+                        {$badgeRec}
+                    </td>
                     <td>" . $tdVal($aluno['cpf']) . "</td>
                     <td>" . $tdVal($aluno['rg']) . "</td>
                     <td>" . $tdVal($aluno['inep']) . "</td>
                     <td>" . $tdVal($aluno['mae_aluno']) . "</td>
                     <td>{$matStr}</td>
                     <td>{$histStr}</td>
-                    <td><strong>{$aluno['score']}%</strong></td>
+                    <td>{$aluno['score']}%</td>
                 </tr>
             ";
         }
- 
+
         echo "
         <div id='modal-orientacao-{$grupoId}' class='modal-overlay' style='display:none;'
              onclick='if(event.target===this) fecharModalOrientacao(\"{$grupoId}\")'>
             <div class='modal-box'>
- 
+
                 <!-- CABEÇALHO -->
                 <div class='modal-header'>
-                    <div class='modal-header-icon'>🎓</div>
-                    <div>
-                        <div class='modal-header-title'>Como unificar este grupo de alunos</div>
-                        <div class='modal-header-sub'>Grupo " . ($indice + 1) . ": <strong>{$nomeRec}</strong> — {$quantidade} cadastros duplicados encontrados</div>
-                    </div>
+                    <div class='modal-header-icon'>⑂</div>
+                    <div class='modal-header-title'>Unificação de cadastros — Grupo " . ($indice + 1) . "</div>
                 </div>
- 
+
                 <div class='modal-body'>
- 
-                    <!-- CADASTRO RECOMENDADO -->
-                    <div class='modal-card-recomendado'>
-                        <div class='titulo-card'>⭐ Cadastro recomendado como PRINCIPAL</div>
-                        <div class='info-linha'>📌 <strong>Código:</strong> {$codRec}</div>
-                        <div class='info-linha'>👤 <strong>Nome:</strong> {$nomeRec}</div>
-                        <div class='info-linha'>🔢 <strong>INEP:</strong> {$inepRec}</div>
-                        <div class='info-linha'>🪪 <strong>CPF:</strong> {$cpfRec} &nbsp;|&nbsp; <strong>RG:</strong> {$rgRec}</div>
-                        <div class='info-linha'>👩 <strong>Nome da Mãe:</strong> {$maeRec}</div>
-                        <div class='info-linha'>📚 <strong>Matrículas:</strong> {$qtdMat} &nbsp;|&nbsp; <strong>Históricos:</strong> {$qtdHist}</div>
-                        <div class='info-linha' style='margin-top:8px;'>
-                            📊 <strong>Completude do cadastro: {$scoreRec}%</strong>
-                            &nbsp;— este é o cadastro com mais informações preenchidas.
-                        </div>
-                    </div>
- 
+
                     <!-- TABELA COMPARATIVA -->
-                    <strong style='font-size:13px;'>📋 Comparativo entre os cadastros do grupo:</strong>
+                    <div class='modal-secao-titulo'>Comparativo dos cadastros do grupo</div>
+                    <div class='modal-secao-subtitulo'>Aluno(a): {$nomeRec}</div>
                     <table class='modal-tabela-comparativa'>
                         <thead>
                             <tr>
@@ -992,58 +1120,56 @@ return new class extends clsCadastro
                                 <th>Nome da Mãe</th>
                                 <th>Matrículas</th>
                                 <th>Históricos</th>
-                                <th>% Completo</th>
+                                <th>Completo</th>
                             </tr>
                         </thead>
                         <tbody>
                             {$linhasComparativas}
                         </tbody>
                     </table>
- 
+
                     <!-- PASSO A PASSO -->
                     <div class='modal-passos'>
-                        <strong style='font-size:13px;'>📌 Como proceder:</strong>
-                        <div style='height:10px;'></div>
+                        <div class='modal-secao-titulo'>Como proceder na tela seguinte</div>
                         <div class='passo'>
                             <div class='passo-num'>1</div>
                             <div class='passo-texto'>
-                                Clique em <strong>\"Entendido — abrir grupo\"</strong> abaixo para expandir os cadastros deste grupo.
+                                O sistema já selecionou o cadastro <strong>Cód. {$codRec}</strong> como principal
+                                (maior completude). Antes de unificar você poderá alterar, se necessário.
                             </div>
                         </div>
                         <div class='passo'>
                             <div class='passo-num'>2</div>
                             <div class='passo-texto'>
-                                O sistema já pré-selecionou o cadastro <strong>Cód. {$codRec}</strong> como principal
-                                (maior completude). Confirme ou escolha outro clicando no radio da coluna <em>Principal</em>.
+                                Na tela seguinte, use o botão <strong>Visualizar</strong> para consultar matrículas de cada cadastro antes de decidir.
                             </div>
                         </div>
                         <div class='passo'>
                             <div class='passo-num'>3</div>
                             <div class='passo-texto'>
-                                Use o botão <strong>👁️ Visualizar</strong> para consultar matrículas e históricos de cada cadastro antes de decidir.
+                                Marque o checkbox de confirmação e clique em <strong>Unificar este grupo</strong>.
+                                Os dados das matrículas e históricos serão consolidados no cadastro principal automaticamente.
                             </div>
                         </div>
                         <div class='passo'>
                             <div class='passo-num'>4</div>
                             <div class='passo-texto'>
-                                Marque o checkbox de confirmação e clique em <strong>🔄 Unificar este grupo</strong>.
-                                Os dados das matrículas e históricos serão consolidados no cadastro principal automaticamente.
+                                Para seguir agora, clique em <strong>Usar o cadastro recomendado como principal</strong> abaixo.
                             </div>
                         </div>
                     </div>
- 
+
                     <!-- AVISO GÊMEOS -->
                     <div class='modal-aviso-gemeos'>
-                        ⚠️ <strong>Atenção:</strong> Verifique se não se trata de <strong>gêmeos</strong> com o mesmo nome antes de unificar.
-                        Em caso de dúvida, consulte a secretaria escolar.
+                        ⚠ Antes de unificar, verifique se não se trata de <strong>homônimos</strong> (duas pessoas diferentes com o mesmo nome).                        
                     </div>
- 
+
                 </div><!-- /modal-body -->
- 
+
                 <div class='modal-footer'>
                     <button class='btn-modal-fechar' onclick='fecharModalOrientacao(\"{$grupoId}\"); return false;'>Fechar</button>
                     <button class='btn-modal-ok' onclick='selecionarPrincipalRecomendado(\"{$grupoId}\", {$codRec})'>
-                        ⭐ Usar recomendado e abrir grupo
+                        ☆ Usar o cadastro recomendado como principal
                     </button>
                 </div>
  

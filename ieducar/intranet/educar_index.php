@@ -374,8 +374,10 @@ return new class
                             <div class="card-content">
                                 <ul>
                                     <li><a href="/module/Reports/StudentsPerClass" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Alunos por turma</a></li>
-                                    <li><a href="#" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Quantitativo de matrículas</a></li>
-                                    <li><a href="/module/Reports/MonthlyAbsenceByStudent" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Sistema presença</a></li>
+                                    <li><a href="/module/Reports/EnrollmentQuantitativeMap" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Quantitativo de matrículas</a></li>
+                                    <!--
+                                        <li><a href="/module/Reports/MonthlyAbsenceByStudent" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Sistema presença</a></li>
+                                    -->
                                 </ul>
                             </div>
                         </div>
