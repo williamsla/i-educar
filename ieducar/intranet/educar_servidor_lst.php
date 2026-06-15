@@ -84,7 +84,10 @@ return new class extends clsListagem
         }
 
         if (!empty($this->nome)) {
-            $query->where('pessoa.nome', 'ILIKE', "%{$this->nome}%");
+            $query->whereRaw(
+                "unaccent(pessoa.nome) ILIKE unaccent(?)",
+                ["%{$this->nome}%"]
+            );
         }
 
         if (!empty($this->matricula_servidor)) {
@@ -147,7 +150,7 @@ return new class extends clsListagem
                 ];
 
                 $nomeServidor = $registro->name;
-                
+
                 // Verifica se o servidor está com alerta (apenas no ano vigente)
                 if (in_array($registro->id, $servidoresComAlerta)) {
                     $nomeServidor .= ' <span style="color: #ff6600; font-weight: bold; cursor: help; font-size: 16px;" title="⚠️ ATENÇÃO: Este servidor foi vinculado a uma turma e o sistema criou automaticamente uma alocação com carga horária 00:00. Por favor, defina a carga horária correta na alocação do servidor.">⚠️</span>';
@@ -214,16 +217,16 @@ return new class extends clsListagem
                     INNER JOIN pmieducar.turma t ON 
                         pt.turma_id = t.cod_turma
                         AND t.ano = {$anoVigente}";
-            
+
             $db = new clsBanco();
             $db->Consulta($sql);
-            
+
             $servidores = [];
             while ($db->ProximoRegistro()) {
                 $tupla = $db->Tupla();
                 $servidores[] = (int) $tupla['cod_servidor'];
             }
-            
+
             return $servidores;
         } catch (Exception $e) {
             if (isset($_GET['debug']) && $_GET['debug'] == 1) {
