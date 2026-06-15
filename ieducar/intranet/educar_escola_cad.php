@@ -311,6 +311,8 @@ return new class extends clsCadastro
 
     public $qtd_agronomos_horticultores;
 
+    public $qtd_assistente_social;
+
     public $qtd_nutricionistas;
 
     public $qtd_profissionais_preparacao;
@@ -367,6 +369,7 @@ return new class extends clsCadastro
         'qtd_segurancas' => 'Seguranças, guarda ou segurança patrimonial',
         'qtd_auxiliar_servicos_gerais' => 'Auxiliar de serviços gerais, porteiro(a), zelador(a), faxineiro(a), jardineiro(a)',
         'qtd_agronomos_horticultores' => 'Agrônomos(as), horticultores(as), técnicos ou monitores(as) responsáveis pela gestão da área de horta, plantio e/ou produção agrícola',
+        'qtd_assistente_social' => 'Assistente social',
         'qtd_nutricionistas' => 'Nutricionista',
         'qtd_profissionais_preparacao' => 'Profissionais de preparação e segurança alimentar, cozinheiro(a), merendeira e auxiliar de cozinha',
         'qtd_bombeiro' => 'Bombeiro(a) brigadista, profissionais de assistência a saúde (urgência e emergência), Enfermeiro(a), Técnico(a) de enfermagem e socorrista',

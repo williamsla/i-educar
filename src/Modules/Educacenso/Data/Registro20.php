@@ -5,6 +5,7 @@ namespace iEducar\Modules\Educacenso\Data;
 use App\Services\SchoolClass\SchoolClassService;
 use DateTime;
 use iEducar\Modules\Educacenso\Formatters;
+use iEducar\Modules\Educacenso\Layout\CensoLayout2026;
 use iEducar\Modules\Educacenso\Model\TipoItinerarioFormativo;
 use iEducar\Modules\SchoolClass\Period;
 use Portabilis_Utils_Database;
@@ -48,7 +49,7 @@ class Registro20 extends AbstractRegistro
         $data = [];
 
         foreach ($records as $record) {
-            $data[] = $this->getRecordExportData($record);
+            $data[] = $this->getRecordExportData($record, $year);
         }
 
         return $data;
@@ -58,7 +59,16 @@ class Registro20 extends AbstractRegistro
      * @param $Registro20Model
      * @return array
      */
-    public function getRecordExportData($record)
+    public function getRecordExportData($record, $year = null)
+    {
+        if (CensoLayout2026::isEnabled((int) $year)) {
+            return $this->getRecordExportData2026($record);
+        }
+
+        return $this->getRecordExportDataLegacy($record);
+    }
+
+    private function getRecordExportDataLegacy($record)
     {
         $canExportComponente = $record->curricularEtapaDeEnsino() && !in_array($record->etapaEducacenso, [1, 2, 3]);
         $componentesEducacenso = $record->componentesCodigosEducacenso();
@@ -137,6 +147,84 @@ class Registro20 extends AbstractRegistro
             $canExportComponente ? $this->getCensoValueForDiscipline(33, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '', // 68 - 33. Projeto de vida
             $canExportComponente ? $this->getCensoValueForDiscipline(99, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '', // 69 - 99. Outras áreas do conhecimento
             $record->classeComLinguaBrasileiraSinais == 1 ? 1 : 0, // 70 - Turma de Educação Bilíngue de Surdos (classe bilíngue de surdos)
+        ];
+    }
+
+    private function getRecordExportData2026($record)
+    {
+        $canExportComponente = $record->curricularEtapaDeEnsino() && !in_array($record->etapaEducacenso, [1, 2, 3]);
+        $componentesEducacenso = $record->componentesCodigosEducacenso();
+
+        $horaInicial = (new DateTime($record->horaInicial))->format('H:i');
+        $horaFinal = (new DateTime($record->horaFinal))->format('H:i');
+
+        return [
+            '20',
+            $record->codigoEscolaInep,
+            $record->codTurma,
+            '',
+            $this->convertStringToCenso($record->nomeTurma),
+            $record->tipoMediacaoDidaticoPedagogico,
+            $record->presencial() && in_array(1, $record->diasSemana) ? $horaInicial . '-' . $horaFinal : '',
+            $record->presencial() && in_array(2, $record->diasSemana) ? $horaInicial . '-' . $horaFinal : '',
+            $record->presencial() && in_array(3, $record->diasSemana) ? $horaInicial . '-' . $horaFinal : '',
+            $record->presencial() && in_array(4, $record->diasSemana) ? $horaInicial . '-' . $horaFinal : '',
+            $record->presencial() && in_array(5, $record->diasSemana) ? $horaInicial . '-' . $horaFinal : '',
+            $record->presencial() && in_array(6, $record->diasSemana) ? $horaInicial . '-' . $horaFinal : '',
+            $record->presencial() && in_array(7, $record->diasSemana) ? $horaInicial . '-' . $horaFinal : '',
+            CensoLayout2026::tipoTurma($record),
+            $record->atividadeComplementar() ? ($record->atividadesComplementares[0] ?? '') : '',
+            $record->atividadeComplementar() ? ($record->atividadesComplementares[1] ?? '') : '',
+            $record->atividadeComplementar() ? ($record->atividadesComplementares[2] ?? '') : '',
+            $record->atividadeComplementar() ? ($record->atividadesComplementares[3] ?? '') : '',
+            $record->atividadeComplementar() ? ($record->atividadesComplementares[4] ?? '') : '',
+            $record->atividadeComplementar() ? ($record->atividadesComplementares[5] ?? '') : '',
+            $record->educacaoDistancia() ? '' : $record->localFuncionamentoDiferenciado,
+            $record->curricularEtapaDeEnsino() ? $record->classeEspecial ?: 0 : null,
+            $record->etapaAgregada,
+            $record->etapaEducacenso,
+            $record->codigoEixoCursoProfissional ?? '',
+            in_array($record->etapaEducacenso, [39, 40, 64]) ? $record->codCursoProfissional : '',
+            $record->cargaHorariaCurso ?? '',
+            CensoLayout2026::formaOrganizacaoTurma($record),
+            $record->formacaoAlternancia ?: 0,
+            in_array($record->etapaAgregada, [304, 305]) ? ($record->formacaoGeralBasica() ? 1 : 0) : '',
+            in_array($record->etapaAgregada, [304, 305]) ? ($record->itinerarioFormativoAprofundamento() ? 1 : 0) : '',
+            in_array($record->etapaAgregada, [304, 305]) ? ($record->itinerarioFormacaoTecnicaProfissional() ? 1 : 0) : '',
+            $record->itinerarioFormativoAprofundamento() ? (in_array(TipoItinerarioFormativo::LINGUANGENS, $record->areaItinerario) ? 1 : 0) : '',
+            $record->itinerarioFormativoAprofundamento() ? (in_array(TipoItinerarioFormativo::MATEMATICA, $record->areaItinerario) ? 1 : 0) : '',
+            $record->itinerarioFormativoAprofundamento() ? (in_array(TipoItinerarioFormativo::CIENCIAS_NATUREZA, $record->areaItinerario) ? 1 : 0) : '',
+            $record->itinerarioFormativoAprofundamento() ? (in_array(TipoItinerarioFormativo::CIENCIAS_HUMANAS, $record->areaItinerario) ? 1 : 0) : '',
+            (in_array($record->etapaAgregada, [304, 305]) && $record->itinerarioFormacaoTecnicaProfissional()) ? $record->tipoCursoIntinerario : '',
+            (in_array($record->etapaAgregada, [304, 305]) && $record->itinerarioFormacaoTecnicaProfissional()) ? $record->codCursoProfissionalIntinerario : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(1, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(2, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(3, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(4, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(5, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(6, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(7, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(8, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(9, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(10, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(11, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(12, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(13, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(14, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(16, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(17, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(23, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(25, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(26, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(27, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(28, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(29, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(30, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(31, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(32, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(33, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $canExportComponente ? $this->getCensoValueForDiscipline(99, $componentesEducacenso, $record->disciplinasEducacensoComDocentes) : '',
+            $record->classeComLinguaBrasileiraSinais == 1 ? 1 : 0,
         ];
     }
 

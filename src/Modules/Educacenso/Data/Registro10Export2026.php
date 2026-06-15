@@ -3,40 +3,14 @@
 namespace iEducar\Modules\Educacenso\Data;
 
 use App\Models\Educacenso\Registro10 as Registro10Model;
-use iEducar\Modules\Educacenso\Data\Registro10Export2026;
-use iEducar\Modules\Educacenso\Formatters;
 use iEducar\Modules\Educacenso\Layout\CensoLayout2026;
-use Portabilis_Utils_Database;
 
-class Registro10 extends AbstractRegistro
+class Registro10Export2026
 {
-    use Formatters;
-
-    /**
-     * @var Registro10Model
-     */
-    protected $model;
-
-    /**
-     * @return Registro10Model
-     */
-    public function getData($escola)
+    public static function export(Registro10Model $data): array
     {
-        $data = $this->processData($this->repository->getDataForRecord10($escola)[0]);
-        $this->hydrateModel($data);
+        return [
 
-        return $this->model;
-    }
-
-    public function getExportFormatData($escola, $year = null)
-    {
-        $data = $this->getData($escola);
-
-        if (CensoLayout2026::isEnabled((int) $year)) {
-            return Registro10Export2026::export($data);
-        }
-
-        $exportData = [
             '10',  // 1	Tipo de registro
             $data->codigoInep, // 2	Código de escola - Inep
             $data->predioEscolar() ? 1 : 0, // 3	Prédio escolar
@@ -92,6 +66,7 @@ class Registro10 extends AbstractRegistro
             $data->dormitoriosProfessor() ?: 0, // 53	Dormitório de professor(a)
             $data->laboratoriosCiencias() ?: 0, // 54	Laboratório de ciências
             $data->laboratoriosInformatica() ?: 0, // 55	Laboratório de informática
+            $data->laboratoriosRobotica() ?: 0,
             $data->laboratoriosEducacaoProfissional() ?: 0, // 56	Laboratório específico para a educação profissional
             $data->areasExternasParqueInfantil() ?: 0, // 57	Parque infantil
             $data->areasExternasPatioCoberto() ?: 0, // 58	Pátio coberto
@@ -151,13 +126,11 @@ class Registro10 extends AbstractRegistro
             $data->usoInternetAlunos() ?: 0, // 112	Para uso dos aluno(a)s
             $data->usoInternetComunidade() ?: 0, // 113	Para uso da comunidade
             $data->usoInternetNaoPossui() ?: 0, // 114 Não possui acesso à internet
-            $data->equipamentosAcessoInternetComputadorMesa() ?: 0, // 115 Computadores de mesa, portáteis e tablets da escola (no laboratório de informática, biblioteca, sala de aula etc.)
-            $data->equipamentosAcessoInternetDispositivosPessoais() ?: 0, // 116 Dispositivos pessoais (computadores portáteis, celulares, tablets etc.)
-            $data->usoInternetNaoPossui() ? null : ($data->acessoInternet ?: 0), // 117 Internet banda larga
-            ($data->possuiComputadores() || $data->possuiComputadoresDeMesaTabletsEPortateis()) ? ($data->redeLocalACabo() ?: 0) : null, // 118	A cabo
-            ($data->possuiComputadores() || $data->possuiComputadoresDeMesaTabletsEPortateis()) ? ($data->redeLocalWireless() ?: 0) : null, // 119 Wireless
-            ($data->possuiComputadores() || $data->possuiComputadoresDeMesaTabletsEPortateis()) ? ($data->redeLocalNenhuma() ?: 0) : null, // 120 Não há rede local interligando computadores
+            CensoLayout2026::equipamentosInternetAlunos($data),
+            $data->usoInternetNaoPossui() ? null : ($data->acessoInternet ?: 0),
+            CensoLayout2026::redeLocal($data),
             $data->semFuncionariosParaFuncoes ? null : $data->qtdAgronomosHorticultores, // 121	Agrônomos(as), horticultores(as), técnicos ou monitores(as) responsáveis pela gestão da área de horta, plantio e/ou produção agrícola
+            $data->semFuncionariosParaFuncoes ? null : $data->qtdAssistenteSocial,
             $data->semFuncionariosParaFuncoes ? null : $data->qtdAuxiliarAdministrativo, // 122	Auxiliares de secretaria ou auxiliares administrativos, atendentes
             $data->semFuncionariosParaFuncoes ? null : $data->qtdAuxiliarServicosGerais, // 123	Auxiliar de serviços gerais, porteiro(a), zelador(a), faxineiro(a), jardineiro(a)
             $data->semFuncionariosParaFuncoes ? null : $data->qtdBibliotecarios, // 124	Bibliotecário(a), auxiliar de biblioteca ou monitor(a) da sala de leitura
@@ -181,10 +154,13 @@ class Registro10 extends AbstractRegistro
             $data->instrumentosPedagogicosBrinquedrosEducacaoInfantil() ?: 0, // 142 Brinquedos para educação infantil
             $data->instrumentosPedagogicosMateriaisCientificos() ?: 0, // 143 Conjunto de materiais científicos
             $data->instrumentosPedagogicosAmplificacaoDifusaoSom() ?: 0, // 144 Equipamento para amplificação e difusão de som/áudio
+            $data->instrumentosPedagogicosEquipamentosAudiovisuais() ?: 0,
             $data->instrumentosPedagogicosAreaHorta() ?: 0, // 145 Equipamentos e instrumentos para atividades em área de horta, plantio e/ou produção agrícola
             $data->instrumentosPedagogicosInstrumentosMusicais() ?: 0, // 146 Instrumentos musicais para conjunto, banda/fanfarra e/ou aulas de música
             $data->instrumentosPedagogicosJogosEducativos() ?: 0, // 147 Jogos educativos
+            $data->instrumentosPedagogicosKitsRobotica() ?: 0,
             $data->instrumentosPedagogicosMateriaisAtividadesCulturais() ?: 0, // 148 Materiais para atividades culturais e artísticas
+            $data->instrumentosPedagogicosEducacaoEmocional() ?: 0,
             $data->instrumentosPedagogicosMateriaisEducacaoProfissional() ?: 0, // 149 Materiais para educação profissional
             $data->instrumentosPedagogicosMateriaisPraticaDesportiva() ?: 0, // 150 Materiais para prática desportiva e recreação
             $data->instrumentosPedagogicosMateriaisEducacaoSurdos() ?: 0, // 151 Materiais pedagógicos para a educação bilíngue de surdos
@@ -194,9 +170,7 @@ class Registro10 extends AbstractRegistro
             $data->instrumentosPedagogicosEducacaoQuilombola() ?: 0, // 155 Materiais pedagógicos para a educação escolar quilombola
             $data->instrumentosPedagogicosEducacaoEspecial() ?: 0, // 156 Materiais pedagógicos para a educação especial
             $data->instrumentosPedagogicosNenhum() ?: 0, // 157	Nenhum dos instrumentos listados
-            $data->educacaoIndigena, // 158	Educação escolar indígena
-            $data->educacaoIndigena ? ($data->linguaMinistradaIndigena() ?: 0) : null, // 159 Língua indígena
-            $data->educacaoIndigena ? ($data->linguaMinistradaPortugues() ?: 0) : null, // 160 Língua portuguesa
+            $data->educacaoIndigena ? 1 : ($data->linguaMinistradaPortugues() ? 2 : ($data->linguaMinistradaIndigena() ? 1 : 0)),
             $data->educacaoIndigena && $data->linguaMinistradaIndigena() ? ($data->codigoLinguaIndigena[0] ?? null) : null, // 161 Código da língua indígena 1
             $data->educacaoIndigena && $data->linguaMinistradaIndigena() ? ($data->codigoLinguaIndigena[1] ?? null) : null, // 162 Código da língua indígena 2
             $data->educacaoIndigena && $data->linguaMinistradaIndigena() ? ($data->codigoLinguaIndigena[2] ?? null) : null, // 163 Código da língua indígena 3
@@ -224,34 +198,7 @@ class Registro10 extends AbstractRegistro
             $data->acaoEventos, // 185 Em eventos
             $data->acaoProjetoInterdisciplinares, // 186 Em projetos transversais ou interdisciplinares
             $data->acaoAmbientalNenhuma, // 187 Nenhuma das opções listadas
+        
         ];
-
-        return $exportData;
-    }
-
-    private function processData($data)
-    {
-        $data->localFuncionamento = Portabilis_Utils_Database::pgArrayToArray($data->localFuncionamento);
-        $data->tratamentoLixo = Portabilis_Utils_Database::pgArrayToArray($data->tratamentoLixo);
-        $data->recursosAcessibilidade = Portabilis_Utils_Database::pgArrayToArray($data->recursosAcessibilidade);
-        $data->usoInternet = Portabilis_Utils_Database::pgArrayToArray($data->usoInternet);
-        $data->equipamentosAcessoInternet = Portabilis_Utils_Database::pgArrayToArray($data->equipamentosAcessoInternet);
-        $data->equipamentos = Portabilis_Utils_Database::pgArrayToArray($data->equipamentos);
-        $data->redeLocal = Portabilis_Utils_Database::pgArrayToArray($data->redeLocal);
-        $data->orgaosColegiados = Portabilis_Utils_Database::pgArrayToArray($data->orgaosColegiados);
-        $data->reservaVagasCotas = Portabilis_Utils_Database::pgArrayToArray($data->reservaVagasCotas);
-        $data->salasGerais = Portabilis_Utils_Database::pgArrayToArray($data->salasGerais);
-        $data->salasFuncionais = Portabilis_Utils_Database::pgArrayToArray($data->salasFuncionais);
-        $data->banheiros = Portabilis_Utils_Database::pgArrayToArray($data->banheiros);
-        $data->laboratorios = Portabilis_Utils_Database::pgArrayToArray($data->laboratorios);
-        $data->salasAtividades = Portabilis_Utils_Database::pgArrayToArray($data->salasAtividades);
-        $data->dormitorios = Portabilis_Utils_Database::pgArrayToArray($data->dormitorios);
-        $data->areasExternas = Portabilis_Utils_Database::pgArrayToArray($data->areasExternas);
-        $data->organizacaoEnsino = Portabilis_Utils_Database::pgArrayToArray($data->organizacaoEnsino);
-        $data->instrumentosPedagogicos = Portabilis_Utils_Database::pgArrayToArray($data->instrumentosPedagogicos);
-        $data->codigoLinguaIndigena = Portabilis_Utils_Database::pgArrayToArray($data->codigoLinguaIndigena);
-        $data->nomeEscola = mb_strtoupper($data->nomeEscola);
-
-        return $data;
     }
 }

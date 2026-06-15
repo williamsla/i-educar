@@ -155,6 +155,8 @@ class LegacySchoolClass extends Model
         'area_itinerario',
         'tipo_curso_intinerario',
         'cod_curso_profissional_intinerario',
+        'codigo_eixo_curso_profissional',
+        'carga_horaria_curso',
     ];
 
     protected function id(): Attribute
