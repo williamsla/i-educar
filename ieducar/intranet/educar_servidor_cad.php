@@ -184,6 +184,10 @@ return new class extends clsCadastro
                     ->where('cod_servidor', $this->cod_servidor)
                     ->value('cod_docente_inep');
 
+                $objPessoa = new clsPessoaFisica($this->cod_servidor);
+                $detPessoa = $objPessoa->detalhe();
+                EmployeeInep::syncNomeFromPessoa($this->cod_servidor, $detPessoa['nome'] ?? null);
+
                 $retorno = 'Editar';
             }
         }
