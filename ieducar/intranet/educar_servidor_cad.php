@@ -2,6 +2,7 @@
 
 use App\Events\EmployeeCreated;
 use App\Models\Employee;
+use App\Models\EmployeeInep;
 use App\Models\EmployeeGraduation;
 use App\Models\EmployeePosgraduate;
 use App\Models\LegacyAbsenceDelay;
@@ -179,6 +180,10 @@ return new class extends clsCadastro
                     $this->complementacao_pedagogica = transformStringFromDBInArray($this->complementacao_pedagogica);
                 }
 
+                $this->cod_docente_inep = EmployeeInep::query()
+                    ->where('cod_servidor', $this->cod_servidor)
+                    ->value('cod_docente_inep');
+
                 $retorno = 'Editar';
             }
         }
@@ -265,6 +270,7 @@ return new class extends clsCadastro
                 'label_hint' => 'Somente números',
                 'max_length' => 12,
                 'placeholder' => 'INEP',
+                'value' => $this->cod_docente_inep,
             ]
         );
 
@@ -368,18 +374,6 @@ return new class extends clsCadastro
         );
 
         $this->inputsHelper()->checkbox('multi_seriado', ['label' => 'Multisseriado', 'value' => $this->multi_seriado]);
-
-        // Dados do docente no Inep/Educacenso.
-        if ($this->docente) {
-            $docenteMapper = new Educacenso_Model_DocenteDataMapper;
-
-            $docenteInep = null;
-
-            try {
-                $docenteInep = $docenteMapper->find(['docente' => $this->cod_servidor]);
-            } catch (Exception) {
-            }
-        }
 
         $opcoes = ['' => 'Selecione'];
 
@@ -984,9 +978,13 @@ JS;
     {
         Portabilis_Utils_Database::fetchPreparedQuery('DELETE FROM modules.educacenso_cod_docente WHERE cod_servidor = $1', ['params' => [$this->cod_servidor]], false);
         if ($this->cod_docente_inep) {
-            $sql = 'INSERT INTO modules.educacenso_cod_docente (cod_servidor,cod_docente_inep, fonte, created_at)
-                                                  VALUES ($1, $2,\'U\', \'NOW()\')';
-            Portabilis_Utils_Database::fetchPreparedQuery($sql, ['params' => [$this->cod_servidor, $this->cod_docente_inep]]);
+            $objPessoa = new clsPessoaFisica($this->cod_servidor);
+            $detPessoa = $objPessoa->detalhe();
+            $nomeInep = $detPessoa['nome'] ?? '';
+
+            $sql = 'INSERT INTO modules.educacenso_cod_docente (cod_servidor, cod_docente_inep, nome_inep, fonte, created_at)
+                                                  VALUES ($1, $2, $3, \'U\', NOW())';
+            Portabilis_Utils_Database::fetchPreparedQuery($sql, ['params' => [$this->cod_servidor, $this->cod_docente_inep, $nomeInep]]);
         }
     }
 

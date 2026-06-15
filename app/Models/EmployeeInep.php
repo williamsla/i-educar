@@ -19,6 +19,7 @@ class EmployeeInep extends LegacyModel
     protected $fillable = [
         'cod_servidor',
         'cod_docente_inep',
+        'nome_inep',
     ];
 
     protected function number(): Attribute
