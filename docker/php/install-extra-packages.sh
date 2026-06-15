@@ -168,7 +168,7 @@ fi
 
 if [ "${ENABLE_PACKAGE_EDUCACENSO:-false}" = "true" ]; then
   clone_or_update_repo \
-    "${PACKAGE_REPO_EDUCACENSO:-https://github.com/portabilis/i-educar-educacenso-package.git}" \
+    "${PACKAGE_REPO_EDUCACENSO:-https://github.com/williamsla/i-educar-educacenso-package.git}" \
     "packages/portabilis/i-educar-educacenso-package" \
     "${PACKAGE_REF_EDUCACENSO:-}"
   installed_any_package=1
