@@ -74,6 +74,10 @@ class CensoLayout2026
 
     public static function equipamentosInternetAlunos(Registro10 $data)
     {
+        if (!$data->usoInternetAlunos()) {
+            return null;
+        }
+
         $computadorMesa = $data->equipamentosAcessoInternetComputadorMesa();
         $dispositivosPessoais = $data->equipamentosAcessoInternetDispositivosPessoais();
 
@@ -98,18 +102,64 @@ class CensoLayout2026
             return null;
         }
 
-        if ($data->redeLocalNenhuma()) {
+        $cabo = $data->redeLocalACabo();
+        $wireless = $data->redeLocalWireless();
+
+        if ($cabo && $wireless) {
             return 3;
         }
 
-        if ($data->redeLocalWireless()) {
+        if ($wireless) {
             return 2;
         }
 
-        if ($data->redeLocalACabo()) {
+        if ($cabo) {
             return 1;
         }
 
+        if ($data->redeLocalNenhuma()) {
+            return 0;
+        }
+
         return '';
+    }
+
+    public static function linguaMinistradaEnsino(Registro10 $data)
+    {
+        if (!$data->educacaoIndigena) {
+            return 0;
+        }
+
+        $portugues = $data->linguaMinistradaPortugues();
+        $indigena = $data->linguaMinistradaIndigena();
+
+        if ($portugues && $indigena) {
+            return 3;
+        }
+
+        if ($indigena) {
+            return 1;
+        }
+
+        if ($portugues) {
+            return 2;
+        }
+
+        return 0;
+    }
+
+    public static function exportaCodigosLinguaIndigena(Registro10 $data)
+    {
+        $lingua = self::linguaMinistradaEnsino($data);
+
+        if (!in_array($lingua, [1, 3], true)) {
+            return [null, null, null];
+        }
+
+        return [
+            $data->codigoLinguaIndigena[0] ?? null,
+            $data->codigoLinguaIndigena[1] ?? null,
+            $data->codigoLinguaIndigena[2] ?? null,
+        ];
     }
 }

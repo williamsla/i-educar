@@ -170,10 +170,8 @@ class Registro10Export2026
             $data->instrumentosPedagogicosEducacaoQuilombola() ?: 0, // 155 Materiais pedagógicos para a educação escolar quilombola
             $data->instrumentosPedagogicosEducacaoEspecial() ?: 0, // 156 Materiais pedagógicos para a educação especial
             $data->instrumentosPedagogicosNenhum() ?: 0, // 157	Nenhum dos instrumentos listados
-            $data->educacaoIndigena ? 1 : ($data->linguaMinistradaPortugues() ? 2 : ($data->linguaMinistradaIndigena() ? 1 : 0)),
-            $data->educacaoIndigena && $data->linguaMinistradaIndigena() ? ($data->codigoLinguaIndigena[0] ?? null) : null, // 161 Código da língua indígena 1
-            $data->educacaoIndigena && $data->linguaMinistradaIndigena() ? ($data->codigoLinguaIndigena[1] ?? null) : null, // 162 Código da língua indígena 2
-            $data->educacaoIndigena && $data->linguaMinistradaIndigena() ? ($data->codigoLinguaIndigena[2] ?? null) : null, // 163 Código da língua indígena 3
+            CensoLayout2026::linguaMinistradaEnsino($data),
+            ...CensoLayout2026::exportaCodigosLinguaIndigena($data),
             $data->exameSelecaoIngresso ?: 0, // 164 A escola faz exame de seleção para ingresso de seus aluno(a)s (avaliação por prova e /ou analise curricular)
             $data->exameSelecaoIngresso ? ($data->reservaVagasCotasAutodeclaracaoPpi() ?: 0) : null, // 165	Autodeclarado preto, pardo ou indígena (PPI)
             $data->exameSelecaoIngresso ? ($data->reservaVagasCotasCondicaoRenda() ?: 0) : null, // 166 Condição de renda
