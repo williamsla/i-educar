@@ -2299,23 +2299,40 @@ protected function possiveisDuplicatas()
             }
 
             if ($deficiencyObject->deficiency_type_id == DeficiencyType::DEFICIENCY) {
-                $arrayEducacensoDeficiencies[] = $databaseDeficiencies[$deficiency];
+                if (isset($databaseDeficiencies[$deficiency])) {
+                    $arrayEducacensoDeficiencies[] = $databaseDeficiencies[$deficiency];
+                }
             }
 
             if ($deficiencyObject->deficiency_type_id == DeficiencyType::DISORDER) {
-                $arrayEducacensoDeficiencies[] = $databaseDisorders[$deficiency];
+                if (isset($databaseDisorders[$deficiency])) {
+                    $arrayEducacensoDeficiencies[] = $databaseDisorders[$deficiency];
+                }
             }
-
-            $arrayEducacensoDeficiencies[] = $databaseDeficiencies[$deficiency];
         }
 
         return $arrayEducacensoDeficiencies;
     }
 
+    private function getDeficienciasFromRequest(): array
+    {
+        $deficiencias = $this->getRequest()->deficiencias;
+
+        if (is_array($deficiencias)) {
+            return array_values(array_filter($deficiencias, fn ($v) => !empty($v)));
+        }
+
+        if (is_string($deficiencias)) {
+            return array_values(array_filter(explode(',', $deficiencias), fn ($v) => !empty(trim($v))));
+        }
+
+        return [];
+    }
+
     private function deveHabilitarCampoRecursosProvaInep()
     {
         // Pega os códigos das deficiências do censo
-        $deficiencias = $this->replaceByEducacensoDeficiencies(array_filter(explode(',', $this->getRequest()->deficiencias)));
+        $deficiencias = $this->replaceByEducacensoDeficiencies($this->getDeficienciasFromRequest());
 
         return [
             'result' => !empty($deficiencias),
@@ -2324,7 +2341,7 @@ protected function possiveisDuplicatas()
 
     private function deveObrigarLaudoMedico()
     {
-        $deficiencias = array_filter(explode(',', $this->getRequest()->deficiencias));
+        $deficiencias = $this->getDeficienciasFromRequest();
 
         return [
             'result' => LegacyDeficiency::whereIn('cod_deficiencia', $deficiencias)
