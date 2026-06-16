@@ -19,6 +19,7 @@ ENV XDEBUG_MODE=debug
 ENV XDEBUG_START_WITH_REQUEST=off
 
 COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
+COPY conf.d/99-uploads.ini /usr/local/etc/php/conf.d/99-uploads.ini
 
 RUN apk add --update \
     bash \

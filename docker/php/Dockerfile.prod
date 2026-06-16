@@ -94,6 +94,8 @@ RUN docker-php-ext-enable \
 
 RUN apk del .phpize_deps
 
+COPY docker/php/conf.d/99-uploads.ini /usr/local/etc/php/conf.d/99-uploads.ini
+
 WORKDIR /var/www/ieducar
 
 COPY --chown=www-data:www-data . /var/www/ieducar
