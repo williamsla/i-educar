@@ -1,0 +1,717 @@
+ /* public/css/login_ieducar.css */
+
+:root {
+    --primary: #2c3e50;
+    --secondary: #3498db;
+    --accent: #1abc9c;
+    --light: #ecf0f1;
+    --dark: #2c3e50;
+    --text: #34495e;
+    --border: #dfe6e9;
+    --whatsapp: #25D366;
+    --diary: #e74c3c;
+    --manual: #2196F3;
+    --suporte: #ff9800;
+    --success: #27ae60;
+    --warning: #f39c12;
+    --error: #e74c3c;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background-color: #f5f7fa;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow-x: hidden;
+    position: relative;
+    color: var(--text);
+    line-height: 1.6;
+}
+
+/* CONTAINER PRINCIPAL */
+.login-wrapper {
+    width: 100%;
+    max-width: 1200px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 80vh;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
+    background: white;
+    position: relative;
+    z-index: 10;
+}
+
+/* SEÇÃO DE BOAS-VINDAS (COM LOGO BRANCA À ESQUERDA) */
+.welcome-section {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('https://images.unsplash.com/photo-1588072432836-e10032774350?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80') center/cover;
+    opacity: 0.15;
+    z-index: 1;
+}
+
+.welcome-content {
+    position: relative;
+    z-index: 2;
+}
+
+/* LOGO NA SEÇÃO DE BOAS-VINDAS - AGORA À ESQUERDA */
+.logo-left-container {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 2.5rem;
+}
+
+.institution-logo-left {
+    width: 180px; /* Tamanho ajustado */
+    height: auto;
+    filter: brightness(0) invert(1);
+    max-width: 100%;
+}
+
+.welcome-title {
+    font-size: 2.2rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: left;
+}
+
+.welcome-subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+    font-family: 'Open Sans', sans-serif;
+    text-align: left;
+}
+
+.features-list {
+    list-style: none;
+    margin-top: 2rem;
+}
+
+.features-list li {
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.features-list i {
+    margin-right: 0.8rem;
+    color: var(--accent);
+    font-size: 1.2rem;
+}
+
+/* SEÇÃO DE LOGIN */
+.login-section {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+/* HEADER COM LOGO CENTRALIZADA */
+.login-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    width: 100%;
+}
+
+/* LOGO CENTRALIZADA NA SEÇÃO DE LOGIN */
+.logo-center-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.login-logo-center {
+    height: 100px;
+    width: auto;
+    max-width: 100%;
+}
+
+.login-title {
+    font-size: 1.8rem;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.login-subtitle {
+    color: #7f8c8d;
+    font-size: 1rem;
+    font-family: 'Open Sans', sans-serif;
+    text-align: center;
+}
+
+/* CONTAINER PARA O FORMULÁRIO - CENTRALIZADO */
+.login-form-container {
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+    text-align: center;
+}
+
+/* FORMULÁRIO - CENTRALIZADO */
+.login-form {
+    margin-top: 2rem;
+    width: 100%;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+    text-align: left;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--dark);
+    text-align: left;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.9rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s;
+    background-color: #f8fafc;
+    color: var(--text);
+    text-align: left;
+}
+
+.form-control:focus {
+    border-color: var(--secondary);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    outline: none;
+    background-color: white;
+}
+
+.input-icon {
+    position: absolute;
+    right: 1rem;
+    top: 2.7rem;
+    color: #95a5a6;
+    cursor: pointer;
+}
+
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+}
+
+.remember-me input {
+    margin-right: 0.5rem;
+}
+
+.forgot-password {
+    color: var(--secondary);
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.forgot-password:hover {
+    text-decoration: underline;
+}
+
+/* BOTÃO PRINCIPAL - Entrar no Sistema */
+.btn {
+    display: inline-block;
+    width: 100%;
+    padding: 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: white;
+    height: 50px; /* Altura do botão principal */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-primary:hover {
+    background-color: #1a252f;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+/* SEÇÃO DE BOTÕES DE AJUDA - BOTÕES MENORES */
+.help-section {
+    margin-top: 2.5rem;
+    border-top: 1px solid var(--border);
+    padding-top: 2rem;
+    text-align: center;
+}
+
+.help-title {
+    text-align: center;
+    margin-bottom: 1.2rem;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.help-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* TRÊS BOTÕES LADO A LADO */
+    gap: 0.8rem;
+    justify-content: center;
+    max-width: 450px;
+    margin: 0 auto;
+}
+
+.help-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.6rem 0.4rem;
+    border-radius: 6px;
+    text-decoration: none;
+    color: white;
+    font-weight: 500;
+    transition: all 0.3s;
+    font-size: 0.75rem;
+    min-height: 65px;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.help-button i {
+    font-size: 1.2rem;
+    margin-bottom: 0.3rem;
+    display: block;
+}
+
+.help-button span {
+    display: block;
+    text-align: center;
+    font-size: 0.7rem;
+}
+
+.help-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Botão Diário do Professor - VERMELHO */
+.btn-diario {
+    background-color: var(--diary);
+    border: 1px solid #c0392b;
+}
+
+.btn-diario:hover {
+    background-color: #c0392b;
+}
+
+/* Botão Manual do Usuário - AZUL */
+.btn-manual {
+    background-color: var(--manual);
+    border: 1px solid #0b7dda;
+}
+
+.btn-manual:hover {
+    background-color: #0b7dda;
+}
+
+/* Botão Suporte - LARANJA */
+.btn-suporte {
+    background-color: var(--suporte);
+    border: 1px solid #e68a00;
+}
+
+.btn-suporte:hover {
+    background-color: #e68a00;
+}
+
+/* Botão WhatsApp - VERDE */
+.btn-whatsapp {
+    background-color: var(--whatsapp);
+    border: 1px solid #1da851;
+}
+
+.btn-whatsapp:hover {
+    background-color: #1da851;
+}
+
+/* SEÇÃO DE SUPORTE - BOTÕES MAIS FINOS (SIMILARES AO "ENTRAR NO SISTEMA") */
+.support-section {
+    margin-top: 2.5rem;
+    border-top: 1px solid var(--border);
+    padding-top: 2rem;
+    text-align: center;
+}
+
+.support-title {
+    text-align: center;
+    margin-bottom: 1.2rem;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+}
+
+.support-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem; /* Espaço reduzido entre botões */
+    justify-content: center;
+    max-width: 400px; /* Largura máxima ajustada */
+    margin: 0 auto;
+}
+
+.support-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.7rem 0.8rem; /* Padding vertical reduzido (mais fino) */
+    border-radius: 8px;
+    text-decoration: none;
+    color: white;
+    font-weight: 500;
+    transition: all 0.3s;
+    font-size: 0.85rem;
+    min-height: 40px; /* Altura reduzida para ficar mais fino */
+    max-height: 40px; /* Altura máxima igual à mínima */
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.support-link i {
+    margin-right: 0.5rem;
+    font-size: 1rem; /* Ícone um pouco menor */
+}
+
+.support-link.whatsapp {
+    background-color: var(--whatsapp);
+}
+
+.support-link.diary {
+    background-color: var(--diary);
+}
+
+.support-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    opacity: 0.95;
+}
+
+/* MENSAGENS - CENTRALIZADAS */
+.alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    text-align: center;
+    border-left: 4px solid transparent;
+}
+
+.alert-success {
+    background-color: rgba(39, 174, 96, 0.1);
+    border-left-color: var(--success);
+    color: var(--success);
+}
+
+.alert-error {
+    background-color: rgba(231, 76, 60, 0.1);
+    border-left-color: var(--error);
+    color: var(--error);
+}
+
+/* DECORAÇÕES */
+.decorative-elements {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.decorative-element {
+    position: absolute;
+    opacity: 0.1;
+}
+
+/* RESPONSIVIDADE */
+@media (max-width: 992px) {
+    .login-wrapper {
+        grid-template-columns: 1fr;
+        max-width: 600px;
+    }
+    
+    .welcome-section {
+        display: none;
+    }
+    
+    .help-buttons {
+        grid-template-columns: 1fr 1fr; /* Em tablet, 2 por linha */
+        max-width: 400px;
+    }
+    
+    .support-links {
+        grid-template-columns: 1fr 1fr;
+        max-width: 400px;
+        gap: 0.7rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .login-section {
+        padding: 2rem;
+    }
+    
+    .institution-logo-left {
+        width: 150px;
+    }
+    
+    .login-logo-center {
+        height: 80px;
+    }
+    
+    .help-buttons {
+        grid-template-columns: 1fr;
+        max-width: 250px;
+        gap: 0.6rem;
+    }
+    
+    .help-button {
+        min-height: 60px;
+        padding: 0.5rem 0.3rem;
+    }
+    
+    .help-button i {
+        font-size: 1.1rem;
+    }
+    
+    .help-button span {
+        font-size: 0.65rem;
+    }
+    
+    /* Responsividade para botões de suporte */
+    .support-links {
+        grid-template-columns: 1fr; /* Em mobile, um embaixo do outro */
+        max-width: 280px;
+        gap: 0.6rem;
+    }
+    
+    .support-link {
+        padding: 0.6rem 0.7rem;
+        min-height: 38px;
+        max-height: 38px;
+        font-size: 0.82rem;
+    }
+    
+    .support-title {
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .login-section {
+        padding: 1.5rem;
+    }
+    
+    .help-buttons {
+        gap: 0.5rem;
+    }
+    
+    .help-button {
+        font-size: 0.7rem;
+        padding: 0.4rem 0.2rem;
+        min-height: 55px;
+    }
+    
+    .support-links {
+        gap: 0.5rem;
+        max-width: 260px;
+    }
+    
+    .support-link {
+        font-size: 0.78rem;
+        padding: 0.55rem 0.6rem;
+        min-height: 36px;
+        max-height: 36px;
+    }
+    
+    .support-link i {
+        font-size: 0.9rem;
+        margin-right: 0.4rem;
+    }
+}
+
+/* ANIMAÇÕES */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInFromLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.welcome-content {
+    animation: slideInFromLeft 0.8s ease-out;
+}
+
+.login-section {
+    animation: slideInFromRight 0.8s ease-out;
+}
+
+.help-buttons {
+    animation: fadeIn 0.6s ease-out 0.3s both;
+}
+
+/* MELHORIAS PARA O LAYOUT À ESQUERDA */
+.logo-left-container img {
+    transition: transform 0.3s ease;
+}
+
+.logo-left-container img:hover {
+    transform: scale(1.05);
+}
+
+/* ESTILOS PARA TEXTO À ESQUERDA */
+.welcome-content h1,
+.welcome-content p,
+.welcome-content ul {
+    max-width: 500px;
+}
+
+/* ESTILOS PARA ÍCONES NOS BOTÕES DE AJUDA */
+.help-button i[class*="fa-"] {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+}
+
+.help-button i.fa-book {
+    content: "\f02d";
+}
+
+.help-button i.fa-life-ring {
+    content: "\f1cd";
+}
+
+.help-button i.fa-whatsapp {
+    content: "\f232";
+}
+
+.help-button i.fa-calendar-alt {
+    content: "\f073";
+}
+
+/* ESTILO PARA BOTÕES DESABILITADOS */
+.help-button:disabled,
+.help-button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* TOOLTIP PARA BOTÕES */
+.help-button {
+    position: relative;
+}
+
+.help-button:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    z-index: 100;
+    margin-bottom: 0.5rem;
+    pointer-events: none;
+}
+
+/* ESTILO PARA VISUALIZAÇÃO DOS BOTÕES QUANDO OCULTOS */
+.help-section.hidden {
+    display: none;
+}
