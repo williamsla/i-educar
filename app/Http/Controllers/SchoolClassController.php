@@ -227,6 +227,19 @@ class SchoolClassController extends Controller
         $etapasCursoTecnico = [39, 40, 64];
 
         if (isset($params['etapa_educacenso'])
+            && !in_array((int) $params['etapa_educacenso'], [67, 68, 73, 75], true)) {
+            $params['codigo_eixo_curso_profissional'] = null;
+        }
+
+        if (empty($params['codigo_eixo_curso_profissional'])) {
+            $params['codigo_eixo_curso_profissional'] = null;
+        }
+
+        if (empty($params['carga_horaria_curso'])) {
+            $params['carga_horaria_curso'] = null;
+        }
+
+        if (isset($params['etapa_educacenso'])
             && !in_array($params['etapa_educacenso'], $etapasCursoTecnico)) {
             $params['cod_curso_profissional'] = null;
         }

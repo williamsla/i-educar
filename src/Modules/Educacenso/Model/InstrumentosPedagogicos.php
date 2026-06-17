@@ -38,6 +38,12 @@ class InstrumentosPedagogicos
 
     public const MATERIAL_EDUCACAO_ESPECIAL = 17;
 
+    public const EQUIPAMENTOS_AUDIOVISUAIS = 18;
+
+    public const KITS_ROBOTICA = 19;
+
+    public const EDUCACAO_EMOCIONAL = 20;
+
     public static function getDescriptiveValues()
     {
         return [
@@ -57,6 +63,9 @@ class InstrumentosPedagogicos
             self::MATERIAIS_AREA_HORTA => 'Equipamentos e instrumentos para atividades em área de horta, plantio e/ou produção agrícola',
             self::MATERIAL_EDUCACAO_QUILOMBOLA => 'Materiais pedagógicos para a educação escolar quilombola',
             self::MATERIAL_EDUCACAO_ESPECIAL => 'Materiais pedagógicos para a educação especial',
+            self::EQUIPAMENTOS_AUDIOVISUAIS => 'Equipamentos audiovisuais para produção estudantil',
+            self::KITS_ROBOTICA => 'Kits de robótica',
+            self::EDUCACAO_EMOCIONAL => 'Materiais para a educação emocional e mediação de conflitos',
             self::NENHUM_DOS_INSTRUMENTOS_LISTADOS => 'Nenhum dos instrumentos listados',
         ];
     }

@@ -10,6 +10,8 @@ return new class extends clsCadastro
 
     public $etapas_educacenso;
 
+    public $cargas_horarias_integralizadas;
+
     public function __construct()
     {
         parent::__construct();
@@ -71,6 +73,19 @@ return new class extends clsCadastro
             $etapasEducacenso = [0 => 'Nenhuma'] + $etapasEducacenso;
 
             $this->campoLista(nome: "etapas_educacenso[{$enturmacao['ref_cod_turma']}-{$enturmacao['sequencial']}]", campo: "Etapa do aluno na turma {$enturmacao['nm_turma']}:", valor: $etapasEducacenso, default: $enturmacao['etapa_educacenso'], obrigatorio: false);
+
+            $options = [
+                'label' => "Carga horária integralizada no curso técnico (horas) - turma {$enturmacao['nm_turma']}",
+                'value' => $enturmacao['carga_horaria_integralizada'] ?? null,
+                'required' => false,
+                'size' => 5,
+                'max_length' => 4,
+                'placeholder' => '',
+            ];
+            $this->inputsHelper()->integer(
+                attrName: "cargas_horarias_integralizadas[{$enturmacao['ref_cod_turma']}-{$enturmacao['sequencial']}]",
+                inputOptions: $options
+            );
         }
     }
 
@@ -94,6 +109,10 @@ return new class extends clsCadastro
                 )->firstOrFail();
 
             $enrollment->etapa_educacenso = $etapaEducacenso;
+            $cargaHorariaIntegralizada = $this->cargas_horarias_integralizadas["{$codTurma}-{$sequencial}"] ?? null;
+            $enrollment->carga_horaria_integralizada = $cargaHorariaIntegralizada !== '' && $cargaHorariaIntegralizada !== null
+                ? (int) $cargaHorariaIntegralizada
+                : null;
 
             $enrollment->saveOrFail();
         }

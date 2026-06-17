@@ -8,6 +8,12 @@ trait Formatters
 {
     public function cpfToCenso($cpf)
     {
+        $cpf = preg_replace('/\D/', '', (string) $cpf);
+
+        if ($cpf === '') {
+            return null;
+        }
+
         $cpf = str_replace(['.', '-'], '', int2CPF($cpf));
 
         return $cpf == '00000000000' ? null : $cpf;

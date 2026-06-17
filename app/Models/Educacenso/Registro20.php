@@ -171,6 +171,10 @@ class Registro20 implements RegistroEducacenso
      */
     public $codCursoProfissional;
 
+    public $codigoEixoCursoProfissional;
+
+    public $cargaHorariaCurso;
+
     /**
      * @var string
      */

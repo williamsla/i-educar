@@ -9,6 +9,7 @@ use iEducar\Modules\Educacenso\ExportRule\PoderPublicoConveniado as ExportRulePo
 use iEducar\Modules\Educacenso\ExportRule\Regulamentacao;
 use iEducar\Modules\Educacenso\ExportRule\SituacaoFuncionamento;
 use iEducar\Modules\Educacenso\Formatters;
+use iEducar\Modules\Educacenso\Layout\CensoLayout2026;
 use iEducar\Modules\Educacenso\Model\FormasContratacaoPoderPublico;
 use iEducar\Modules\Educacenso\Model\PoderPublicoConveniado;
 use Portabilis_Date_Utils;
@@ -50,7 +51,7 @@ class Registro00 extends AbstractRegistro
     public function getExportFormatData($escola, $year)
     {
         $data = $this->getData($escola, $year);
-        $data = $this->getRecordExportData($data);
+        $data = $this->getRecordExportData($data, $year);
 
         return $data;
     }
@@ -59,7 +60,7 @@ class Registro00 extends AbstractRegistro
      * @param $Registro00Model
      * @return array
      */
-    public function getRecordExportData($record)
+    public function getRecordExportData($record, $year = null)
     {
         $this->codigoInep = $record->codigoInep;
         $this->nomeEscola = $record->nome;
@@ -71,6 +72,15 @@ class Registro00 extends AbstractRegistro
         $record = Regulamentacao::handle($record);
         $record = EsferaAdministrativa::handle($record);
 
+        if (CensoLayout2026::isEnabled((int) $year)) {
+            return $this->getRecordExportData2026($record);
+        }
+
+        return $this->getRecordExportDataLegacy($record);
+    }
+
+    private function getRecordExportDataLegacy($record)
+    {
         return [
             $record->registro, // 1	Tipo de registro
             $record->codigoInep, // 2	Código de escola - Inep
@@ -128,6 +138,65 @@ class Registro00 extends AbstractRegistro
             $record->unidadeVinculada, // 54	Unidade vinculada à escola de educação básica ou unidade ofertante de educação superior
             $record->inepEscolaSede, // 55	Código da Escola Sede
             $record->codigoIes, // 56	Código da IES
+        ];
+    }
+
+    private function getRecordExportData2026($record)
+    {
+        return [
+            $record->registro,
+            $record->codigoInep,
+            $record->situacaoFuncionamento,
+            $record->inicioAnoLetivo,
+            $record->fimAnoLetivo,
+            $record->nome,
+            $record->cep,
+            $record->codigoIbgeMunicipio,
+            addLeadingZero($record->codigoIbgeDistrito, 2),
+            $record->logradouro,
+            $record->numero,
+            $record->complemento,
+            $record->bairro,
+            $record->ddd,
+            $record->telefone,
+            $record->telefoneOutro,
+            $record->email,
+            $record->orgaoRegional,
+            $record->zonaLocalizacao,
+            $record->localizacaoDiferenciada,
+            $record->dependenciaAdministrativa,
+            $record->orgaoEducacao,
+            $record->orgaoSeguranca,
+            $record->orgaoSaude,
+            $record->orgaoOutro,
+            $record->mantenedoraEmpresa,
+            $record->mantenedoraSindicato,
+            $record->mantenedoraOng,
+            $record->mantenedoraInstituicoes,
+            $record->mantenedoraSistemaS,
+            $record->mantenedoraOscip,
+            $record->categoriaEscolaPrivada,
+            $record->poderPublicoConveniado ? (int) in_array(PoderPublicoConveniado::ESTADUAL, $record->poderPublicoConveniado) : '',
+            $record->poderPublicoConveniado ? (int) in_array(PoderPublicoConveniado::MUNICIPAL, $record->poderPublicoConveniado) : '',
+            $record->formasContratacaoPoderPublicoEstadual ? (int) in_array(FormasContratacaoPoderPublico::TERMO_COLABORACAO, $record->formasContratacaoPoderPublicoEstadual) : '',
+            $record->formasContratacaoPoderPublicoEstadual ? (int) in_array(FormasContratacaoPoderPublico::TERMO_FOMENTO, $record->formasContratacaoPoderPublicoEstadual) : '',
+            $record->formasContratacaoPoderPublicoEstadual ? (int) in_array(FormasContratacaoPoderPublico::ACORDO_COOPERACAO, $record->formasContratacaoPoderPublicoEstadual) : '',
+            $record->formasContratacaoPoderPublicoEstadual ? (int) in_array(FormasContratacaoPoderPublico::CONTRATO_PRESTACAO_SERVICO, $record->formasContratacaoPoderPublicoEstadual) : '',
+            $record->formasContratacaoPoderPublicoEstadual ? (int) in_array(FormasContratacaoPoderPublico::TERMO_COOPERACAO_TECNICA, $record->formasContratacaoPoderPublicoEstadual) : '',
+            $record->formasContratacaoPoderPublicoEstadual ? (int) in_array(FormasContratacaoPoderPublico::CONTRATO_CONSORCIO, $record->formasContratacaoPoderPublicoEstadual) : '',
+            $record->formasContratacaoPoderPublicoMunicipal ? (int) in_array(FormasContratacaoPoderPublico::TERMO_COLABORACAO, $record->formasContratacaoPoderPublicoMunicipal) : '',
+            $record->formasContratacaoPoderPublicoMunicipal ? (int) in_array(FormasContratacaoPoderPublico::TERMO_FOMENTO, $record->formasContratacaoPoderPublicoMunicipal) : '',
+            $record->formasContratacaoPoderPublicoMunicipal ? (int) in_array(FormasContratacaoPoderPublico::ACORDO_COOPERACAO, $record->formasContratacaoPoderPublicoMunicipal) : '',
+            $record->formasContratacaoPoderPublicoMunicipal ? (int) in_array(FormasContratacaoPoderPublico::CONTRATO_PRESTACAO_SERVICO, $record->formasContratacaoPoderPublicoMunicipal) : '',
+            $record->formasContratacaoPoderPublicoMunicipal ? (int) in_array(FormasContratacaoPoderPublico::TERMO_COOPERACAO_TECNICA, $record->formasContratacaoPoderPublicoMunicipal) : '',
+            $record->formasContratacaoPoderPublicoMunicipal ? (int) in_array(FormasContratacaoPoderPublico::CONTRATO_CONSORCIO, $record->formasContratacaoPoderPublicoMunicipal) : '',
+            $record->cnpjMantenedoraPrincipal,
+            $record->cnpjEscolaPrivada,
+            $record->regulamentacao,
+            CensoLayout2026::esferaAdministrativa($record),
+            $record->unidadeVinculada,
+            $record->inepEscolaSede,
+            $record->codigoIes,
         ];
     }
 

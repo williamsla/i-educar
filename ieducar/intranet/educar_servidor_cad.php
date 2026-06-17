@@ -2,6 +2,7 @@
 
 use App\Events\EmployeeCreated;
 use App\Models\Employee;
+use App\Models\EmployeeInep;
 use App\Models\EmployeeGraduation;
 use App\Models\EmployeePosgraduate;
 use App\Models\LegacyAbsenceDelay;
@@ -12,6 +13,7 @@ use App\Services\EmployeeGraduationService;
 use App\Services\EmployeePosgraduateService;
 use iEducar\Modules\Educacenso\Model\AreaPosGraduacao;
 use iEducar\Modules\Educacenso\Model\Escolaridade;
+use iEducar\Modules\Educacenso\Model\FormacaoContinuada;
 use iEducar\Modules\Educacenso\Model\PosGraduacao;
 use iEducar\Modules\ValueObjects\EmployeeGraduationValueObject;
 use iEducar\Modules\ValueObjects\EmployeePosgraduateValueObject;
@@ -178,6 +180,14 @@ return new class extends clsCadastro
                     $this->complementacao_pedagogica = transformStringFromDBInArray($this->complementacao_pedagogica);
                 }
 
+                $this->cod_docente_inep = EmployeeInep::query()
+                    ->where('cod_servidor', $this->cod_servidor)
+                    ->value('cod_docente_inep');
+
+                $objPessoa = new clsPessoaFisica($this->cod_servidor);
+                $detPessoa = $objPessoa->detalhe();
+                EmployeeInep::syncNomeFromPessoa($this->cod_servidor, $detPessoa['nome'] ?? null);
+
                 $retorno = 'Editar';
             }
         }
@@ -264,6 +274,7 @@ return new class extends clsCadastro
                 'label_hint' => 'Somente números',
                 'max_length' => 12,
                 'placeholder' => 'INEP',
+                'value' => $this->cod_docente_inep,
             ]
         );
 
@@ -368,18 +379,6 @@ return new class extends clsCadastro
 
         $this->inputsHelper()->checkbox('multi_seriado', ['label' => 'Multisseriado', 'value' => $this->multi_seriado]);
 
-        // Dados do docente no Inep/Educacenso.
-        if ($this->docente) {
-            $docenteMapper = new Educacenso_Model_DocenteDataMapper;
-
-            $docenteInep = null;
-
-            try {
-                $docenteInep = $docenteMapper->find(['docente' => $this->cod_servidor]);
-            } catch (Exception) {
-            }
-        }
-
         $opcoes = ['' => 'Selecione'];
 
         $objTemp = new clsCadastroEscolaridade;
@@ -416,27 +415,7 @@ return new class extends clsCadastro
             'required' => $obrigarCamposCenso,
             'options' => [
                 'values' => $this->curso_formacao_continuada,
-                'all_values' => [
-                    1 => 'Creche (0 a 3 anos)',
-                    2 => 'Pré-escola (4 e 5 anos)',
-                    3 => 'Anos iniciais do ensino fundamental',
-                    4 => 'Anos finais do ensino fundamental',
-                    5 => 'Ensino médio',
-                    6 => 'Educação de jovens e adultos',
-                    7 => 'Educação especial',
-                    8 => 'Educação indígena',
-                    9 => 'Educação do campo',
-                    10 => 'Educação ambiental',
-                    11 => 'Educação em direitos humanos',
-                    18 => 'Educação bilíngue de surdos',
-                    19 => 'Educação e Tecnologia de Informação e Comunicação (TIC)',
-                    12 => 'Gênero e diversidade sexual',
-                    13 => 'Direitos de criança e adolescente',
-                    14 => 'Educação para as relações étnico-raciais e História e cultura Afro-Brasileira e Africana',
-                    17 => 'Gestão Escolar',
-                    15 => 'Outros',
-                    16 => 'Nenhum',
-                ],
+                'all_values' => FormacaoContinuada::getDescriptiveValues(),
             ],
         ];
         $this->inputsHelper()->multipleSearchCustom('', $options, $helperOptions);
@@ -1003,9 +982,13 @@ JS;
     {
         Portabilis_Utils_Database::fetchPreparedQuery('DELETE FROM modules.educacenso_cod_docente WHERE cod_servidor = $1', ['params' => [$this->cod_servidor]], false);
         if ($this->cod_docente_inep) {
-            $sql = 'INSERT INTO modules.educacenso_cod_docente (cod_servidor,cod_docente_inep, fonte, created_at)
-                                                  VALUES ($1, $2,\'U\', \'NOW()\')';
-            Portabilis_Utils_Database::fetchPreparedQuery($sql, ['params' => [$this->cod_servidor, $this->cod_docente_inep]]);
+            $objPessoa = new clsPessoaFisica($this->cod_servidor);
+            $detPessoa = $objPessoa->detalhe();
+            $nomeInep = $detPessoa['nome'] ?? '';
+
+            $sql = 'INSERT INTO modules.educacenso_cod_docente (cod_servidor, cod_docente_inep, nome_inep, fonte, created_at)
+                                                  VALUES ($1, $2, $3, \'U\', NOW())';
+            Portabilis_Utils_Database::fetchPreparedQuery($sql, ['params' => [$this->cod_servidor, $this->cod_docente_inep, $nomeInep]]);
         }
     }
 

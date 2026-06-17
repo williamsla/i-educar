@@ -59,6 +59,7 @@ class LegacyEnrollment extends LegacyModel
         'curso_itinerario',
         'itinerario_concomitante',
         'etapa_educacenso',
+        'carga_horaria_integralizada',
         'cod_curso_profissional',
         'desconsiderar_educacenso',
         'transferido',

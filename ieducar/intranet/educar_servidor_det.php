@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\EmployeeWithdrawal;
+use App\Models\EmployeeInep;
 use App\Models\LegacyRole;
 use App\Models\LegacyUserType;
 use App\Support\View\Employee\EmployeeReturn;
@@ -112,19 +113,16 @@ return new class extends clsDetalhe
         }
 
         // Dados no Educacenso/Inep.
-        $docenteMapper = new Educacenso_Model_DocenteDataMapper;
+        $employeeInep = EmployeeInep::syncNomeFromPessoa(
+            (int) $registro['cod_servidor'],
+            $registro['nome']
+        );
 
-        $docenteInep = null;
-        try {
-            $docenteInep = $docenteMapper->find(['docente' => $registro['cod_servidor']]);
-        } catch (Exception) {
-        }
+        if ($employeeInep) {
+            $this->addDetalhe(['Código Educacenso/Inep', $employeeInep->cod_docente_inep]);
 
-        if (isset($docenteInep)) {
-            $this->addDetalhe(['Código Educacenso/Inep', $docenteInep->docenteInep]);
-
-            if (isset($docenteInep->nomeInep)) {
-                $this->addDetalhe(['Nome Educacenso/Inep', $docenteInep->nomeInep]);
+            if ($employeeInep->nome_inep) {
+                $this->addDetalhe(['Nome Educacenso/Inep', $employeeInep->nome_inep]);
             }
         }
 
