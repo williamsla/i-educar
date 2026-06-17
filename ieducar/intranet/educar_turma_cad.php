@@ -79,6 +79,10 @@ return new class extends clsCadastro
 
     public $cod_curso_profissional;
 
+    public $codigo_eixo_curso_profissional;
+
+    public $carga_horaria_curso;
+
     public $etapa_agregada;
 
     public $etapa_educacenso;
@@ -650,6 +654,30 @@ return new class extends clsCadastro
 
         $options = ['label' => 'Formas de organização da turma', 'resources' => $resources, 'value' => $this->formas_organizacao_turma, 'required' => false, 'size' => 70];
         $this->inputsHelper()->select(attrName: 'formas_organizacao_turma', inputOptions: $options);
+
+        $eixosCursoProfissional = loadJson(file: 'educacenso_json/eixos_curso_profissional.json');
+        $eixosCursoProfissional = array_replace([null => 'Selecione'], $eixosCursoProfissional);
+
+        $options = [
+            'label' => 'Código do eixo do curso de qualificação profissional',
+            'resources' => $eixosCursoProfissional,
+            'value' => $this->codigo_eixo_curso_profissional,
+            'required' => false,
+            'size' => 70,
+            'label_hint' => 'Obrigatório para etapas 67, 68, 73 e 75 (layout Censo 2026)',
+        ];
+        $this->inputsHelper()->select(attrName: 'codigo_eixo_curso_profissional', inputOptions: $options);
+
+        $options = [
+            'label' => 'Carga horária total do curso (em horas)',
+            'value' => $this->carga_horaria_curso,
+            'required' => false,
+            'size' => 5,
+            'max_length' => 4,
+            'placeholder' => '',
+            'label_hint' => 'Preencher quando o itinerário de formação técnica e profissional estiver ativo',
+        ];
+        $this->inputsHelper()->integer(attrName: 'carga_horaria_curso', inputOptions: $options);
 
         $cursos = loadJson(file: 'educacenso_json/cursos_da_educacao_profissional.json');
 

@@ -184,6 +184,10 @@ class Registro30 implements RegistroEducacenso
 
     public $formacaoContinuadaEducacaoTecnologiaInformacaoComunicacao;
 
+    public $formacaoContinuadaAlfabetizacao;
+
+    public $formacaoContinuadaEducacaoIntegralTempoIntegral;
+
     public $email;
 
     public $paisResidencia;

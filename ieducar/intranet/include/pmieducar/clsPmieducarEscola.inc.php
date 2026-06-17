@@ -224,6 +224,8 @@ class clsPmieducarEscola extends Model
 
     public $qtd_agronomos_horticultores;
 
+    public $qtd_assistente_social;
+
     public $qtd_apoio_pedagogico;
 
     public $qtd_coordenador_turno;
@@ -338,6 +340,7 @@ class clsPmieducarEscola extends Model
             e.qtd_segurancas,
             e.qtd_auxiliar_servicos_gerais,
             e.qtd_agronomos_horticultores,
+            e.qtd_assistente_social,
             e.qtd_nutricionistas,
             e.qtd_profissionais_preparacao,
             e.qtd_bombeiro,
@@ -1075,6 +1078,12 @@ class clsPmieducarEscola extends Model
             if (is_numeric($this->qtd_agronomos_horticultores)) {
                 $campos .= "{$gruda}qtd_agronomos_horticultores";
                 $valores .= "{$gruda}$this->qtd_agronomos_horticultores";
+                $gruda = ', ';
+            }
+
+            if (is_numeric($this->qtd_assistente_social)) {
+                $campos .= "{$gruda}qtd_assistente_social";
+                $valores .= "{$gruda}$this->qtd_assistente_social";
                 $gruda = ', ';
             }
 
@@ -2166,6 +2175,14 @@ class clsPmieducarEscola extends Model
             } elseif (is_null($this->qtd_agronomos_horticultores) || $this->qtd_agronomos_horticultores == '') {
                 $gruda = ', ';
                 $set .= "{$gruda}qtd_agronomos_horticultores = NULL ";
+            }
+
+            if (is_numeric($this->qtd_assistente_social) && $this->qtd_assistente_social > 0) {
+                $gruda = ', ';
+                $set .= "{$gruda}qtd_assistente_social = '{$this->qtd_assistente_social}'";
+            } elseif (is_null($this->qtd_assistente_social) || $this->qtd_assistente_social == '') {
+                $gruda = ', ';
+                $set .= "{$gruda}qtd_assistente_social = NULL ";
             }
 
             if (is_numeric($this->qtd_nutricionistas) && $this->qtd_nutricionistas > 0) {

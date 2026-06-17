@@ -382,6 +382,14 @@ class Registro10 extends Registro10Fields
     /**
      * @return bool
      */
+    public function laboratoriosRobotica()
+    {
+        return in_array(Laboratorios::ROBOTICA, $this->laboratorios);
+    }
+
+    /**
+     * @return bool
+     */
     public function laboratoriosCiencias()
     {
         return in_array(Laboratorios::CIENCIAS, $this->laboratorios);
@@ -1047,6 +1055,21 @@ class Registro10 extends Registro10Fields
     public function instrumentosPedagogicosEducacaoEspecial()
     {
         return in_array(InstrumentosPedagogicos::MATERIAL_EDUCACAO_ESPECIAL, $this->instrumentosPedagogicos);
+    }
+
+    public function instrumentosPedagogicosEquipamentosAudiovisuais()
+    {
+        return in_array(InstrumentosPedagogicos::EQUIPAMENTOS_AUDIOVISUAIS, $this->instrumentosPedagogicos);
+    }
+
+    public function instrumentosPedagogicosKitsRobotica()
+    {
+        return in_array(InstrumentosPedagogicos::KITS_ROBOTICA, $this->instrumentosPedagogicos);
+    }
+
+    public function instrumentosPedagogicosEducacaoEmocional()
+    {
+        return in_array(InstrumentosPedagogicos::EDUCACAO_EMOCIONAL, $this->instrumentosPedagogicos);
     }
 
     /**
