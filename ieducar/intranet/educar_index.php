@@ -33,6 +33,19 @@ return new class
         // Busca escolas com resumo já filtrado pelo ano
         $escolas = $this->getEscolasComResumo($schoolsIds, $anoSelecionado);
 
+        // Totais gerais (soma de todas as escolas)
+        $totalAlunos  = array_sum(array_column($escolas, 'alunos'));
+        $totalTurmas  = array_sum(array_column($escolas, 'turmas'));
+        $totalAee     = array_sum(array_column($escolas, 'aee'));
+        $totalSemCpf  = array_sum(array_column($escolas, 'sem_cpf'));
+
+        // Monta as options do select de ano (reutilizado no seletor global)
+        $opcoesAnoGlobal = '';
+        foreach ($anosDisponiveis as $ano) {
+            $sel = $ano === $anoSelecionado ? ' selected' : '';
+            $opcoesAnoGlobal .= '<option value="' . $ano . '"' . $sel . '>' . $ano . '</option>';
+        }
+
         return '
                 <link rel="stylesheet" href="styles/educar_index.css">
                 
@@ -85,6 +98,75 @@ return new class
                         align-items: center; justify-content: center;
                     }
 
+                    /* Cabeçalho do Resumo Rápido com seletor global de ano */
+                    .quick-summary-header {
+                        display: flex; align-items: center;
+                        justify-content: space-between; flex-wrap: wrap;
+                        gap: 10px; margin-bottom: 18px;
+                    }
+                    .quick-summary-header h2 {
+                        margin: 0; font-size: 20px; color: #333;
+                    }
+                    .ano-filtro-global {
+                        display: flex; align-items: center; gap: 8px;
+                    }
+                    .ano-filtro-global label {
+                        font-size: 13px; font-weight: 600; color: #555; white-space: nowrap;
+                    }
+                    .ano-filtro-select {
+                        padding: 5px 10px; border: 1px solid #ced4da; border-radius: 6px;
+                        font-size: 13px; color: #333; background: #fff; cursor: pointer;
+                    }
+                    .ano-filtro-select:focus { outline: none; border-color: #007bff; }
+
+                    /* Card de resumo geral */
+                    .resumo-geral-card {
+                        background: linear-gradient(135deg, #f0f4ff 0%, #fafbff 100%);
+                        border: 1px solid #d0d9f0; border-radius: 12px;
+                        padding: 20px 24px; margin-bottom: 24px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                    }
+                    .resumo-geral-title {
+                        font-size: 12px; font-weight: 700; color: #666;
+                        text-transform: uppercase; letter-spacing: 0.8px;
+                        margin-bottom: 14px;
+                    }
+                    .resumo-geral-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                        gap: 16px;
+                    }
+                    .resumo-geral-item {
+                        text-align: center; padding: 12px 8px;
+                        background: #fff; border-radius: 10px;
+                        border: 1px solid #e8edf8;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                    }
+                    .resumo-geral-item .rg-label {
+                        font-size: 11px; color: #888; font-weight: 600;
+                        text-transform: uppercase; letter-spacing: 0.5px;
+                        margin-bottom: 8px; line-height: 1.3;
+                    }
+                    .resumo-geral-item .rg-number {
+                        font-size: 28px; font-weight: 700; line-height: 1;
+                    }
+                    .rg-number.rg-alunos  { color: #007bff; }
+                    .rg-number.rg-turmas  { color: #28a745; }
+                    .rg-number.rg-aee     { color: #fd7e14; }
+                    .rg-number.rg-docs    { color: #dc3545; }
+                    .resumo-geral-item.rg-docs-item {
+                        cursor: pointer; transition: background 0.2s;
+                    }
+                    .resumo-geral-item.rg-docs-item:hover { background: #fff5f5; }
+
+                    /* Divisor entre resumo geral e individual */
+                    .resumo-individual-titulo {
+                        font-size: 13px; font-weight: 700; color: #555;
+                        text-transform: uppercase; letter-spacing: 0.6px;
+                        margin-bottom: 12px; padding-top: 4px;
+                        border-top: 1px solid #e8e8e8; padding-top: 18px;
+                    }
+
                     /* Accordion de escola */
                     .escola-accordion {
                         margin-bottom: 12px; border: 1px solid #e0e0e0;
@@ -117,26 +199,6 @@ return new class
                         background: #dc3545; color: white; border-radius: 12px;
                         font-size: 11px; font-weight: bold; padding: 2px 8px; margin-left: 8px;
                     }
-
-                    /* Filtro de ano */
-                    .ano-filtro-wrapper {
-                        display: flex; align-items: center; gap: 8px;
-                        margin-bottom: 14px; flex-wrap: wrap;
-                    }
-                    .ano-filtro-wrapper label {
-                        font-size: 13px; font-weight: 600; color: #555;
-                    }
-                    .ano-filtro-select {
-                        padding: 5px 10px; border: 1px solid #ced4da; border-radius: 6px;
-                        font-size: 13px; color: #333; background: #fff; cursor: pointer;
-                    }
-                    .ano-filtro-select:focus { outline: none; border-color: #007bff; }
-                    .btn-filtrar-ano {
-                        padding: 5px 14px; background: #007bff; color: white;
-                        border: none; border-radius: 6px; font-size: 13px;
-                        cursor: pointer; font-weight: 500;
-                    }
-                    .btn-filtrar-ano:hover { background: #0056b3; }
 
                     /* Modal */
                     #modalAlunosSemCPF {
@@ -299,17 +361,53 @@ return new class
                                 <ul>
                                     <li><a href="/module/Reports/StudentsPerClass" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Alunos por turma</a></li>
                                     <li><a href="/module/Reports/EnrollmentQuantitativeMap" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Quantitativo de matrículas</a></li>
-                                    <!--
-                                        <li><a href="/module/Reports/MonthlyAbsenceByStudent" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Sistema presença</a></li>
-                                    -->
                                 </ul>
                             </div>
                         </div>
                     </div>
 
                     <div class="quick-summary-section">
-                        <h2>Resumo Rápido</h2>
-                        ' . $this->gerarAccordionEscolas($escolas, $anoSelecionado, $anosDisponiveis) . '
+
+                        <!-- Cabeçalho: título + seletor de ano global -->
+                        <div class="quick-summary-header">
+                            <h2>Resumo Rápido</h2>
+                            <div class="ano-filtro-global">
+                                <label for="ano-select-global">📅 Ano letivo:</label>
+                                <select id="ano-select-global" class="ano-filtro-select"
+                                        onchange="filtrarAnoGlobal(this)">
+                                    ' . $opcoesAnoGlobal . '
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Resumo geral consolidado -->
+                        <div class="resumo-geral-card">
+                            <div class="resumo-geral-title">📊 Consolidado geral — ' . $anoSelecionado . '</div>
+                            <div class="resumo-geral-grid">
+                                <div class="resumo-geral-item">
+                                    <div class="rg-label">Total de Alunos Matriculados</div>
+                                    <div class="rg-number rg-alunos">' . number_format($totalAlunos, 0, '', '.') . '</div>
+                                </div>
+                                <div class="resumo-geral-item">
+                                    <div class="rg-label">Turmas Ativas</div>
+                                    <div class="rg-number rg-turmas">' . number_format($totalTurmas, 0, '', '.') . '</div>
+                                </div>
+                                <div class="resumo-geral-item">
+                                    <div class="rg-label">Atend. Educacional Especializado (AEE)</div>
+                                    <div class="rg-number rg-aee">' . number_format($totalAee, 0, '', '.') . '</div>
+                                </div>
+                                <div class="resumo-geral-item rg-docs-item" onclick="abrirModalGeralSemCPF()">
+                                    <div class="rg-label">Documentos Pendentes</div>
+                                    <div class="rg-number rg-docs">' . number_format($totalSemCpf, 0, '', '.') . '</div>
+                                    ' . ($totalSemCpf > 0 ? '<div class="alert-pending" style="margin-top:8px;"><span class="alert-icon">⚠️</span> Requer atenção</div>' : '') . '
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Accordions individuais por escola -->
+                        <div class="resumo-individual-titulo">🏫 Por escola</div>
+                        ' . $this->gerarAccordionEscolas($escolas, $anoSelecionado) . '
+
                     </div>
                 </div>
 
@@ -330,6 +428,22 @@ return new class
                 </div>
 
                 <script>
+                // Dados de todas as escolas para o modal geral (injetados pelo PHP)
+                var _todasEscolas = ' . json_encode(array_map(function($e) {
+                    return [
+                        'nome'              => $e['nome'],
+                        'alunos_sem_cpf_json' => $e['alunos_sem_cpf_json'],
+                    ];
+                }, $escolas), JSON_UNESCAPED_UNICODE) . ';
+
+                // ---------------------------------------------------------------
+                // Filtro de ano GLOBAL — recarrega a página com ?ano=X
+                // ---------------------------------------------------------------
+                function filtrarAnoGlobal(selectEl) {
+                    var ano = selectEl.value;
+                    window.location.href = window.location.pathname + "?ano=" + ano;
+                }
+
                 // ---------------------------------------------------------------
                 // Accordion
                 // ---------------------------------------------------------------
@@ -355,11 +469,54 @@ return new class
                 // ---------------------------------------------------------------
                 function abrirListaAlunosSemCPF(escolaNome, alunosJson) {
                     var alunos = JSON.parse(alunosJson);
-                    var modal  = document.getElementById("modalAlunosSemCPF");
+                    preencherModal("Alunos sem CPF válido (" + alunos.length + ") — " + escolaNome, alunos);
+                }
+
+                // ---------------------------------------------------------------
+                // Modal consolidado com TODAS as escolas
+                // ---------------------------------------------------------------
+                function abrirModalGeralSemCPF() {
+                    var todosAlunos = [];
+                    _todasEscolas.forEach(function(escola) {
+                        var lista = JSON.parse(escola.alunos_sem_cpf_json);
+                        lista.forEach(function(a) {
+                            todosAlunos.push(Object.assign({}, a, { escola: escola.nome }));
+                        });
+                    });
+
                     var titulo = document.getElementById("modalTitulo");
                     var corpo  = document.getElementById("modalCorpo");
+                    titulo.textContent = "Documentos Pendentes — Geral (" + todosAlunos.length + " alunos)";
 
-                    titulo.textContent = "Alunos sem CPF válido (" + alunos.length + ") — " + escolaNome;
+                    if (todosAlunos.length === 0) {
+                        corpo.innerHTML = \'<div style="text-align:center;padding:40px;color:#666;">\' +
+                            \'<div style="font-size:48px;margin-bottom:10px;">🎉</div>\' +
+                            \'<h4>Todos os alunos estão com CPF cadastrado corretamente!</h4></div>\';
+                    } else {
+                        var html = \'<table class="alunos-table"><thead><tr>\' +
+                            \'<th>Escola</th><th>Nome do Aluno</th><th>CPF Atual</th><th style="text-align:center">Ação</th>\' +
+                            \'</tr></thead><tbody>\';
+
+                        todosAlunos.forEach(function(a) {
+                            html += \'<tr>\' +
+                                \'<td style="font-size:12px;color:#555;">\' + escapeHtml(a.escola) + \'</td>\' +
+                                \'<td>\' + escapeHtml(a.nome) + \'</td>\' +
+                                \'<td><span style="color:#dc3545;font-weight:bold;">\' + escapeHtml(a.cpf) + \'</span></td>\' +
+                                \'<td style="text-align:center">\' +
+                                \'<button type="button" class="btn-editar-cpf" onclick="editarAluno(\' + a.cod_aluno + \')">✏️ Editar CPF</button>\' +
+                                \'</td></tr>\';
+                        });
+
+                        html += \'</tbody></table>\';
+                        corpo.innerHTML = html;
+                    }
+
+                    document.getElementById("modalAlunosSemCPF").style.display = "flex";
+                }
+
+                function preencherModal(titulo, alunos) {
+                    document.getElementById("modalTitulo").textContent = titulo;
+                    var corpo = document.getElementById("modalCorpo");
 
                     if (alunos.length === 0) {
                         corpo.innerHTML = \'<div style="text-align:center;padding:40px;color:#666;">\' +
@@ -383,7 +540,7 @@ return new class
                         corpo.innerHTML = html;
                     }
 
-                    modal.style.display = "flex";
+                    document.getElementById("modalAlunosSemCPF").style.display = "flex";
                 }
 
                 function fecharModal() {
@@ -407,15 +564,6 @@ return new class
                 document.getElementById("modalAlunosSemCPF").addEventListener("click", function(e) {
                     if (e.target === this) fecharModal();
                 });
-
-                // ---------------------------------------------------------------
-                // Filtro de ano letivo por escola
-                // ---------------------------------------------------------------
-                function filtrarAnoEscola(codEscola, selectEl) {
-                    var ano = selectEl.value;
-                    var url = window.location.pathname + "?ano=" + ano;
-                    window.location.href = url;
-                }
 
                 // Mensagem de sucesso
                 var successMsg = document.getElementById("successMessage");
@@ -553,7 +701,6 @@ return new class
                     [$ano, $id]
                 );
 
-                // *** CORREÇÃO PRINCIPAL ***
                 // Alunos SEM CPF válido APENAS desta escola e neste ano
                 $semCpfRows = DB::select(
                     "SELECT DISTINCT
@@ -598,7 +745,6 @@ return new class
                     'turmas'              => (int) ($turmas[0]->total ?? 0),
                     'aee'                 => (int) ($aee[0]->total  ?? 0),
                     'sem_cpf'             => count($semCpfRows),
-                    // Lista completa serializada para o modal JS
                     'alunos_sem_cpf_json' => json_encode($alunosListaJson, JSON_UNESCAPED_UNICODE),
                 ];
             }
@@ -619,7 +765,6 @@ return new class
         if ($cpf === null || $cpf == 0 || $cpf === '' || $cpf === '0') {
             return 'Não informado';
         }
-        // Se já veio formatado pela função SQL, devolve direto
         if (preg_match('/^\d{3}\.\d{3}\.\d{3}-\d{2}$/', $cpf)) {
             return $cpf;
         }
@@ -633,19 +778,13 @@ return new class
     }
 
     /**
-     * Gera o HTML do accordion de escolas com filtro de ano e modal por escola.
+     * Gera o HTML do accordion de escolas — SEM seletor individual de ano.
+     * O seletor de ano agora é único e fica no cabeçalho do Resumo Rápido.
      */
-    private function gerarAccordionEscolas(array $escolas, int $anoSelecionado, array $anosDisponiveis): string
+    private function gerarAccordionEscolas(array $escolas, int $anoSelecionado): string
     {
         if (empty($escolas)) {
             return '<p style="color:#666; padding: 20px 0;">Nenhuma escola encontrada.</p>';
-        }
-
-        // Monta as options do select de ano
-        $opcoesAno = '';
-        foreach ($anosDisponiveis as $ano) {
-            $sel       = $ano === $anoSelecionado ? ' selected' : '';
-            $opcoesAno .= '<option value="' . $ano . '"' . $sel . '>' . $ano . '</option>';
         }
 
         $html = '';
@@ -658,11 +797,6 @@ return new class
             $aee        = number_format($escola['aee'],    0, '', '.');
             $semCpf     = $escola['sem_cpf'];
             $semCpfFmt  = number_format($semCpf, 0, '', '.');
-            $codEscola  = $escola['cod_escola'];
-
-            // JSON escapado para uso inline no atributo onclick
-            // json_encode já faz escape de aspas duplas; usamos aspas simples no onclick
-            $alunosJsonEscaped = htmlspecialchars($escola['alunos_sem_cpf_json'], ENT_QUOTES, 'UTF-8');
 
             $badgePendente = $semCpf > 0
                 ? '<span class="escola-badge-pendente">⚠️ ' . $semCpfFmt . ' pendente(s)</span>'
@@ -681,16 +815,6 @@ return new class
                     <span class="escola-accordion-chevron open" id="chevron-' . $idx . '">▼</span>
                 </div>
                 <div class="escola-accordion-body open" id="accordion-body-' . $idx . '">
-
-                    <!-- Filtro de Ano Letivo -->
-                    <div class="ano-filtro-wrapper">
-                        <label for="ano-select-' . $idx . '">📅 Ano letivo:</label>
-                        <select id="ano-select-' . $idx . '" class="ano-filtro-select"
-                                onchange="filtrarAnoEscola(' . $codEscola . ', this)">
-                            ' . $opcoesAno . '
-                        </select>
-                        <small style="color:#888;font-size:11px;">Dados exibidos para: <strong>' . $anoSelecionado . '</strong></small>
-                    </div>
 
                     <div class="summary-grid">
                         <div class="summary-item">
@@ -711,7 +835,6 @@ return new class
                                 <div class="summary-number summary-aee">' . $aee . '</div>
                             </div>
                         </div>
-                        <!-- CORREÇÃO: onclick passa os dados DESTA escola via JSON -->
                         <div class="summary-item" style="cursor: pointer;"
                              onclick=\'abrirListaAlunosSemCPF(' . json_encode($escola['nome']) . ', ' . json_encode($escola['alunos_sem_cpf_json']) . ')\'>
                             <div class="summary-label">Documentos Pendentes</div>
