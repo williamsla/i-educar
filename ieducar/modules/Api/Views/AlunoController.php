@@ -2291,7 +2291,7 @@ protected function possiveisDuplicatas()
             ->getKeyValueArray('transtorno_educacenso');
 
         $arrayEducacensoDeficiencies = [];
-        foreach ($deficiencias as $deficiency) {
+        foreach ($deficiencies as $deficiency) {
             $deficiencyObject = LegacyDeficiency::find($deficiency);
 
             if (!$deficiencyObject) {
