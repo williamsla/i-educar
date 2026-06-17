@@ -2291,7 +2291,7 @@ protected function possiveisDuplicatas()
             ->getKeyValueArray('transtorno_educacenso');
 
         $arrayEducacensoDeficiencies = [];
-        foreach ($deficiencias as $deficiency) {
+        foreach ($deficiencies as $deficiency) {
             $deficiencyObject = LegacyDeficiency::find($deficiency);
 
             if (!$deficiencyObject) {
@@ -2300,13 +2300,9 @@ protected function possiveisDuplicatas()
 
             if ($deficiencyObject->deficiency_type_id == DeficiencyType::DEFICIENCY) {
                 $arrayEducacensoDeficiencies[] = $databaseDeficiencies[$deficiency];
-            }
-
-            if ($deficiencyObject->deficiency_type_id == DeficiencyType::DISORDER) {
+            } elseif ($deficiencyObject->deficiency_type_id == DeficiencyType::DISORDER) {
                 $arrayEducacensoDeficiencies[] = $databaseDisorders[$deficiency];
             }
-
-            $arrayEducacensoDeficiencies[] = $databaseDeficiencies[$deficiency];
         }
 
         return $arrayEducacensoDeficiencies;
