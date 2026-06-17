@@ -1088,6 +1088,39 @@ let verificaCampoZonaResidencia = () => {
 
 $j("#pais_residencia").change(verificaCampoZonaResidencia);
 
+function habilitaRecursosProvaInep() {
+  var deficiencias = $j("#deficiencias").val() || [];
+  var transtornos = $j("#transtornos").val() || [];
+  var combinados = deficiencias.concat(transtornos);
+
+  var additionalVars = {
+    deficiencias: combinados,
+  };
+
+  var options = {
+    url: getResourceUrlBuilder.buildUrl(
+      "/module/Api/aluno",
+      "deve-habilitar-campo-recursos-prova-inep",
+      additionalVars
+    ),
+    dataType: "json",
+    data: {},
+    success: function (response) {
+      if (response.result) {
+        $j("#recursos_prova_inep__")
+          .prop("disabled", false)
+          .trigger("chosen:updated");
+      } else {
+        $j("#recursos_prova_inep__")
+          .prop("disabled", true)
+          .val([])
+          .trigger("chosen:updated");
+      }
+    },
+  };
+  getResource(options);
+}
+
 var handleGetPersonDetails = function (dataResponse) {
   handleMessages(dataResponse.msgs);
   $pessoaNotice.hide();
@@ -1206,43 +1239,7 @@ var handleGetPersonDetails = function (dataResponse) {
   $deficiencias.trigger("chosen:updated");
   $transtornos.trigger("chosen:updated");
 
-  function habilitaRecursosProvaInep() {
-    var deficiencias = $j("#deficiencias").val();
-    var transtornos = $j("#transtornos").val();
-
-    var combinados = deficiencias.concat(transtornos);
-
-    var additionalVars = {
-      deficiencias: combinados,
-    };
-
-    var options = {
-      url: getResourceUrlBuilder.buildUrl(
-        "/module/Api/aluno",
-        "deve-habilitar-campo-recursos-prova-inep",
-        additionalVars
-      ),
-      dataType: "json",
-      data: {},
-      success: function (response) {
-        if (response.result) {
-          $j("#recursos_prova_inep__")
-            .prop("disabled", false)
-            .trigger("chosen:updated");
-        } else {
-          $j("#recursos_prova_inep__")
-            .prop("disabled", true)
-            .val([])
-            .trigger("chosen:updated");
-        }
-      },
-    };
-    getResource(options);
-  }
-
   habilitaRecursosProvaInep();
-
-  $j("#deficiencias").on("change", habilitaRecursosProvaInep);
 
   $j("#tipo_responsavel").find("option").remove().end();
 
@@ -1613,6 +1610,11 @@ function canShowParentsFields() {
     $j("#documento").on("change", prepareUploadDocumento);
 
     $j("#deficiencias").trigger("chosen:updated");
+
+    $j("#recursos_prova_inep__")
+      .prop("disabled", true)
+      .trigger("chosen:updated");
+    $j("#deficiencias, #transtornos").on("change", habilitaRecursosProvaInep);
 
     function prepareUpload(event) {
       $j("#laudo_medico").removeClass("error");
