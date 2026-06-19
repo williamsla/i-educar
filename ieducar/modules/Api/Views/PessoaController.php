@@ -625,9 +625,32 @@ class PessoaController extends ApiCoreController
         return [];
     }
 
+    protected function canCreateOrUpdateEndereco()
+    {
+        $existenceOptions = ['schema_name' => 'cadastro', 'field_name' => 'idpes'];
+
+        return $this->validatesPresenceOf('person_id')
+            && $this->validatesExistenceOf('fisica', $this->getRequest()->person_id, $existenceOptions);
+    }
+
     protected function createOrUpdateEndereco()
     {
-        return [];
+        if (!$this->canCreateOrUpdateEndereco()) {
+            return [];
+        }
+
+        $personId = (int) $this->getRequest()->person_id;
+
+        $this->postal_code = $this->getRequest()->postal_code;
+        $this->address = $this->getRequest()->address;
+        $this->number = $this->getRequest()->number;
+        $this->complement = $this->getRequest()->complement;
+        $this->neighborhood = $this->getRequest()->neighborhood;
+        $this->city_id = $this->getRequest()->city_id;
+
+        $this->saveAddress($personId, optionalFields: true);
+
+        return ['person_id' => $personId];
     }
 
     protected function reativarPessoa()
