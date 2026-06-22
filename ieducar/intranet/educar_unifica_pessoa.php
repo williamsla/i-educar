@@ -1,9 +1,12 @@
 <?php
 
 use App\Models\Individual;
+use App\Models\LegacyUser;
+use App\Models\LegacyUserSchool;
 use App\Models\LogUnification;
 use App\Services\ValidationDataService;
 use iEducar\Modules\Unification\PersonLogUnification;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 return new class extends clsCadastro
@@ -961,7 +964,19 @@ return new class extends clsCadastro
     private function buscarPossiveisDuplicatas()
     {
         $db = new clsBanco();
-        
+
+        // null  = administrador (sem restrição, comportamento original)
+        // []    = usuário sem nenhuma escola vinculada (não vê nenhuma duplicata)
+        // array = usuário vinculado a escola(s) específica(s)
+        $escolasPermitidas = $this->getEscolasPermitidasUsuario();
+
+        $origemPessoasPermitidas = $this->montaOrigemPessoasPermitidas($escolasPermitidas);
+
+        // Usuário restrito sem nenhuma escola vinculada: não há duplicatas a mostrar
+        if ($origemPessoasPermitidas === null) {
+            return [];
+        }
+
         // Primeiro, buscar apenas os nomes e datas que têm duplicatas (limitado a 500 grupos)
         $sqlGrupos = "
             SELECT 
@@ -971,9 +986,7 @@ return new class extends clsCadastro
             FROM cadastro.pessoa p
             INNER JOIN cadastro.fisica f ON f.idpes = p.idpes
             WHERE f.idpes IN (
-                SELECT DISTINCT ref_idpes FROM pmieducar.aluno WHERE ativo = 1
-                UNION
-                SELECT DISTINCT cod_servidor FROM pmieducar.servidor WHERE ativo = 1
+                {$origemPessoasPermitidas}
             )
             GROUP BY p.nome, f.data_nasc
             HAVING COUNT(*) > 1
@@ -1016,6 +1029,7 @@ return new class extends clsCadastro
             INNER JOIN cadastro.pessoa p ON p.idpes = f.idpes
             LEFT JOIN cadastro.documento d ON d.idpes = f.idpes
             WHERE (p.nome, f.data_nasc) IN (" . implode(', ', $nomesDatas) . ")
+              AND f.idpes IN ({$origemPessoasPermitidas})
             ORDER BY p.nome, f.data_nasc, f.idpes
         ";
 
@@ -1049,6 +1063,114 @@ return new class extends clsCadastro
         $grupos = array_filter($grupos, fn($g) => count($g) > 1);
 
         return array_values($grupos);
+    }
+
+    // ------------------------------------------------------------------
+    //  Escopo de escola do usuário logado
+    //  (mesmo critério já usado no Resumo Rápido da Home / educar_index.php
+    //  e replicado em educar_unifica_aluno.php)
+    // ------------------------------------------------------------------
+    private function getUsuarioLogado()
+    {
+        try {
+            if (Auth::check()) {
+                return Auth::user();
+            }
+
+            $userId = $_SESSION['cod_usuario'] ?? null;
+
+            return $userId ? LegacyUser::find($userId) : null;
+        } catch (\Exception $e) {
+            error_log('Erro ao obter usuário logado: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function usuarioEhAdmin($usuario): bool
+    {
+        if (!$usuario) {
+            return false;
+        }
+
+        try {
+            if (isset($usuario->nivel) && $usuario->nivel == 1) {
+                return true;
+            }
+
+            // Sem nenhuma escola vinculada na tabela de usuários x escola = admin geral
+            return LegacyUserSchool::where('ref_cod_usuario', $usuario->cod_usuario)->count() === 0;
+        } catch (\Exception $e) {
+            error_log('Erro ao verificar se usuário é admin: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * @return array<int>|null  null = sem restrição (admin); array = cod_escola permitidos
+     */
+    private function getEscolasPermitidasUsuario(): ?array
+    {
+        $usuario = $this->getUsuarioLogado();
+
+        if ($this->usuarioEhAdmin($usuario)) {
+            return null;
+        }
+
+        if (!$usuario) {
+            return [];
+        }
+
+        try {
+            return LegacyUserSchool::where('ref_cod_usuario', $usuario->cod_usuario)
+                ->pluck('ref_cod_escola')
+                ->map(static fn ($id) => (int) $id)
+                ->toArray();
+        } catch (\Exception $e) {
+            error_log('Erro ao obter escolas do usuário: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Monta a subquery (apenas o corpo, sem o "SELECT ... IN (" ao redor) que define
+     * o universo de pessoas (idpes) que o usuário logado está autorizado a ver nesta tela.
+     *
+     * - admin (null): comportamento original — todo aluno ativo + todo servidor ativo do sistema.
+     * - usuário restrito a escola(s): por enquanto, somente o universo de ALUNOS matriculados
+     *   ativamente em uma das escolas permitidas, via pmieducar.matricula.ref_ref_cod_escola.
+     *   A branch de pmieducar.servidor é deliberadamente omitida para usuários restritos: não há,
+     *   nos arquivos disponíveis, uma coluna ou tabela confirmada que ligue servidor a uma escola
+     *   específica. Incluir servidor sem essa garantia poderia vazar duplicatas de outras escolas.
+     *   Se houver essa relação (coluna direta em pmieducar.servidor ou tabela de lotação), pode-se
+     *   refinar este método para também restringir servidores por escola.
+     *
+     * @return string|null  string = subquery pronta para uso em "... IN ( {subquery} )";
+     *                       null   = usuário restrito sem nenhuma escola vinculada (nenhuma pessoa permitida)
+     */
+    private function montaOrigemPessoasPermitidas(?array $escolasPermitidas): ?string
+    {
+        if ($escolasPermitidas === null) {
+            return "
+                SELECT DISTINCT ref_idpes FROM pmieducar.aluno WHERE ativo = 1
+                UNION
+                SELECT DISTINCT cod_servidor FROM pmieducar.servidor WHERE ativo = 1
+            ";
+        }
+
+        if (empty($escolasPermitidas)) {
+            return null;
+        }
+
+        $ids = implode(',', array_map('intval', $escolasPermitidas));
+
+        return "
+            SELECT DISTINCT a.ref_idpes
+            FROM pmieducar.aluno a
+            INNER JOIN pmieducar.matricula m ON m.ref_cod_aluno = a.cod_aluno
+            WHERE a.ativo = 1
+              AND m.ativo = 1
+              AND m.ref_ref_cod_escola IN ({$ids})
+        ";
     }
 
     private function validaDadosDaUnificacao($pessoa)
