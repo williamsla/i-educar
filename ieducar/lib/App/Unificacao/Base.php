@@ -45,8 +45,10 @@ class App_Unificacao_Base
             $this->desabilitaTodasTriggers();
             $this->habilitaTriggersNecessarias();
             $this->processaChavesDeletarDuplicados();
-            $this->processaChavesManterPrimeiroVinculo();
+            // Atualizar vínculos filhos ANTES de deletar registros pai
+            // para evitar violação de FK (ex: servidor_funcao → servidor)
             $this->processaChavesManterTodosVinculos();
+            $this->processaChavesManterPrimeiroVinculo();
             $this->habilitaTodasTriggers();
         } catch (CoreExt_Exception $e) {
             throw new CoreExt_Exception('Não foi possível realizar este processo de unificação. Por favor, entre em contato com o suporte. '.$e->getMessage());
@@ -168,7 +170,7 @@ class App_Unificacao_Base
         $tabelasEnvolvidas = $this->tabelasEnvolvidas();
 
         foreach ($tabelasEnvolvidas as $tabela) {
-            $this->db->Consulta("ALTER TABLE IF EXISTS {$tabela} DISABLE TRIGGER ALL");
+            $this->db->Consulta("ALTER TABLE IF EXISTS {$tabela} DISABLE TRIGGER USER");
         }
     }
 
@@ -178,7 +180,7 @@ class App_Unificacao_Base
 
         foreach ($tabelasEnvolvidas as $tabela) {
             if (Schema::hasTable($tabela)) {
-                $this->db->Consulta("ALTER TABLE {$tabela} ENABLE TRIGGER ALL");
+                $this->db->Consulta("ALTER TABLE {$tabela} ENABLE TRIGGER USER");
             }
         }
     }
