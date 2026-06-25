@@ -948,6 +948,6 @@ return new class extends clsCadastro
 
     public function makeExtra()
     {
-        return '';
+        return file_get_contents(filename: __DIR__ . '/scripts/extra/educar-unifica-pessoa.js');
     }
 };
