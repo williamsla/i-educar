@@ -31,6 +31,15 @@ return new class extends clsCadastro
         $this->campoOculto(nome: 'pessoa_logada', valor: $this->pessoa_logada);
         $this->campoOculto(nome: 'ref_cod_escola', valor: $this->ref_cod_escola);
 
+        $this->campoNumero(
+            nome: 'ano',
+            campo: 'Ano',
+            valor: date('Y'),
+            tamanhovisivel: 4,
+            tamanhomaximo: 4,
+            obrigatorio: true
+        );
+
         $this->campoTexto(nome: 'titulo_documento', campo: 'Título', valor: $this->titulo_documento, tamanhovisivel: 30, tamanhomaximo: 50);
 
         $this->campoArquivo(nome: 'documento', campo: 'Documentação padrão', valor: $this->documento, tamanho: 40, descricao: '<span id=\'aviso_formato\'>São aceitos apenas arquivos no formato PDF com até 2MB.</span>');

@@ -16,5 +16,6 @@ class LegacyInstitutionDocument extends Model
         'url_documento',
         'ref_usuario_cad',
         'ref_cod_escola',
+        'ano',
     ];
 }
