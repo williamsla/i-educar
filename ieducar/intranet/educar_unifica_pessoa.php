@@ -172,6 +172,7 @@ return new class extends clsCadastro
                 overflow: hidden;
                 background-color: #fff;
             }
+
             .accordion-item.aviso-misto {
                 border-color: #d0d0d0;
             }
@@ -355,6 +356,9 @@ return new class extends clsCadastro
                 font-weight: bold;
                 display: inline-block;
             }
+
+            /* Caixa de aviso dentro do conteúdo expandido */
+            /* Aviso seguro */
             .badge-aviso-misto {
                 background-color: #FF6F00;
                 color: white;
@@ -395,6 +399,7 @@ return new class extends clsCadastro
                 color: #E65100;
                 font-size: 14px;
             }
+
             .aviso-seguro-box {
                 background-color: #E8F5E9;
                 border: 1px solid #4CAF50;
@@ -404,6 +409,7 @@ return new class extends clsCadastro
                 font-size: 13px;
                 color: #2E7D32;
             }
+
             .aviso-aluno-primeiro-box {
                 background-color: #FFF8E1;
                 border: 2px solid #F57F17;
@@ -659,11 +665,8 @@ return new class extends clsCadastro
 
             document.querySelectorAll('#' + grupoId + ' .linha_listagem_grupo').forEach(function(row) {
                 var idpes = row.getAttribute('data-idpes');
-                var tipo  = row.getAttribute('data-tipo');
                 if (idpes) {
                     pessoasIds.push(parseInt(idpes));
-                    if (tipo === 'aluno')       temAluno = true;
-                    if (tipo === 'responsavel') temResponsavel = true;
                 }
             });
 
@@ -677,7 +680,6 @@ return new class extends clsCadastro
             }
 
             var msgConfirmacao =
-                mensagemAviso +
                 'Confirmar unificação de ' + pessoasIds.length + ' pessoas deste grupo?\\n' +
                 'Pessoa principal: ID ' + pessoaPrincipalValor + '\\n\\n' +
                 'Esta ação não poderá ser desfeita!';
@@ -795,78 +797,27 @@ return new class extends clsCadastro
 
     private function gerarCardGrupoAcordeon($grupo, $indice)
     {
-        $grupoId       = 'grupo_' . $indice;
+        $grupoId        = 'grupo_' . $indice;
         $primeiraPessoa = $grupo[0];
-        $nomeGrupo     = $primeiraPessoa['nome'];
-        $dataNasc      = $primeiraPessoa['data_nascimento'];
-        $quantidade    = count($grupo);
+        $nomeGrupo      = $primeiraPessoa['nome'];
+        $dataNasc       = $primeiraPessoa['data_nascimento'];
+        $quantidade     = count($grupo);
 
-        // Detectar se o grupo tem tipos mistos
-        $tipos = array_unique(array_column($grupo, 'tipo'));
-        $temAluno       = in_array('aluno', $tipos);
-        $temResponsavel = in_array('responsavel', $tipos);
-        $ehMisto        = $temAluno && $temResponsavel;
-
-        $classeItemMisto  = $ehMisto ? ' aviso-misto' : '';
-        
-        // Contar quantos são alunos no grupo
-        $qtdAlunos = count(array_filter($grupo, fn($p) => $p['tipo'] === 'aluno'));
-        $temMaisDeUmAluno = $qtdAlunos > 1;
-
-        if ($temMaisDeUmAluno) {
-            $badgeAvisoHeader = '<span class="badge-aviso-aluno">⛔ Unifique os alunos primeiro</span>';
-        } elseif ($ehMisto) {
-            $badgeAvisoHeader = '<span class="badge-aviso-misto">⚠️ Tipos mistos</span>';
-        } else {
-            $badgeAvisoHeader = '';
-        }
+        $temResponsavel = !empty(array_filter($grupo, fn($p) => $p['tipo'] === 'responsavel'));
 
         echo "
-        <div id='{$grupoId}' class='accordion-item{$classeItemMisto}'>
-            <div class='accordion-header' onclick='toggleAccordion(\"{$grupoId}\")'>
-                <div class='titulo'>
+        <div id='{$grupoId}' class='accordion-item'>
+            <div class='accordion-header' onclick='toggleAccordion(\"{$grupoId}\")'>                <div class='titulo'>
                     <span class='icone' id='icone-{$grupoId}'>▶</span>
                     <span>📋 Grupo " . ($indice + 1) . ": <strong>{$nomeGrupo}</strong> — Nascimento: {$dataNasc}</span>
                     <span class='badge'>{$quantidade} pessoas</span>
-                    {$badgeAvisoHeader}
                 </div>
             </div>
             <div id='accordion-content-{$grupoId}' class='accordion-content'>
         ";
 
-        // ---- Aviso dentro do conteúdo expandido ----
-        if ($temAluno && $temMaisDeUmAluno) {
-            echo "
-                <div class='aviso-aluno-primeiro-box'>
-                    <div class='aviso-aluno-icone'>🎓</div>
-                    <div class='aviso-aluno-texto'>
-                        <strong>⛔ Unificação de pessoas bloqueada — unifique os ALUNOS primeiro!</strong><br><br>
-                        Este grupo possui <strong>{$qtdAlunos} pessoas com vínculo de Aluno</strong>.
-                        O sistema i-Educar exige que a unificação de alunos seja feita <strong>antes</strong>
-                        da unificação de pessoas físicas.<br><br>
-                        <a href='/intranet/educar_unifica_aluno.php' target='_blank' class='btn-ir-unifica-aluno'>
-                            🔗 IR PARA UNIFICAÇÃO DE ALUNOS AGORA
-                        </a>
-                        <span style='display:block; margin-top:10px; font-size:12px; color:#7f4000;'>
-                            Após concluir a unificação de alunos, recarregue esta página.
-                        </span>
-                    </div>
-                </div>
-            ";
-        } elseif ($ehMisto) {
-            echo "
-                <div class='aviso-misto-box'>
-                    <strong>⚠️ Atenção: este grupo contém ALUNOS e RESPONSÁVEIS!</strong><br>
-                    Verifique cuidadosamente cada registro antes de prosseguir.
-                </div>
-            ";
-        } elseif ($temAluno) {
-            echo "
-                <div class='aviso-seguro-box'>
-                    ✅ Este grupo contém apenas ALUNOS. A unificação é considerada segura.
-                </div>
-            ";
-        } elseif ($temResponsavel) {
+        // Aviso de segurança dentro do conteúdo expandido
+        if ($temResponsavel) {
             echo "
                 <div class='aviso-seguro-box'>
                     ✅ Este grupo contém apenas RESPONSÁVEIS. A unificação é considerada segura.
@@ -905,17 +856,9 @@ return new class extends clsCadastro
             $tipo         = $pessoa['tipo'] ?? 'outro';
             $checked      = $primeiro ? 'checked' : '';
 
-            switch ($tipo) {
-                case 'aluno':
-                    $tipoHtml = '<span class="badge-aluno">🎓 Aluno</span>';
-                    break;
-                case 'responsavel':
-                    $tipoHtml = '<span class="badge-responsavel">👤 Responsável</span>';
-                    break;
-                default:
-                    $tipoHtml = '<span class="badge-outro">📋 Outro</span>';
-            }
-
+            $tipoHtml = $tipo === 'responsavel'
+                ? '<span class="badge-responsavel">👤 Responsável</span>'
+                : '<span class="badge-outro">📋 Outro</span>';
             echo "
                 <tr id='row_{$grupoId}_{$pessoa['idpes']}' class='linha_listagem_grupo' data-idpes='{$pessoa['idpes']}' data-tipo='{$tipo}'>
                     <td style='text-align:center;'>
@@ -939,25 +882,21 @@ return new class extends clsCadastro
                     </tbody>
                 </table>
                 <div class='confirmacao-grupo'>
-                    <input type='checkbox' id='check_confirma_grupo_{$grupoId}' onchange='confirmaAnaliseDoGrupo(\"{$grupoId}\")' " . ($temMaisDeUmAluno ? "disabled title='Realize a unificação de alunos primeiro'" : "") . ">
-                    <label for='check_confirma_grupo_{$grupoId}' style='" . ($temMaisDeUmAluno ? "color:#999; cursor:not-allowed;" : "") . "'>
+                    <input type='checkbox' id='check_confirma_grupo_{$grupoId}' onchange='confirmaAnaliseDoGrupo(\"{$grupoId}\")'>
+                    <label for='check_confirma_grupo_{$grupoId}'>
                         Confirmo a análise de que os cadastros referem-se a mesma pessoa.
                     </label>
                     <br><br>
-                    <button id='btn_unificar_grupo_{$grupoId}' class='btn-unificar-grupo' onclick='unificarGrupo(\"{$grupoId}\")' disabled " . ($temMaisDeUmAluno ? "title='Bloqueado: unifique os alunos primeiro'" : "") . ">
-                        " . ($temMaisDeUmAluno ? "⛔ Bloqueado — unifique os alunos primeiro" : "🔄 Unificar este grupo ({$quantidade} pessoas)") . "
+                    <button id='btn_unificar_grupo_{$grupoId}' class='btn-unificar-grupo' onclick='unificarGrupo(\"{$grupoId}\")' disabled>
+                        🔄 Unificar este grupo ({$quantidade} pessoas)
                     </button>
-                    " . ($temMaisDeUmAluno ? "<br><small style='color:#E65100; margin-top:6px; display:inline-block;'>👆 Use o botão 'IR PARA UNIFICAÇÃO DE ALUNOS AGORA'.</small>" : "") . "
                 </div>
             </div>
         </div>
         ";
     }
 
-    /**
-     * Busca possíveis duplicatas com limite para evitar lentidão
-     */
-    private function buscarPossiveisDuplicatas()
+        private function buscarPossiveisDuplicatas()
     {
         $db = new clsBanco();
         
@@ -1002,19 +941,30 @@ return new class extends clsCadastro
                 COALESCE(d.rg, 'Não consta') AS rg,
                 COALESCE(f.nome_mae, 'Não consta') AS nome_mae,
                 CASE
-                    WHEN EXISTS (SELECT 1 FROM pmieducar.aluno WHERE ref_idpes = f.idpes AND ativo = 1) 
-                        AND EXISTS (SELECT 1 FROM pmieducar.servidor WHERE cod_servidor = f.idpes AND ativo = 1) 
-                    THEN 'aluno_responsavel'
-                    WHEN EXISTS (SELECT 1 FROM pmieducar.aluno WHERE ref_idpes = f.idpes AND ativo = 1) 
-                    THEN 'aluno'
-                    WHEN EXISTS (SELECT 1 FROM pmieducar.servidor WHERE cod_servidor = f.idpes AND ativo = 1) 
-                    THEN 'responsavel'
+                    WHEN EXISTS (
+                        SELECT 1 FROM pmieducar.servidor
+                        WHERE cod_servidor = f.idpes AND ativo = 1
+                    ) THEN 'responsavel'
                     ELSE 'outro'
                 END AS tipo
             FROM cadastro.fisica f
             INNER JOIN cadastro.pessoa p ON p.idpes = f.idpes
             LEFT JOIN cadastro.documento d ON d.idpes = f.idpes
-            WHERE (p.nome, f.data_nasc) IN (" . implode(', ', $nomesDatas) . ")
+            WHERE NOT EXISTS (
+                SELECT 1 FROM pmieducar.aluno
+                WHERE ref_idpes = f.idpes AND ativo = 1
+            )
+            AND (p.nome, f.data_nasc) IN (
+                SELECT p2.nome, f2.data_nasc
+                FROM cadastro.fisica f2
+                JOIN cadastro.pessoa p2 ON p2.idpes = f2.idpes
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM pmieducar.aluno a2
+                    WHERE a2.ref_idpes = f2.idpes AND a2.ativo = 1
+                )
+                GROUP BY p2.nome, f2.data_nasc
+                HAVING COUNT(*) > 1
+            )
             ORDER BY p.nome, f.data_nasc, f.idpes
         ";
 
