@@ -48,8 +48,14 @@ class InstituicaoDocumentacaoController extends ApiCoreController
     {
         $instituitionId = request()->integer('instituicao_id');
 
+        if (!$instituitionId) {
+            return ['anos' => []];
+        }
+
         $years = LegacyInstitutionDocument::query()
             ->where('instituicao_id', $instituitionId)
+            ->whereNotNull('ano')
+            ->select('ano')
             ->distinct()
             ->orderByDesc('ano')
             ->pluck('ano')
