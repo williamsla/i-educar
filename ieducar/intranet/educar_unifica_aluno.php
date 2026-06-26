@@ -1,8 +1,11 @@
 <?php
  
+use App\Models\LegacyUser;
+use App\Models\LegacyUserSchool;
 use App\Models\LogUnification;
 use App\Services\ValidationDataService;
 use iEducar\Modules\Unification\StudentLogUnification;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
  
 return new class extends clsCadastro
@@ -1183,7 +1186,15 @@ return new class extends clsCadastro
     // ------------------------------------------------------------------
     private function buscarPossiveisDuplicatas(): array
     {
-        $db  = new clsBanco();
+        $db = new clsBanco();
+
+        // null  = administrador (sem restrição, comportamento original)
+        // array = usuário vinculado a escola(s) específica(s)
+        $escolasPermitidas = $this->getEscolasPermitidasUsuario();
+
+        $restricaoPrincipal = $this->montaRestricaoEscolaAluno('a.cod_aluno', $escolasPermitidas);
+        $restricaoGrupo     = $this->montaRestricaoEscolaAluno('a2.cod_aluno', $escolasPermitidas);
+
         $sql = "
             SELECT
                 a.cod_aluno AS codigo,
@@ -1207,12 +1218,14 @@ return new class extends clsCadastro
             LEFT JOIN cadastro.documento d          ON d.idpes   = a.ref_idpes
             LEFT JOIN modules.educacenso_cod_aluno eca ON eca.cod_aluno = a.cod_aluno
             WHERE a.ativo = 1
+              {$restricaoPrincipal}
               AND (p.nome, f.data_nasc) IN (
                     SELECT p2.nome, f2.data_nasc
                     FROM pmieducar.aluno a2
                     JOIN cadastro.pessoa p2 ON p2.idpes = a2.ref_idpes
                     JOIN cadastro.fisica f2 ON f2.idpes = a2.ref_idpes
                     WHERE a2.ativo = 1
+                      {$restricaoGrupo}
                     GROUP BY p2.nome, f2.data_nasc
                     HAVING COUNT(*) > 1
               )
@@ -1250,6 +1263,98 @@ return new class extends clsCadastro
         return array_values($grupos);
     }
  
+    // ------------------------------------------------------------------
+    //  Escopo de escola do usuário logado
+    //  (mesmo critério já usado no Resumo Rápido da Home / educar_index.php)
+    // ------------------------------------------------------------------
+    private function getUsuarioLogado()
+    {
+        try {
+            if (Auth::check()) {
+                return Auth::user();
+            }
+
+            $userId = $_SESSION['cod_usuario'] ?? null;
+
+            return $userId ? LegacyUser::find($userId) : null;
+        } catch (\Exception $e) {
+            error_log('Erro ao obter usuário logado: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function usuarioEhAdmin($usuario): bool
+    {
+        if (!$usuario) {
+            return false;
+        }
+
+        try {
+            if (isset($usuario->nivel) && $usuario->nivel == 1) {
+                return true;
+            }
+
+            // Sem nenhuma escola vinculada na tabela de usuários x escola = admin geral
+            return LegacyUserSchool::where('ref_cod_usuario', $usuario->cod_usuario)->count() === 0;
+        } catch (\Exception $e) {
+            error_log('Erro ao verificar se usuário é admin: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * @return array<int>|null  null = sem restrição (admin); array = cod_escola permitidos
+     */
+    private function getEscolasPermitidasUsuario(): ?array
+    {
+        $usuario = $this->getUsuarioLogado();
+
+        if ($this->usuarioEhAdmin($usuario)) {
+            return null;
+        }
+
+        if (!$usuario) {
+            return [];
+        }
+
+        try {
+            return LegacyUserSchool::where('ref_cod_usuario', $usuario->cod_usuario)
+                ->pluck('ref_cod_escola')
+                ->map(static fn ($id) => (int) $id)
+                ->toArray();
+        } catch (\Exception $e) {
+            error_log('Erro ao obter escolas do usuário: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Monta a cláusula SQL que restringe um aluno (pela coluna cod_aluno informada)
+     * a ter ao menos uma matrícula ativa em uma das escolas permitidas.
+     * Quando $escolasPermitidas é null (admin), não aplica nenhuma restrição.
+     */
+    private function montaRestricaoEscolaAluno(string $colunaCodAluno, ?array $escolasPermitidas): string
+    {
+        if ($escolasPermitidas === null) {
+            return '';
+        }
+
+        if (empty($escolasPermitidas)) {
+            return ' AND 1 = 0 ';
+        }
+
+        $ids = implode(',', array_map('intval', $escolasPermitidas));
+
+        return "
+              AND EXISTS (
+                    SELECT 1 FROM pmieducar.matricula m_esc
+                    WHERE m_esc.ref_cod_aluno = {$colunaCodAluno}
+                      AND m_esc.ativo = 1
+                      AND m_esc.ref_ref_cod_escola IN ({$ids})
+              )
+        ";
+    }
+
     private function validaPermissaoDaPagina(): void
     {
         (new clsPermissoes)->permissao_cadastra(

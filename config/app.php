@@ -177,7 +177,6 @@ return [
         App\Providers\EventServiceProvider::class,
         // App\Providers\TelescopeServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
-        Merenda\Providers\MerendaEscolarServiceProvider::class,
         App\Providers\AssetServiceProvider::class,
         App\Providers\HorizonServiceProvider::class,
     ],
