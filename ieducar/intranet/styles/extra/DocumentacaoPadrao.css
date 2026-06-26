@@ -1,3 +1,4 @@
-select#relatorio {
+select#relatorio,
+select#ano {
   min-width: 180px;
 }

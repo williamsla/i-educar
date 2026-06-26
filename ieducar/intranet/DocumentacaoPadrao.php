@@ -60,6 +60,10 @@ return new class extends clsCadastro
             url('intranet/educar_index.php') => 'Escola',
         ]);
 
+        $opcoes_ano = [];
+        $opcoes_ano[''] = 'Selecione';
+        $this->campoLista('ano', 'Ano', $opcoes_ano);
+
         $opcoes_relatorio = [];
         $opcoes_relatorio[''] = 'Selecione';
         $this->campoLista('relatorio', 'Relatório', $opcoes_relatorio);
