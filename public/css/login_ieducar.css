@@ -90,7 +90,7 @@ body {
 .institution-logo-left {
     width: 180px; /* Tamanho ajustado */
     height: auto;
-    filter: brightness(0) invert(1);
+    /* filter: brightness(0) invert(1); */
     max-width: 100%;
 }
 

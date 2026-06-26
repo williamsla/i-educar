@@ -167,7 +167,7 @@
             </div>
             
             <h1 class="welcome-title">Bem-vindo ao Portal Educacional</h1>
-            <p class="welcome-subtitle">Acesso exclusivo para professores, alunos e gestores da instituição</p>
+            <p class="welcome-subtitle">Acesso exclusivo para gestão administrativa da instituição</p>
             
             <ul class="features-list">
                 <li>
@@ -249,10 +249,12 @@
                         <i class="fab fa-whatsapp"></i>
                         Suporte via WhatsApp
                     </a>
-                    <a href="{{ $diarioProfessorUrl }}" class="support-link diary" target="_blank">
-                        <i class="fas fa-book-open"></i>
-                        Diário do Professor
-                    </a>
+                    <!--
+                        <a href="{{ $diarioProfessorUrl }}" class="support-link diary" target="_blank">
+                            <i class="fas fa-book-open"></i>
+                            Diário do Professor
+                        </a>
+                    -->
                 </div>
             </div>
             @endif
