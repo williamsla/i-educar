@@ -50,6 +50,8 @@ return new class extends clsCadastro
                 $this->nm_instituicao = $det_instituicao['nm_instituicao'];
                 $this->campoRotulo('nm_instituicao', 'Institução', $this->nm_instituicao);
             }
+        } else {
+            $this->inputsHelper()->dynamic(['instituicao']);
         }
 
         $this->largura = '100%';
@@ -57,8 +59,6 @@ return new class extends clsCadastro
         $this->breadcrumb('Documentação padrão', [
             url('intranet/educar_index.php') => 'Escola',
         ]);
-
-        $this->inputsHelper()->dynamic(['instituicao']);
 
         $opcoes_relatorio = [];
         $opcoes_relatorio[''] = 'Selecione';
