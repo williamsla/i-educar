@@ -42,7 +42,7 @@ return new class extends clsCadastro
 
         $this->campoTexto(nome: 'titulo_documento', campo: 'Título', valor: $this->titulo_documento, tamanhovisivel: 30, tamanhomaximo: 50);
 
-        $this->campoArquivo(nome: 'documento', campo: 'Documentação padrão', valor: $this->documento, tamanho: 40, descricao: '<span id=\'aviso_formato\'>São aceitos apenas arquivos no formato PDF com até 2MB.</span>');
+        $this->campoArquivo(nome: 'documento', campo: 'Documentação padrão', valor: $this->documento, tamanho: 40, descricao: '<span id=\'aviso_formato\'>São aceitos arquivos nos formatos PDF e DOCX com até 2MB.</span>');
 
         $this->array_botao[] = 'Salvar';
         $this->array_botao_url_script[] = 'go(\'educar_instituicao_lst.php\')';

@@ -79,8 +79,22 @@ var $loadingDocumento = $j('<img>').attr('src', 'imagens/indicator.gif')
   .insertAfter($j('#aviso_formato'));
 
 (function ($) {
+  var allowedExtensions = ['pdf', 'docx'];
+  var maxFileSize = 2 * 1024 * 1024;
+
+  function isAllowedDocumentFile(file) {
+    if (!file || !file.name) {
+      return false;
+    }
+
+    var extension = file.name.split('.').pop().toLowerCase();
+
+    return allowedExtensions.indexOf(extension) !== -1;
+  }
+
   $(document).ready(function () {
     $('#btn_enviar').hide();
+    $j('#documento').attr('accept', '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 
     $j('#documento').on('change', prepareUploadDocumento);
 
@@ -98,6 +112,18 @@ var $loadingDocumento = $j('<img>').attr('src', 'imagens/indicator.gif')
 
       if ($j('#titulo_documento').val() !== '') {
         if (files && files.length > 0) {
+          if (!isAllowedDocumentFile(files[0])) {
+            messageUtils.error('Deve ser enviado um arquivo do tipo pdf, docx.');
+            $j('#documento').val('').addClass('error');
+            return;
+          }
+
+          if (files[0].size >= maxFileSize) {
+            messageUtils.error('Não são permitidos arquivos com mais de 2MB.');
+            $j('#documento').val('').addClass('error');
+            return;
+          }
+
           $j('#documento').attr('disabled', 'disabled');
           $j('#btn_enviar').attr('disabled', 'disabled').val('Aguarde...');
           $loadingDocumento.show();

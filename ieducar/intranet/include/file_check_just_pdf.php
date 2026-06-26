@@ -27,9 +27,9 @@ class FileControllerPdf
         }
 
         if ($suportedExtensions != null) {
-            $this->suportedExtensions = $suportedExtensions;
+            $this->suportedExtensions = array_map('strtolower', $suportedExtensions);
         } else {
-            $this->suportedExtensions = ['pdf'];
+            $this->suportedExtensions = ['pdf', 'docx'];
         }
     }
 
@@ -54,21 +54,21 @@ class FileControllerPdf
     {
         $name = $this->file['name'];
         $size = $this->file['size'];
-        $ext = $this->getExtension($name);
+        $ext = strtolower($this->getExtension($name));
 
         if (strlen($name) > 0) {
             // File format validation
-            if (in_array($ext, $this->suportedExtensions)) {
+            if (in_array($ext, $this->suportedExtensions, true)) {
                 // File size validation
                 if ($size < $this->maxSize) {
                     return true;
                 } else {
-                    $this->errorMessage = 'não são permitidos arquivos com mais de 2MB.';
+                    $this->errorMessage = 'Não são permitidos arquivos com mais de 2MB.';
 
                     return false;
                 }
             } else {
-                $this->errorMessage = 'Deve ser enviado um arquivo do tipo pdf.';
+                $this->errorMessage = 'Deve ser enviado um arquivo do tipo ' . implode(', ', $this->suportedExtensions) . '.';
 
                 return false;
             }
