@@ -249,12 +249,6 @@
                         <i class="fab fa-whatsapp"></i>
                         Suporte via WhatsApp
                     </a>
-                    <!--
-                        <a href="{{ $diarioProfessorUrl }}" class="support-link diary" target="_blank">
-                            <i class="fas fa-book-open"></i>
-                            Diário do Professor
-                        </a>
-                    -->
                 </div>
             </div>
             @endif
