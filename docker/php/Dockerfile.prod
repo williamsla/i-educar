@@ -119,8 +119,9 @@ RUN --mount=type=secret,id=git_token,required=false \
     sh /tmp/pre-composer-path-repos.sh \
     && rm -f /tmp/pre-composer-path-repos.sh
 
-# composer.lock antigo pode ainda listar merenda/merenda-escolar (path) sem a pasta no contexto.
+# composer.lock antigo pode ainda listar path repos opcionais sem a pasta no contexto.
 RUN ENABLE_PACKAGE_MERENDA=${ENABLE_PACKAGE_MERENDA} \
+    ENABLE_PACKAGE_DESPESAS=${ENABLE_PACKAGE_DESPESAS} \
     php docker/php/drop-composer-lock-if-merenda-path-missing.php
 
 RUN composer install \

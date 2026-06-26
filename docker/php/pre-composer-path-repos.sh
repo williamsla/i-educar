@@ -3,7 +3,7 @@ set -eu
 cd /var/www/ieducar
 
 # Clones minimos para repositorios "path" existirem antes do primeiro `composer install`
-# na imagem de producao. Merenda e opcional (ENABLE_PACKAGE_MERENDA).
+# na imagem de producao. Merenda e despesas sao opcionais (ENABLE_PACKAGE_*).
 
 clone_path_repo() {
   repo_url="$1"
@@ -30,20 +30,8 @@ register_merenda_with_composer() {
   composer require "merenda/merenda-escolar:${merenda_ver}" --no-install --no-interaction
 }
 
-if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
-  if [ ! -f packages/merenda/merenda-escolar/composer.json ]; then
-    if [ -z "${GIT_TOKEN:-}" ]; then
-      echo "ERRO: GIT_TOKEN e obrigatorio para clonar merenda (ENABLE_PACKAGE_MERENDA=true)." >&2
-      exit 1
-    fi
-    clone_path_repo \
-      "${PACKAGE_REPO_MERENDA:-https://${GIT_TOKEN}@github.com/williamsla/merenda.git}" \
-      "packages/merenda/merenda-escolar" \
-      "${PACKAGE_REF_MERENDA:-}"
-  fi
-  register_merenda_with_composer
-fi
-
+# Clonar todos os path repos habilitados antes de qualquer comando composer.
+# O Composer valida todos os repositories.path do composer.json em cada operacao.
 if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
   if [ ! -f packages/despesas-escolar/composer.json ]; then
     if [ -z "${GIT_TOKEN:-}" ]; then
@@ -55,4 +43,26 @@ if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
       "packages/despesas-escolar" \
       "${PACKAGE_REF_DESPESAS:-}"
   fi
+fi
+
+if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
+  if [ ! -f packages/merenda/merenda-escolar/composer.json ]; then
+    if [ -z "${GIT_TOKEN:-}" ]; then
+      echo "ERRO: GIT_TOKEN e obrigatorio para clonar merenda (ENABLE_PACKAGE_MERENDA=true)." >&2
+      exit 1
+    fi
+    clone_path_repo \
+      "${PACKAGE_REPO_MERENDA:-https://${GIT_TOKEN}@github.com/williamsla/merenda.git}" \
+      "packages/merenda/merenda-escolar" \
+      "${PACKAGE_REF_MERENDA:-}"
+  fi
+fi
+
+# Remove path repos desabilitados/ausentes antes de `composer require` (ex.: despesas com merenda ativo).
+ENABLE_PACKAGE_MERENDA="${ENABLE_PACKAGE_MERENDA:-false}" \
+ENABLE_PACKAGE_DESPESAS="${ENABLE_PACKAGE_DESPESAS:-false}" \
+php docker/php/drop-composer-lock-if-merenda-path-missing.php
+
+if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
+  register_merenda_with_composer
 fi

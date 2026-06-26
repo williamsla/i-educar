@@ -1,49 +1,82 @@
 <?php
 declare(strict_types=1);
 /**
- * Build Docker: evitar PathRepository "url ... packages/merenda/merenda-escolar does not exist"
- * quando Merenda nao esta no disco mas composer.json / plug-and-play.json / lock ainda referem o path.
+ * Build Docker: alinhar composer.json/lock com os path repos opcionais (merenda, despesas)
+ * antes do primeiro `composer install` / `composer require` na imagem.
  */
 $merendaEnabled = getenv('ENABLE_PACKAGE_MERENDA') === 'true';
+$despesasEnabled = getenv('ENABLE_PACKAGE_DESPESAS') === 'true';
 $merendaPath = 'packages/merenda/merenda-escolar/composer.json';
-$pathOk = is_file($merendaPath);
+$despesasPath = 'packages/despesas-escolar/composer.json';
+$merendaPathOk = is_file($merendaPath);
+$despesasPathOk = is_file($despesasPath);
 
-if ($merendaEnabled) {
-    if (!$pathOk) {
-        fwrite(STDERR, "ERRO: ENABLE_PACKAGE_MERENDA=true mas packages/merenda/merenda-escolar/composer.json nao existe.\n");
-        exit(1);
-    }
-    exit(0);
+if ($merendaEnabled && !$merendaPathOk) {
+    fwrite(STDERR, "ERRO: ENABLE_PACKAGE_MERENDA=true mas packages/merenda/merenda-escolar/composer.json nao existe.\n");
+    exit(1);
 }
 
-// ENABLE_PACKAGE_MERENDA != true — Merenda e opcional; sem pasta, nao pode haver repo path nem require.
-if ($pathOk) {
-    exit(0);
+if ($despesasEnabled && !$despesasPathOk) {
+    fwrite(STDERR, "ERRO: ENABLE_PACKAGE_DESPESAS=true mas packages/despesas-escolar/composer.json nao existe.\n");
+    exit(1);
 }
 
 $encodeFlags = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 
-$isMerendaPathRepo = static function (array $r): bool {
-    if (($r['type'] ?? '') !== 'path') {
-        return false;
-    }
-    $url = (string) ($r['url'] ?? '');
-    if ($url === '') {
-        return false;
-    }
-    if (($r['name'] ?? '') === 'merenda') {
-        return true;
-    }
-    // Normaliza ./ e barras
-    $norm = str_replace('\\', '/', $url);
-    $norm = preg_replace('#^\./#', '', $norm) ?? $norm;
+$optionalPathRepos = [
+    'merenda' => [
+        'enabled' => $merendaEnabled,
+        'path_ok' => $merendaPathOk,
+        'require' => 'merenda/merenda-escolar',
+        'match' => static function (array $r): bool {
+            if (($r['type'] ?? '') !== 'path') {
+                return false;
+            }
+            if (($r['name'] ?? '') === 'merenda') {
+                return true;
+            }
+            $norm = str_replace('\\', '/', (string) ($r['url'] ?? ''));
+            $norm = preg_replace('#^\./#', '', $norm) ?? $norm;
 
-    return str_contains($norm, 'merenda/merenda-escolar')
-        || str_ends_with($norm, 'merenda/merenda-escolar')
-        || preg_match('#(^|/)merenda/merenda-escolar/?$#', $norm) === 1;
+            return str_contains($norm, 'merenda/merenda-escolar')
+                || str_ends_with($norm, 'merenda/merenda-escolar')
+                || preg_match('#(^|/)merenda/merenda-escolar/?$#', $norm) === 1;
+        },
+    ],
+    'despesas' => [
+        'enabled' => $despesasEnabled,
+        'path_ok' => $despesasPathOk,
+        'require' => null,
+        'match' => static function (array $r): bool {
+            if (($r['type'] ?? '') !== 'path') {
+                return false;
+            }
+            if (($r['name'] ?? '') === 'despesas') {
+                return true;
+            }
+            $norm = str_replace('\\', '/', (string) ($r['url'] ?? ''));
+            $norm = preg_replace('#^\./#', '', $norm) ?? $norm;
+
+            return str_contains($norm, 'despesas-escolar')
+                || str_ends_with($norm, 'despesas-escolar')
+                || preg_match('#(^|/)despesas-escolar/?$#', $norm) === 1;
+        },
+    ],
+];
+
+$shouldKeepPathRepo = static function (array $r) use ($optionalPathRepos): bool {
+    foreach ($optionalPathRepos as $cfg) {
+        if (!$cfg['match']($r)) {
+            continue;
+        }
+
+        return $cfg['enabled'] && $cfg['path_ok'];
+    }
+
+    return true;
 };
 
-$sanitizeComposerLike = static function (string $file, $encodeFlags, $isMerendaPathRepo): bool {
+$sanitizeComposerLike = static function (string $file, $encodeFlags, $optionalPathRepos, $shouldKeepPathRepo): bool {
     if (!is_file($file)) {
         return false;
     }
@@ -56,47 +89,60 @@ $sanitizeComposerLike = static function (string $file, $encodeFlags, $isMerendaP
         return false;
     }
     $changed = false;
-    if (isset($j['require']['merenda/merenda-escolar'])) {
-        unset($j['require']['merenda/merenda-escolar']);
-        $changed = true;
+
+    foreach ($optionalPathRepos as $cfg) {
+        if ($cfg['enabled'] && $cfg['path_ok']) {
+            continue;
+        }
+        $requireKey = $cfg['require'] ?? null;
+        if ($requireKey !== null && isset($j['require'][$requireKey])) {
+            unset($j['require'][$requireKey]);
+            $changed = true;
+        }
     }
+
     if (!empty($j['repositories']) && is_array($j['repositories'])) {
         $before = count($j['repositories']);
         $j['repositories'] = array_values(array_filter(
             $j['repositories'],
-            static function ($r) use ($isMerendaPathRepo): bool {
-                return !is_array($r) || !$isMerendaPathRepo($r);
+            static function ($r) use ($shouldKeepPathRepo): bool {
+                return !is_array($r) || $shouldKeepPathRepo($r);
             }
         ));
         if (count($j['repositories']) !== $before) {
             $changed = true;
         }
     }
+
     if ($changed) {
         file_put_contents($file, json_encode($j, $encodeFlags) . "\n");
-        fwrite(STDERR, ">> {$file}: removidas referencias a merenda/merenda-escolar (path ausente).\n");
+        fwrite(STDERR, ">> {$file}: removidas referencias a path repos opcionais ausentes/desabilitados.\n");
     }
 
     return $changed;
 };
 
-$sanitizeComposerLike('composer.json', $encodeFlags, $isMerendaPathRepo);
-$sanitizeComposerLike('packages/plug-and-play.json', $encodeFlags, $isMerendaPathRepo);
+$sanitizeComposerLike('composer.json', $encodeFlags, $optionalPathRepos, $shouldKeepPathRepo);
+$sanitizeComposerLike('packages/plug-and-play.json', $encodeFlags, $optionalPathRepos, $shouldKeepPathRepo);
 
 if (is_file('composer.lock')) {
     $raw = file_get_contents('composer.lock');
     $lock = is_string($raw) ? json_decode($raw, true) : null;
     if (is_array($lock)) {
-        $hasMerenda = false;
+        $stalePackages = [];
+        if (!$merendaEnabled || !$merendaPathOk) {
+            $stalePackages[] = 'merenda/merenda-escolar';
+        }
+        $removeLock = false;
         foreach (array_merge($lock['packages'] ?? [], $lock['packages-dev'] ?? []) as $p) {
-            if (($p['name'] ?? '') === 'merenda/merenda-escolar') {
-                $hasMerenda = true;
+            if (in_array($p['name'] ?? '', $stalePackages, true)) {
+                $removeLock = true;
                 break;
             }
         }
-        if ($hasMerenda) {
+        if ($removeLock) {
             unlink('composer.lock');
-            fwrite(STDERR, ">> composer.lock removido: continha merenda/merenda-escolar sem path no contexto.\n");
+            fwrite(STDERR, ">> composer.lock removido: continha pacotes path opcionais sem pasta no contexto.\n");
         }
     }
 }
