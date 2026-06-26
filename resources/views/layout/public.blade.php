@@ -17,7 +17,7 @@
         // VALORES PADRÃO
         $defaultLogoUrl = 'https://static.wixstatic.com/media/3c2742_20c475c9572c41fd87dfe788357bf5d3~mv2.png/v1/fill/w_600,h_802,al_c,q_90,usm_0.66_1.00_0.01/verticaleducacao2_4x.webp';
         $defaultBackgroundUrl = 'https://images.unsplash.com/photo-1588072432836-e10032774350?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80';
-        $defaultDiarioProfessor = 'https://diario.delmirogouveia.al.gov.br/usuarios/logar';
+        $defaultDiarioProfessor = '';
         $defaultWhatsapp = 'https://wa.me/5582981670619';
         
         // INICIALIZAR VARIÁVEIS
