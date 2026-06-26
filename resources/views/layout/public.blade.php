@@ -2,98 +2,298 @@
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" href="{{ url('favicon.ico') }}">
     <title>@if(isset($title)) {!! html_entity_decode($title) !!} - @endif {{ html_entity_decode(config('legacy.app.entity.name')) }} - i-Educar</title>
 
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
-    <link rel="stylesheet" href="{{ Asset::get('intranet/styles/login.css') }}">
-    <link rel="stylesheet" href="{{ Asset::get('intranet/styles/font-awesome.css') }}">
-
-    <!-- Google Tag Manager -->
-    <script>
-        dataLayer = [{
-            'slug': '{{$config['app']['database']['dbname']}}',
-            'user_id': 0
-        }];
-
-        (function (w, d, s, l, i) {
-            w[l] = w[l] || [];
-            w[l].push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
-            var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
-            j.async = true;
-            j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
-            f.parentNode.insertBefore(j, f);
-        })(window, document, 'script', 'dataLayer', '{{ config('legacy.gtm') }}');
-    </script>
-    <!-- End Google Tag Manager -->
-
-    @if($errors->count() && str_contains($errors->first(), 'errou a senha muitas vezes' ))
-    <script>
-        window.onload = function() {
-            document.getElementById("form-login-submit").disabled = true;
-            setTimeout(function () {
-                document.getElementById("form-login-submit").disabled = false;
-            }, 60000);
+    <!-- Fontes e Ícones -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Open+Sans:wght@400;600&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS Separado com caminho absoluto -->
+    <link rel="stylesheet" href="/css/login_ieducar.css?v=<?php echo time(); ?>">
+    
+    @php
+        // VALORES PADRÃO
+        $defaultLogoUrl = 'https://static.wixstatic.com/media/3c2742_20c475c9572c41fd87dfe788357bf5d3~mv2.png/v1/fill/w_600,h_802,al_c,q_90,usm_0.66_1.00_0.01/verticaleducacao2_4x.webp';
+        $defaultBackgroundUrl = 'https://images.unsplash.com/photo-1588072432836-e10032774350?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80';
+        $defaultDiarioProfessor = 'https://diario.delmirogouveia.al.gov.br/usuarios/logar';
+        $defaultWhatsapp = 'https://wa.me/5582981670619';
+        
+        // INICIALIZAR VARIÁVEIS
+        $logoUrl = $defaultLogoUrl;
+        $backgroundImageUrl = $defaultBackgroundUrl;
+        $diarioProfessorUrl = $defaultDiarioProfessor;
+        $whatsappUrl = $defaultWhatsapp;
+        $mostrarBotoesAjuda = true;
+        
+        // FUNÇÃO SIMPLES PARA OBTER URL
+        function getSimpleImageUrl($path) {
+            if (!$path) return null;
+            
+            if (filter_var($path, FILTER_VALIDATE_URL)) {
+                return $path;
+            }
+            
+            // Tentar storage público
+            $cleanPath = preg_replace('/^public\//', '', $path);
+            
+            // Verificar se existe no storage
+            if (Storage::disk('public')->exists($cleanPath)) {
+                return Storage::disk('public')->url($cleanPath);
+            }
+            
+            // Tentar caminho físico
+            $publicPath = 'storage/' . $cleanPath;
+            if (file_exists(public_path($publicPath))) {
+                return asset($publicPath);
+            }
+            
+            return null;
         }
-    </script>
-    @endif
+        
+        // TENTAR OBTER CONFIGURAÇÕES COM LOGS DE DEBUG
+        try {
+            // Tentar via DB direto (mais confiável)
+            $configuracoes = DB::table('pmieducar.configuracoes_gerais')
+                ->where('ref_cod_instituicao', 1)
+                ->first();
+            
+            // DEBUG: Log para verificar o que foi lido
+            \Log::info('=== CONFIGURAÇÕES LIDAS DO BANCO (PUBLIC.BLADE.PHP) ===', [
+                'configuracoes_encontradas' => $configuracoes ? 'SIM' : 'NÃO',
+                'url_diario_professor' => $configuracoes->url_diario_professor ?? 'NULL',
+                'url_whatsapp' => $configuracoes->url_whatsapp ?? 'NULL',
+                'mostrar_botoes_ajuda_login' => $configuracoes->mostrar_botoes_ajuda_login ?? 'NULL',
+            ]);
+            
+            if ($configuracoes) {
+                // LOGO
+                if (!empty($configuracoes->ieducar_image)) {
+                    $tempLogoUrl = getSimpleImageUrl($configuracoes->ieducar_image);
+                    if ($tempLogoUrl) {
+                        $logoUrl = $tempLogoUrl;
+                    }
+                }
+                
+                // BACKGROUND
+                if (!empty($configuracoes->ieducar_background_image_url)) {
+                    $backgroundImageUrl = $configuracoes->ieducar_background_image_url;
+                } elseif (!empty($configuracoes->ieducar_background_image)) {
+                    $bgUrl = getSimpleImageUrl($configuracoes->ieducar_background_image);
+                    if ($bgUrl) {
+                        $backgroundImageUrl = $bgUrl;
+                    }
+                }
+                
+                // URLS COM TRIM E VALIDAÇÃO
+                if (!empty($configuracoes->url_diario_professor)) {
+                    $urlTemp = trim($configuracoes->url_diario_professor);
+                    if (!empty($urlTemp) && filter_var($urlTemp, FILTER_VALIDATE_URL)) {
+                        $diarioProfessorUrl = $urlTemp;
+                        \Log::info('✅ URL Diário Professor configurada: ' . $diarioProfessorUrl);
+                    } else {
+                        \Log::warning('⚠️ URL Diário Professor inválida: ' . $urlTemp);
+                    }
+                }
+                
+                if (!empty($configuracoes->url_whatsapp)) {
+                    $urlTemp = trim($configuracoes->url_whatsapp);
+                    if (!empty($urlTemp)) {
+                        $whatsappUrl = $urlTemp;
+                        \Log::info('✅ URL WhatsApp configurada: ' . $whatsappUrl);
+                    }
+                }
+                
+                // BOTÕES DE AJUDA
+                if (isset($configuracoes->mostrar_botoes_ajuda_login)) {
+                    $mostrarBotoesAjuda = (bool)$configuracoes->mostrar_botoes_ajuda_login;
+                    \Log::info('✅ Mostrar botões de ajuda: ' . ($mostrarBotoesAjuda ? 'SIM' : 'NÃO'));
+                }
+            } else {
+                \Log::warning('⚠️ Nenhuma configuração encontrada no banco de dados!');
+            }
+        } catch (\Exception $e) {
+            // Em caso de erro, registrar e usar valores padrão
+            \Log::error('❌ Erro ao carregar configurações do banco: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+        }
+        
+        // DEBUG FINAL
+        \Log::info('=== VALORES FINAIS QUE SERÃO USADOS ===', [
+            'logoUrl' => $logoUrl,
+            'backgroundImageUrl' => $backgroundImageUrl,
+            'diarioProfessorUrl' => $diarioProfessorUrl,
+            'whatsappUrl' => $whatsappUrl,
+            'mostrarBotoesAjuda' => $mostrarBotoesAjuda,
+        ]);
+    @endphp
+    
+    <!-- Estilo inline para a imagem de fundo configurável -->
+    <style>
+        .welcome-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('{{ $backgroundImageUrl }}') center/cover no-repeat;
+            opacity: 0.15;
+            z-index: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .welcome-section::before {
+                opacity: 0.1;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-<!-- Google Tag Manager (noscript) -->
-<noscript>
-    <iframe src="https://www.googletagmanager.com/ns.html?id={{ config('legacy.gtm') }}" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe>
-</noscript>
-<!-- End Google Tag Manager (noscript) -->
-
-<div id="main">
-
-    <div>
-        <img alt="Logo" style="width: 150px" src="{{ config('legacy.config.ieducar_image') ?? url('intranet/imagens/brasao-republica.png') }}" >
-    </div>
-
-    <h1>{{ config('legacy.config.ieducar_entity_name') }}</h1>
-
-    @if (session('status'))
-        <p class="success">{{ session('status') }}</p>
-    @endif
-
-    @if($errors->count())
-        <p class="error">{{ $errors->first() }}</p>
-    @endif
-
-    <div id="login-form" class="box shadow">
-        @yield('content')
-    </div>
-
-</div>
-
-<div id="footer">
-    <div>
-        {!! config('legacy.config.ieducar_login_footer') !!}
-    </div>
-
-    <div class="footer-social">
-
-        {!! config('legacy.config.ieducar_external_footer') !!}
-
-        @if(config('legacy.config.facebook_url') || config('legacy.config.linkedin_url') || config('legacy.config.twitter_url'))
-            <div class="social-icons">
-                <p> Siga-nos nas redes sociais&nbsp;&nbsp;</p>
-                @if(config('legacy.config.facebook_url'))
-                    <a target="_blank" href="{{ config('legacy.config.facebook_url')}}" rel="noopener"><img alt="Logomarca do Facebbok" src="{{ Asset::get('intranet/imagens/icon-social-facebook.png') }}"></a>
-                @endif
-                @if(config('legacy.config.linkedin_url'))
-                    <a target="_blank" href="{{ config('legacy.config.linkedin_url')}}" rel="noopener"><img alt="Logomarca do Linkedin" src="{{ Asset::get('intranet/imagens/icon-social-linkedin.png') }}"></a>
-                @endif
-                @if(config('legacy.config.twitter_url'))
-                    <a target="_blank" href="{{ config('legacy.config.twitter_url')}}" rel="noopener"><img alt="Logomarca do Twitter" src="{{ Asset::get('intranet/imagens/icon-social-twitter.png') }}"></a>
-                @endif
+<!-- CONTAINER PRINCIPAL -->
+<div class="login-wrapper">
+    <!-- SEÇÃO DE BOAS-VINDAS -->
+    <div class="welcome-section">
+        <div class="welcome-content">
+            <!-- Logo da Instituição -->
+            <div class="logo-left-container">
+                <img src="{{ $logoUrl }}" 
+                     alt="Logo da Instituição" 
+                     class="institution-logo-left"
+                     onerror="this.src='{{ $defaultLogoUrl }}'">
             </div>
-        @endif
+            
+            <h1 class="welcome-title">Bem-vindo ao Portal Educacional</h1>
+            <p class="welcome-subtitle">Acesso exclusivo para professores, alunos e gestores da instituição</p>
+            
+            <ul class="features-list">
+                <li>
+                    <i class="fas fa-check-circle"></i>
+                    <span>Gestão acadêmica integrada</span>
+                </li>
+                <li>
+                    <i class="fas fa-check-circle"></i>
+                    <span>Acompanhamento pedagógico</span>
+                </li>
+                <li>
+                    <i class="fas fa-check-circle"></i>
+                    <span>Comunicação escolar</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- SEÇÃO DE LOGIN -->
+    <div class="login-section">
+        <!-- HEADER COM TUDO CENTRALIZADO -->
+        <div class="login-header">
+            <!-- Logo centralizada -->
+            <div class="logo-center-container">
+                <img src="{{ $logoUrl }}" 
+                     alt="Logo" 
+                     class="login-logo-center"
+                     onerror="this.src='{{ $defaultLogoUrl }}'">
+            </div>
+            
+            <!-- Título e subtítulo centralizados -->
+            <h1 class="login-title">Acessar Sistema</h1>
+            <p class="login-subtitle">Informe suas credenciais para continuar</p>
+        </div>
+
+        <!-- CONTAINER PARA FORMULÁRIO CENTRALIZADO -->
+        <div class="login-form-container">
+            @if (session('status'))
+                <div class="alert alert-success">{{ session('status') }}</div>
+            @endif
+
+            @if($errors->count())
+                <div class="alert alert-error">{{ $errors->first() }}</div>
+            @endif
+
+            <!-- FORMULÁRIO CENTRALIZADO -->
+            <form class="login-form" method="POST" action="{{ route('login') }}">
+                @csrf
+                
+                <div class="form-group">
+                    <label for="login" class="form-label">Matrícula ou CPF</label>
+                    <input type="text" id="login" name="login" class="form-control" required autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">Senha</label>
+                    <input type="password" id="password" name="password" class="form-control" required>
+                    <i class="fas fa-eye input-icon toggle-password"></i>
+                </div>
+                
+                <div class="form-options">
+                    <label class="remember-me">
+                        <!-- <input type="checkbox" name="remember"> Lembrar-me -->
+                    </label>
+                    <a href="#" class="forgot-password">Esqueci minha senha</a>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="form-login-submit">
+                    Entrar no Sistema
+                </button>
+            </form>
+
+            <!-- LINKS DE SUPORTE -->
+            @if($mostrarBotoesAjuda)
+            <div class="support-section">
+                <h3 class="support-title">Precisa de Ajuda?</h3>
+                <div class="support-links">
+                    <a href="{{ $whatsappUrl }}" class="support-link whatsapp" target="_blank">
+                        <i class="fab fa-whatsapp"></i>
+                        Suporte via WhatsApp
+                    </a>
+                    <a href="{{ $diarioProfessorUrl }}" class="support-link diary" target="_blank">
+                        <i class="fas fa-book-open"></i>
+                        Diário do Professor
+                    </a>
+                </div>
+            </div>
+            @endif
+        </div>
     </div>
 </div>
+
+<!-- JAVASCRIPT -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Log para debug no console do navegador
+        console.log('=== DEBUG URLS ===');
+        console.log('URL Diário Professor:', '{{ $diarioProfessorUrl }}');
+        console.log('URL WhatsApp:', '{{ $whatsappUrl }}');
+        console.log('Mostrar Botões:', {{ $mostrarBotoesAjuda ? 'true' : 'false' }});
+        
+        // Mostrar/ocultar senha
+        const togglePassword = document.querySelector('.toggle-password');
+        const passwordInput = document.getElementById('password');
+        
+        if (togglePassword && passwordInput) {
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                this.classList.toggle('fa-eye');
+                this.classList.toggle('fa-eye-slash');
+            });
+        }
+        
+        // Adicionar loading ao botão de login
+        const loginButton = document.getElementById('form-login-submit');
+        const loginForm = document.querySelector('.login-form');
+        
+        if (loginForm && loginButton) {
+            loginForm.addEventListener('submit', function() {
+                loginButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
+                loginButton.disabled = true;
+            });
+        }
+    });
+</script>
 
 </body>
 </html>

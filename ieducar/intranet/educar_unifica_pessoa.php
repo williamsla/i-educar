@@ -580,12 +580,16 @@ return new class extends clsCadastro
         $temAluno       = in_array('aluno', $tipos);
         $temResponsavel = in_array('responsavel', $tipos);
         $ehMisto        = $temAluno && $temResponsavel;
- 
+
+        // Calcular antes do header — usado tanto no badge quanto no conteúdo expandido
+        $qtdAlunos        = count(array_filter($grupo, fn($p) => $p['tipo'] === 'aluno'));
+        $temMaisDeUmAluno = $qtdAlunos > 1;
+
         $classeItemMisto  = $ehMisto ? ' aviso-misto' : '';
         if ($temMaisDeUmAluno) {
             $classeItemMisto = ' aviso-misto'; // borda laranja também para grupo bloqueado
         }
- 
+
         if ($temMaisDeUmAluno) {
             $badgeAvisoHeader = '<span class="badge-aviso-aluno">⛔ Unifique os alunos primeiro</span>';
         } elseif ($ehMisto) {
@@ -611,10 +615,6 @@ return new class extends clsCadastro
             </div>
             <div id='accordion-content-{$grupoId}' class='accordion-content'>
         ";
- 
-        // ---- Contar quantos são alunos no grupo ----
-        $qtdAlunos = count(array_filter($grupo, fn($p) => $p['tipo'] === 'aluno'));
-        $temMaisDeUmAluno = $qtdAlunos > 1;
  
         // ---- Aviso dentro do conteúdo expandido ----
         if ($temAluno && $temMaisDeUmAluno) {
@@ -888,8 +888,66 @@ return new class extends clsCadastro
         return $names;
     }
  
+    private function validaPermissaoDaPagina(): void
+    {
+        (new clsPermissoes)->permissao_cadastra(
+            int_processo_ap: 9998878,
+            int_idpes_usuario: $this->pessoa_logada,
+            int_soma_nivel_acesso: 7,
+            str_pagina_redirecionar: 'index.php'
+        );
+    }
+
+    public function Novo()
+    {
+        $this->validaPermissaoDaPagina();
+
+        try {
+            $pessoas = json_decode(json: $this->pessoas, associative: true, flags: JSON_THROW_ON_ERROR);
+        } catch (TypeError|Exception $e) {
+            $this->mensagem = 'Informações inválidas para unificação';
+            return false;
+        }
+
+        if (!$this->validaDadosDaUnificacao($pessoas)) {
+            $this->mensagem = 'Dados enviados inválidos, recarregue a tela e tente novamente!';
+            return false;
+        }
+
+        $cod_pessoa_principal = (int) $this->buscaPessoaPrincipal(pessoas: $pessoas);
+        $cod_pessoas          = array_values($this->buscaIdesDasPessoasParaUnificar(pessoas: $pessoas));
+
+        DB::beginTransaction();
+
+        try {
+            $unificationId = $this->createLog(
+                mainId: $cod_pessoa_principal,
+                duplicatesId: $cod_pessoas,
+                createdBy: $this->pessoa_logada
+            );
+
+            $unificacao = new App_Unificacao_Pessoa(
+                $cod_pessoa_principal,
+                $cod_pessoas,
+                $this->pessoa_logada,
+                new clsBanco,
+                $unificationId
+            );
+            $unificacao->unifica();
+
+            DB::commit();
+        } catch (Throwable $e) {
+            DB::rollBack();
+            $this->mensagem = 'Não foi possível realizar a unificação: ' . $e->getMessage();
+            return false;
+        }
+
+        $this->mensagem = '<span>Pessoas unificadas com sucesso.</span>';
+        $this->simpleRedirect(url: route(name: 'person-log-unification.index'));
+    }
+
     public function makeExtra()
     {
-        return '';
+        return file_get_contents(filename: __DIR__ . '/scripts/extra/educar-unifica-pessoa.js');
     }
 };
