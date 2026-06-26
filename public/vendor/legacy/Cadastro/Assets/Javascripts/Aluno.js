@@ -2157,10 +2157,30 @@ function canShowParentsFields() {
       )
       .find("td")
       .removeClass();
-    $j("<label>")
+    let $labelMunicipioResidencia = $j("<label>")
       .html("Município")
       .attr("for", "city_city")
       .insertBefore($j("#city_city"));
+
+    let atualizaObrigatoriedadeMunicipioResidencia = function () {
+      const cepPreenchido = $j.trim($j("#postal_code").val()) !== "";
+
+      if (cepPreenchido) {
+        if (!$labelMunicipioResidencia.find(".campo_obrigatorio").length) {
+          $labelMunicipioResidencia.append(
+            $j("<span/>").addClass("campo_obrigatorio").text("*")
+          );
+        }
+        $j("#city_city").addClass("obrigatorio");
+      } else {
+        $labelMunicipioResidencia.find(".campo_obrigatorio").remove();
+        $j("#city_city").removeClass("obrigatorio");
+      }
+    };
+
+    $j("#postal_code").on("change keyup", atualizaObrigatoriedadeMunicipioResidencia);
+    atualizaObrigatoriedadeMunicipioResidencia();
+
     $j("#city_city")
       .toggleClass("geral text")
       .closest("tr")
@@ -2368,6 +2388,16 @@ function canShowParentsFields() {
               );
           }
 
+          if ($j.trim($j("#postal_code").val()) !== "") {
+            bValid =
+              bValid &&
+              checkSimpleSearch(
+                $j("#city_city"),
+                $j("#city_id"),
+                "munic\u00edpio"
+              );
+          }
+
           if (!validaObrigatoriedadeTelefone()) {
             bValid = false;
           }
@@ -2562,6 +2592,7 @@ function canShowParentsFields() {
       );
       $j("#dialog-form-pessoa-aluno").dialog("open");
       $j("#postal_code").val("");
+      atualizaObrigatoriedadeMunicipioResidencia();
 
       checkTipoNacionalidade();
 
@@ -2668,6 +2699,8 @@ function canShowParentsFields() {
           );
         }
       }
+
+      atualizaObrigatoriedadeMunicipioResidencia();
 
       $j("#dialog-form-pessoa-aluno").dialog("open");
 
