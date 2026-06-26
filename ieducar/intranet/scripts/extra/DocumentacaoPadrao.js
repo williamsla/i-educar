@@ -3,6 +3,10 @@ var yearsPath = '/module/Api/InstituicaoDocumentacao?oper=get&resource=getYears'
 
 function setSelectLoadingState(selectId, message) {
   var select = document.getElementById(selectId);
+  if (!select) {
+    return;
+  }
+
   select.length = 1;
   select.disabled = true;
   select.options[0].text = message;
@@ -10,6 +14,10 @@ function setSelectLoadingState(selectId, message) {
 
 function resetSelect(selectId, message, disabled) {
   var select = document.getElementById(selectId);
+  if (!select) {
+    return;
+  }
+
   select.length = 1;
   select.options[0].text = message;
   select.disabled = disabled;
@@ -29,6 +37,10 @@ function resetAnoSelect(message) {
 
 function populateAnoSelect(anos) {
   var selectAno = document.getElementById('ano');
+  if (!selectAno) {
+    return;
+  }
+
   selectAno.length = 1;
 
   if (!anos || !anos.length) {
@@ -52,6 +64,10 @@ function populateAnoSelect(anos) {
 
 function populateRelatorioSelect(documentos) {
   var selectRelatorio = document.getElementById('relatorio');
+  if (!selectRelatorio) {
+    return;
+  }
+
   selectRelatorio.length = 1;
 
   if (!documentos || !documentos.length) {
@@ -109,48 +125,70 @@ function getDocumento(instituicaoId, ano) {
 function loadInstituicaoDocumentos(instituicaoId) {
   resetAnoSelect('Selecione');
   resetRelatorioSelect('Selecione');
-  document.getElementById('ano').disabled = true;
-  document.getElementById('relatorio').disabled = true;
+
+  var selectAno = document.getElementById('ano');
+  var selectRelatorio = document.getElementById('relatorio');
+
+  if (selectAno) {
+    selectAno.disabled = true;
+  }
+
+  if (selectRelatorio) {
+    selectRelatorio.disabled = true;
+  }
 
   if (instituicaoId != '') {
-    setSelectLoadingState('ano', 'Carregando anos');
+    setSelectLoadingState('ano', 'Carregando anos letivos');
     getAnos(instituicaoId);
   }
 }
 
-var instituicaoId = document.getElementById('ref_cod_instituicao').value;
-if (instituicaoId != '') {
-  loadInstituicaoDocumentos(instituicaoId);
-}
+$j(function () {
+  var $instituicao = $j('#ref_cod_instituicao');
+  var $ano = $j('#ano');
+  var $relatorio = $j('#relatorio');
+  var $btnEnviar = $j('#btn_enviar');
 
-document.getElementById('btn_enviar').style.display = 'none';
+  if (!$instituicao.length || !$ano.length || !$relatorio.length) {
+    return;
+  }
 
-document.getElementById('ref_cod_instituicao').onchange = function () {
-  if (this.selectedIndex !== 0) {
-    loadInstituicaoDocumentos(document.getElementById('ref_cod_instituicao').value);
-  } else {
-    resetAnoSelect('Selecione');
+  if ($btnEnviar.length) {
+    $btnEnviar.hide();
+  }
+
+  $instituicao.on('change', function () {
+    if (this.selectedIndex !== undefined && this.selectedIndex === 0) {
+      resetAnoSelect('Selecione');
+      resetRelatorioSelect('Selecione');
+      $ano.prop('disabled', true);
+      $relatorio.prop('disabled', true);
+      return;
+    }
+
+    loadInstituicaoDocumentos($instituicao.val());
+  });
+
+  $ano.on('change', function () {
+    var instituicaoId = $instituicao.val();
+
+    if (this.selectedIndex !== 0 && instituicaoId != '') {
+      setRelatorioLoadingState();
+      getDocumento(instituicaoId, this.value);
+      return;
+    }
+
     resetRelatorioSelect('Selecione');
-    document.getElementById('ano').disabled = true;
-    document.getElementById('relatorio').disabled = true;
-  }
-};
+    $relatorio.prop('disabled', true);
+  });
 
-document.getElementById('ano').onchange = function () {
-  var selectRelatorio = document.getElementById('relatorio');
-  var instituicaoId = document.getElementById('ref_cod_instituicao').value;
+  $relatorio.on('change', function () {
+    if (this.selectedIndex !== 0) {
+      window.open(linkUrlPrivada(this.value), '_blank');
+    }
+  });
 
-  if (this.selectedIndex !== 0 && instituicaoId != '') {
-    setRelatorioLoadingState();
-    getDocumento(instituicaoId, this.value);
-  } else {
-    resetRelatorioSelect('Selecione');
-    selectRelatorio.disabled = true;
+  if ($instituicao.val() != '') {
+    loadInstituicaoDocumentos($instituicao.val());
   }
-};
-
-document.getElementById('relatorio').onchange = function () {
-  if (this.selectedIndex !== 0) {
-    window.open(linkUrlPrivada(this.value), '_blank');
-  }
-};
+});

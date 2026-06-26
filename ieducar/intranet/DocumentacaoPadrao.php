@@ -62,7 +62,7 @@ return new class extends clsCadastro
 
         $opcoes_ano = [];
         $opcoes_ano[''] = 'Selecione';
-        $this->campoLista('ano', 'Ano', $opcoes_ano);
+        $this->campoLista('ano', 'Ano letivo', $opcoes_ano);
 
         $opcoes_relatorio = [];
         $opcoes_relatorio[''] = 'Selecione';
