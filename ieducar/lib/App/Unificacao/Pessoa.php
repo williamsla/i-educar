@@ -3,6 +3,8 @@
 class App_Unificacao_Pessoa extends App_Unificacao_Base
 {
     protected $chavesManterPrimeiroVinculo = [
+        // Filhos de cadastro.fisica — devem ser processados ANTES de cadastro.fisica
+        // para evitar violação de FK ao deletar o registro duplicado de fisica.
         [
             'tabela' => 'cadastro.fisica_deficiencia',
             'coluna' => 'ref_idpes',
@@ -12,16 +14,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'coluna' => 'ref_idpes',
         ],
         [
-            'tabela' => 'cadastro.fisica',
-            'coluna' => 'idpes',
-        ],
-        [
             'tabela' => 'cadastro.fisica_foto',
             'coluna' => 'idpes',
-        ],
-        [
-            'tabela' => 'public.person_has_place',
-            'coluna' => 'person_id',
         ],
         [
             'tabela' => 'cadastro.fone_pessoa',
@@ -32,9 +26,15 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'coluna' => 'idpes',
         ],
         [
-            'tabela' => 'cadastro.pessoa',
+            'tabela' => 'public.person_has_place',
+            'coluna' => 'person_id',
+        ],
+        // cadastro.fisica — seguro deletar agora que todos os filhos foram processados
+        [
+            'tabela' => 'cadastro.fisica',
             'coluna' => 'idpes',
         ],
+        // Demais tabelas que referenciam cadastro.pessoa
         [
             'tabela' => 'pmieducar.escola_usuario',
             'coluna' => 'ref_cod_usuario',
@@ -50,6 +50,11 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
         [
             'tabela' => 'pmieducar.aluno',
             'coluna' => 'ref_idpes',
+        ],
+        // cadastro.pessoa — tabela raiz, deve ser a ÚLTIMA a ser processada
+        [
+            'tabela' => 'cadastro.pessoa',
+            'coluna' => 'idpes',
         ],
     ];
 
