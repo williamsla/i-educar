@@ -28,6 +28,16 @@ class clsPmieducarConfiguracoesGerais
 
     public $ieducar_entity_name;
 
+    public $ieducar_background_image;
+
+    public $ieducar_background_image_url;
+
+    public $url_diario_professor;
+
+    public $url_whatsapp;
+
+    public $mostrar_botoes_ajuda_login;
+
     public $ieducar_login_footer;
 
     public $ieducar_external_footer;
@@ -126,7 +136,8 @@ class clsPmieducarConfiguracoesGerais
         active_on_ieducar, ieducar_image, ieducar_entity_name, ieducar_login_footer,
         ieducar_external_footer, ieducar_internal_footer, facebook_url, twitter_url, linkedin_url,
         ieducar_suspension_message, bloquear_cadastro_aluno, situacoes_especificas_atestados, emitir_ato_autorizativo,
-        emitir_ato_criacao_credenciamento';
+        emitir_ato_criacao_credenciamento, ieducar_background_image, ieducar_background_image_url,
+        url_diario_professor, url_whatsapp, mostrar_botoes_ajuda_login';
 
         if (is_numeric($campos['ref_cod_instituicao'] ?? null)) {
             $this->ref_cod_instituicao = $campos['ref_cod_instituicao'];
@@ -222,6 +233,26 @@ class clsPmieducarConfiguracoesGerais
 
         if (isset($campos['emitir_ato_criacao_credenciamento'])) {
             $this->emitir_ato_criacao_credenciamento = boolval($campos['emitir_ato_criacao_credenciamento']);
+        }
+
+        if (isset($campos['ieducar_background_image'])) {
+            $this->ieducar_background_image = $campos['ieducar_background_image'];
+        }
+
+        if (isset($campos['ieducar_background_image_url'])) {
+            $this->ieducar_background_image_url = $campos['ieducar_background_image_url'];
+        }
+
+        if (isset($campos['url_diario_professor'])) {
+            $this->url_diario_professor = $campos['url_diario_professor'];
+        }
+
+        if (isset($campos['url_whatsapp'])) {
+            $this->url_whatsapp = $campos['url_whatsapp'];
+        }
+
+        if (isset($campos['mostrar_botoes_ajuda_login'])) {
+            $this->mostrar_botoes_ajuda_login = boolval($campos['mostrar_botoes_ajuda_login']);
         }
     }
 
@@ -340,6 +371,28 @@ class clsPmieducarConfiguracoesGerais
         if (isset($this->emitir_ato_criacao_credenciamento)) {
             $flag = $this->emitir_ato_criacao_credenciamento ? 'true' : 'false';
             $set[] = "emitir_ato_criacao_credenciamento = {$flag}";
+        }
+
+        if (isset($this->ieducar_background_image)) {
+            $bg = addslashes($this->ieducar_background_image);
+            $set[] = "ieducar_background_image = '{$bg}'";
+        }
+
+        if (isset($this->ieducar_background_image_url)) {
+            $set[] = "ieducar_background_image_url = '{$this->ieducar_background_image_url}'";
+        }
+
+        if (isset($this->url_diario_professor)) {
+            $set[] = "url_diario_professor = '{$this->url_diario_professor}'";
+        }
+
+        if (isset($this->url_whatsapp)) {
+            $set[] = "url_whatsapp = '{$this->url_whatsapp}'";
+        }
+
+        if (isset($this->mostrar_botoes_ajuda_login)) {
+            $flag = $this->mostrar_botoes_ajuda_login ? 'true' : 'false';
+            $set[] = "mostrar_botoes_ajuda_login = {$flag}";
         }
 
         $set = implode(', ', $set);
