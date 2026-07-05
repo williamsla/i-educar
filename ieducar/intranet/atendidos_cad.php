@@ -1004,10 +1004,22 @@ return new class extends clsCadastro
             $fisica = $fisica->detalhe();
 
             if ($fisica['cpf'] && $this->cod_pessoa_fj != $fisica['idpes']) {
-                $link = '<a class=\'decorated\' target=\'__blank\' href=\'/intranet/atendidos_cad.php?cod_pessoa_fj=' .
-                    "{$fisica['idpes']}'>{$fisica['idpes']}</a>";
+                // Montar link direto para a tela de unificação com ambas as pessoas pré-carregadas
+                $idpesAtual    = (int) $this->cod_pessoa_fj;   // pessoa sendo editada
+                $idpesDuplic   = (int) $fisica['idpes'];        // pessoa que já tem o CPF
 
-                $this->erros['id_federal'] = "CPF já utilizado pela pessoa $link.";
+                // URL da tela de unificação com os dois idpes como parâmetros
+                $urlUnifica = '/intranet/educar_unifica_pessoa.php'
+                    . '?pessoa1=' . $idpesAtual
+                    . '&pessoa2=' . $idpesDuplic;
+
+                $linkUnifica = '<a class=\'decorated\' href=\'' . $urlUnifica . '\''
+                    . ' title=\'Abrir tela de unificação com os dois cadastros pré-carregados\'>'
+                    . '🔗 Unificar cadastros duplicados (pessoa ' . $idpesDuplic . ')'
+                    . '</a>';
+
+                $this->erros['id_federal'] = 'CPF já utilizado pela pessoa código '
+                    . $idpesDuplic . '. ' . $linkUnifica . '.';
                 $isValid = false;
             }
         }

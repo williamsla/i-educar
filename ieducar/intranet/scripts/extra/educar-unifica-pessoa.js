@@ -142,7 +142,7 @@ function montaTabelaDadosPessoa(response) {
   `;
 
     if (response.pessoas && response.pessoas.length > 0) {
-        response.pessoas.each(function(pessoa, id) {
+        $j.each(response.pessoas, function(id, pessoa) {
             html += '<tr id="' + pessoa.idpes + '" class="linha_listagem">';
             html += '<td><input type="checkbox" class="check_principal" id="check_principal_' + pessoa.idpes + '"/></td>';
             html += '<td><a target="_new" href="/intranet/atendidos_det.php?cod_pessoa=' + pessoa.idpes + '">' + pessoa.idpes + '</a></td>';
@@ -283,7 +283,6 @@ function removeTr(codPessoa) {
     let trClose = $j('#' + codPessoa);
     trClose.fadeOut(400, function() {
         trClose.remove();
-        // Verificar se ainda há pessoas na tabela
         if ($j('#tabela_pessoas_unificadas tr.linha_listagem').length < 2) {
             recarregar();
         }
@@ -457,7 +456,7 @@ function setAutoComplete() {
         if ($j(field).data('ui-autocomplete')) {
             $j(field).autocomplete('destroy');
         }
-        
+
         $j(field).autocomplete({
             source: search,
             select: handleSelect,
@@ -521,7 +520,6 @@ function carregarPossiveisDuplicatasAutomaticamente() {
             esconderLoading();
 
             if (response.duplicatas && response.duplicatas.length > 0) {
-                // Limpar campos existentes, mantendo apenas o primeiro
                 var $inputs = $j('input[id^="pessoa_duplicada["');
                 for (var i = 1; i < $inputs.length; i++) {
                     if (tab_add_1 && tab_add_1.removeRow) {
@@ -586,6 +584,22 @@ function esconderLoading() {
 // ============================================
 $(document).ready(function() {
     setTimeout(function() {
+        // Modo pré-carregamento: vindo do aviso de CPF duplicado em atendidos_cad.php
+        // O PHP injeta window.__preloadPessoas = [{label:'55401 - Nome...'}, {label:'55402 - Nome...'}]
+        if (window.__preloadPessoas && window.__preloadPessoas.length >= 2) {
+            var $inputs = $j('input[id^="pessoa_duplicada["]');
+            if ($inputs.length >= 2) {
+                $inputs.eq(0).val(window.__preloadPessoas[0].label);
+                $inputs.eq(1).val(window.__preloadPessoas[1].label);
+                // Rolar até o formulário para o usuário ver os campos preenchidos
+                var formEl = document.querySelector('.formulario-superior');
+                if (formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                carregaDadosPessoas();
+            }
+            return; // Não executar o auto-load de duplicatas
+        }
+
+        // Comportamento padrão: carregar possíveis duplicatas automaticamente
         if (typeof carregarPossiveisDuplicatasAutomaticamente === 'function') {
             carregarPossiveisDuplicatasAutomaticamente();
         }
