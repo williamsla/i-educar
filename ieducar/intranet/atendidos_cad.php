@@ -991,6 +991,18 @@ return new class extends clsCadastro
         $this->inputsHelper()->simpleSearchPessoa(attrName: 'nome', inputOptions: $options, helperOptions: $helperOptions);
     }
 
+    /**
+     * Retorna o cod_aluno vinculado a uma pessoa (idpes), ou null se a
+     * pessoa não possui nenhum cadastro de aluno.
+     */
+    protected function getCodAlunoByIdpes($idpes)
+    {
+        $sql = 'select cod_aluno from pmieducar.aluno where ref_idpes = $1 order by cod_aluno desc limit 1';
+        $codAluno = Portabilis_Utils_Database::selectField($sql, [$idpes]);
+
+        return $codAluno ?: null;
+    }
+
     protected function validatesCpf($cpf)
     {
         $isValid = true;
@@ -1008,24 +1020,54 @@ return new class extends clsCadastro
                 $idpesAtual    = (int) $this->cod_pessoa_fj;   // pessoa sendo editada
                 $idpesDuplic   = (int) $fisica['idpes'];        // pessoa que já tem o CPF
 
-                // URL da tela de unificação com os dois idpes como parâmetros
-                $urlUnifica = '/intranet/educar_unifica_pessoa.php'
-                    . '?pessoa1=' . $idpesAtual
-                    . '&pessoa2=' . $idpesDuplic;
+                // Verifica se as duas pessoas já são alunos. A tela de
+                // unificação de pessoas não permite unificar duas pessoas que
+                // já estão vinculadas a alunos (ela pede para unificar os
+                // alunos primeiro), então nesse caso já direcionamos direto
+                // para a tela correta (unificação de alunos).
+                $codAlunoAtual  = $this->getCodAlunoByIdpes($idpesAtual);
+                $codAlunoDuplic = $this->getCodAlunoByIdpes($idpesDuplic);
 
-                $linkUnifica = '<a class=\'decorated\' href=\'' . $urlUnifica . '\''
-                    . ' title=\'Abrir tela de unificação com os dois cadastros pré-carregados\'>'
-                    . '🔗 Unificar cadastros duplicados (pessoa ' . $idpesDuplic . ')'
-                    . '</a>';
+                if ($codAlunoAtual && $codAlunoDuplic) {
+                    // Ambas as pessoas já são alunos: unificação deve ser feita
+                    // pela tela de alunos.
+                    $urlUnifica = '/intranet/educar_unifica_aluno.php'
+                        . '?aluno1=' . $codAlunoAtual
+                        . '&aluno2=' . $codAlunoDuplic;
 
-                $this->erros['id_federal'] = 'CPF já utilizado pela pessoa código '
-                    . $idpesDuplic . '. ' . $linkUnifica . '.';
+                    $linkUnifica = '<a class=\'decorated\' href=\'' . $urlUnifica . '\''
+                        . ' title=\'Abrir tela de unificação de alunos com os dois cadastros pré-carregados\'>'
+                        . '🔗 Unificar alunos duplicados (aluno ' . $codAlunoDuplic . ')'
+                        . '</a>';
+
+                    $this->erros['id_federal'] = 'CPF já utilizado pela pessoa código '
+                        . $idpesDuplic . ', que já possui cadastro de aluno (matrícula '
+                        . $codAlunoDuplic . '). Como os dois cadastros já são alunos, '
+                        . 'a unificação precisa ser feita pela tela de alunos: '
+                        . $linkUnifica . '.';
+                } else {
+                    // Pelo menos uma das pessoas ainda não é aluno: segue o
+                    // fluxo normal pela tela de unificação de pessoas.
+                    $urlUnifica = '/intranet/educar_unifica_pessoa.php'
+                        . '?pessoa1=' . $idpesAtual
+                        . '&pessoa2=' . $idpesDuplic;
+
+                    $linkUnifica = '<a class=\'decorated\' href=\'' . $urlUnifica . '\''
+                        . ' title=\'Abrir tela de unificação com os dois cadastros pré-carregados\'>'
+                        . '🔗 Unificar cadastros duplicados (pessoa ' . $idpesDuplic . ')'
+                        . '</a>';
+
+                    $this->erros['id_federal'] = 'CPF já utilizado pela pessoa código '
+                        . $idpesDuplic . '. ' . $linkUnifica . '.';
+                }
+
                 $isValid = false;
             }
         }
 
         return $isValid;
     }
+
 
     protected function createOrUpdate($pessoaIdOrNull = null)
     {

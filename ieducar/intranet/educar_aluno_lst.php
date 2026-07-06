@@ -241,7 +241,7 @@ return new class extends clsListagem
 
             $students = $query->paginate(
                 $studentFilter->perPage,
-                ['ref_idpes', 'cod_aluno', 'tipo_responsavel'],
+                ['ref_idpes', 'cod_aluno', 'tipo_responsavel', 'aluno.ativo'],
                 'pagina_' . $studentFilter->pageName
             );
         } else {

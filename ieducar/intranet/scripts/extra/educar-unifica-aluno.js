@@ -729,6 +729,21 @@ console.log('Funções do acordeon carregadas com sucesso!');
 // ============================================
 $(document).ready(function() {
     setTimeout(function() {
+        // Modo pré-carregamento: vindo do aviso de CPF duplicado em atendidos_cad.php
+        // (quando as duas pessoas já são alunos). O PHP injeta
+        // window.__preloadAlunos = [{label:'16674 - Nome...'}, {label:'16676 - Nome...'}]
+        if (window.__preloadAlunos && window.__preloadAlunos.length >= 2) {
+            var $inputs = $j('input[id^="aluno_duplicado["]');
+            if ($inputs.length >= 2) {
+                $inputs.eq(0).val(window.__preloadAlunos[0].label);
+                $inputs.eq(1).val(window.__preloadAlunos[1].label);
+                var formEl = document.querySelector('.formulario-superior');
+                if (formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                carregaDadosAlunos();
+            }
+            return; // Não executar o auto-load do primeiro grupo de duplicatas
+        }
+
         if (typeof carregarPossiveisDuplicatasAutomaticamente === 'function') {
             carregarPossiveisDuplicatasAutomaticamente();
         }
