@@ -997,7 +997,13 @@ return new class extends clsCadastro
      */
     protected function getCodAlunoByIdpes($idpes)
     {
-        $sql = 'select cod_aluno from pmieducar.aluno where ref_idpes = $1 order by cod_aluno desc limit 1';
+        // Considera apenas vínculos ativos, para ficar consistente com a
+        // regra usada em Unificacao/Pessoa::validaPessoas(), que só conta
+        // "ref_idpes IN (...) AND ativo = 1" ao decidir se a unificação de
+        // pessoas deve ser bloqueada. Um cadastro de aluno inativo (ex.:
+        // transferido, matrícula cancelada) não deve forçar o redirect
+        // para a tela de unificação de alunos.
+        $sql = 'select cod_aluno from pmieducar.aluno where ref_idpes = $1 and ativo = 1 order by cod_aluno desc limit 1';
         $codAluno = Portabilis_Utils_Database::selectField($sql, [$idpes]);
 
         return $codAluno ?: null;

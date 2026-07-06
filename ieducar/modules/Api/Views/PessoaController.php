@@ -41,7 +41,11 @@ class PessoaController extends ApiCoreController
     // load resources
     protected function tryLoadAlunoId($pessoaId)
     {
-        $sql = 'select cod_aluno as id from pmieducar.aluno where ref_idpes = $1';
+        // Considera apenas o vínculo ativo (mesmo critério usado em
+        // Unificacao/Pessoa::validaPessoas() e em atendidos_cad.php), para
+        // que o front-end não trate um cadastro de aluno inativo como se a
+        // pessoa ainda estivesse vinculada a uma matrícula.
+        $sql = 'select cod_aluno as id from pmieducar.aluno where ref_idpes = $1 and ativo = 1';
         $id = $this->fetchPreparedQuery($sql, $pessoaId, false, 'first-field');
 
         if (empty($id)) {
