@@ -2950,20 +2950,37 @@ function canShowParentsFields() {
       var pessoaId = dataResponse.id;
 
       if (pessoaId && pessoaId != $j("#pessoa_id").val()) {
+        // Verifica se as duas pessoas já estão vinculadas a uma matrícula de
+        // aluno ativa. A tela de unificação de pessoas não permite unificar
+        // duas pessoas que já são alunos (pede para unificar os alunos
+        // primeiro), então nesse caso o link já deve apontar direto para a
+        // tela correta (unificação de alunos).
+        var codAlunoAtual = $j("#id").val();
+        var codAlunoDuplic = dataResponse.aluno_id;
+
+        var linkHref;
+        var linkTexto;
+
+        if (codAlunoAtual && codAlunoDuplic) {
+          linkHref = "/intranet/educar_unifica_aluno.php?aluno1=" + codAlunoAtual + "&aluno2=" + codAlunoDuplic;
+          linkTexto = "unificar alunos duplicados.";
+        } else {
+          var pessoaAtualId = $j("#pessoa_id").val();
+          linkHref = "/intranet/educar_unifica_pessoa.php?pessoa1=" + pessoaAtualId + "&pessoa2=" + pessoaId;
+          linkTexto = "unificar cadastros duplicados.";
+        }
+
         $cpfNotice
           .html(
-            "CPF já utilizado pela pessoa código " + pessoaId + ", "
+            "CPF já utilizado pela pessoa código " + pessoaId + ", 🔗 "
           )
           .slideDown("fast");
 
         $j("<a>")
           .addClass("decorated")
-          .attr(
-            "href",
-            "/intranet/atendidos_cad.php?cod_pessoa_fj=" + pessoaId
-          )
+          .attr("href", linkHref)
           .attr("target", "_blank")
-          .html("acessar cadastro.")
+          .html(linkTexto)
           .appendTo($cpfNotice);
 
         $j("body,html").animate(

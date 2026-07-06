@@ -58,12 +58,17 @@ var handleGetPersonByCpf = function(dataResponse) {
   var pessoaId = dataResponse.id;
 
   if (pessoaId && pessoaId != $j('#cod_pessoa_fj').val()) {
-    $cpfNotice.html(stringUtils.toUtf8('CPF já utilizado pela pessoa código ' + pessoaId + ', ')).slideDown('fast');
+    // Aqui só temos certeza sobre o vínculo de aluno da pessoa duplicada
+    // (dataResponse.aluno_id); a checagem completa (considerando também o
+    // vínculo da pessoa atual) é feita no servidor, em validatesCpf(), no
+    // momento do envio do formulário — que já redireciona para a tela de
+    // unificação de alunos quando necessário.
+    $cpfNotice.html(stringUtils.toUtf8('CPF já utilizado pela pessoa código ' + pessoaId + ', 🔗 ')).slideDown('fast');
 
     $j('<a>').addClass('decorated')
-             .attr('href', '/intranet/atendidos_cad.php?cod_pessoa_fj=' + pessoaId)
+             .attr('href', '/intranet/educar_unifica_pessoa.php?pessoa1=' + $j('#cod_pessoa_fj').val() + '&pessoa2=' + pessoaId)
              .attr('target', '_blank')
-             .html('acessar cadastro.')
+             .html('unificar cadastros duplicados.')
              .appendTo($cpfNotice);
 
     $j('body,html').animate({ scrollTop: $j('body').offset().top }, 'fast');
@@ -326,4 +331,3 @@ var simpleSearchPaiOptions = {
 var simpleSearchMaeOptions = {
   autocompleteOptions : { close : changeVisibilityOfLinksToPessoaMae }
 };
-
