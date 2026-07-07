@@ -357,4 +357,5 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
         parent::validaParametros();
         $this->validaPessoas();
     }
+    
 }
