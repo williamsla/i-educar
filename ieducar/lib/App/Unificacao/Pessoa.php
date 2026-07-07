@@ -1,10 +1,27 @@
 <?php
 
+/**
+ * Classe para unificação de pessoas
+ * 
+ * @package App_Unificacao
+ * @version 2.0.2
+ * 
+ * CORREÇÃO: Ordem das tabelas ajustada para garantir que pmieducar.aluno
+ * seja processada ANTES de cadastro.fisica
+ */
 class App_Unificacao_Pessoa extends App_Unificacao_Base
 {
+    /**
+     * Tabelas que devem manter o primeiro vínculo (DELETE + UPDATE)
+     * 
+     * ORDEM CORRETA: 
+     * 1. Filhos de cadastro.fisica (devem ser processados ANTES)
+     * 2. pmieducar.aluno (ANTES de fisica)
+     * 3. cadastro.fisica
+     * 4. cadastro.pessoa (ÚLTIMA)
+     */
     protected $chavesManterPrimeiroVinculo = [
-        // Filhos de cadastro.fisica — devem ser processados ANTES de cadastro.fisica
-        // para evitar violação de FK ao deletar o registro duplicado de fisica.
+        // ===== FILHOS DE cadastro.fisica (devem ser processados ANTES) =====
         [
             'tabela' => 'cadastro.fisica_deficiencia',
             'coluna' => 'ref_idpes',
@@ -29,12 +46,12 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'public.person_has_place',
             'coluna' => 'person_id',
         ],
-        // cadastro.fisica — seguro deletar agora que todos os filhos foram processados
+        
+        // ===== TABELAS QUE REFERENCIAM cadastro.fisica (ANTES de fisica) =====
         [
-            'tabela' => 'cadastro.fisica',
-            'coluna' => 'idpes',
+            'tabela' => 'pmieducar.aluno',
+            'coluna' => 'ref_idpes',
         ],
-        // Demais tabelas que referenciam cadastro.pessoa
         [
             'tabela' => 'pmieducar.escola_usuario',
             'coluna' => 'ref_cod_usuario',
@@ -47,18 +64,25 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'modules.pessoa_transporte',
             'coluna' => 'cod_pessoa_transporte',
         ],
+        
+        // ===== cadastro.fisica (pode ser deletado agora) =====
         [
-            'tabela' => 'pmieducar.aluno',
-            'coluna' => 'ref_idpes',
+            'tabela' => 'cadastro.fisica',
+            'coluna' => 'idpes',
         ],
-        // cadastro.pessoa — tabela raiz, deve ser a ÚLTIMA a ser processada
+        
+        // ===== cadastro.pessoa (RAIZ - DEVE SER A ÚLTIMA) =====
         [
             'tabela' => 'cadastro.pessoa',
             'coluna' => 'idpes',
         ],
     ];
 
+    /**
+     * Tabelas que devem manter TODOS os vínculos (apenas UPDATE)
+     */
     protected $chavesManterTodosVinculos = [
+        // ===== RELAÇÕES DE cadastro.fisica =====
         [
             'tabela' => 'cadastro.fisica',
             'coluna' => 'idpes_mae',
@@ -83,6 +107,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'cadastro.fisica',
             'coluna' => 'idpes_cad',
         ],
+        
+        // ===== RELAÇÕES DE cadastro.fone_pessoa =====
         [
             'tabela' => 'cadastro.fone_pessoa',
             'coluna' => 'idpes_rev',
@@ -91,6 +117,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'cadastro.fone_pessoa',
             'coluna' => 'idpes_cad',
         ],
+        
+        // ===== RELAÇÕES DE cadastro.raca =====
         [
             'tabela' => 'cadastro.raca',
             'coluna' => 'idpes_exc',
@@ -99,6 +127,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'cadastro.raca',
             'coluna' => 'idpes_cad',
         ],
+        
+        // ===== RELAÇÕES DE cadastro.juridica =====
         [
             'tabela' => 'cadastro.juridica',
             'coluna' => 'idpes',
@@ -111,6 +141,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'cadastro.juridica',
             'coluna' => 'idpes_cad',
         ],
+        
+        // ===== MÓDULOS DE TRANSPORTE =====
         [
             'tabela' => 'modules.motorista',
             'coluna' => 'ref_idpes',
@@ -132,6 +164,12 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'coluna' => 'ref_idpes_destino',
         ],
         [
+            'tabela' => 'modules.rota_transporte_escolar',
+            'coluna' => 'ref_idpes_destino',
+        ],
+        
+        // ===== RELAÇÕES DE cadastro.documento =====
+        [
             'tabela' => 'cadastro.documento',
             'coluna' => 'idpes_rev',
         ],
@@ -139,10 +177,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'cadastro.documento',
             'coluna' => 'idpes_cad',
         ],
-        [
-            'tabela' => 'modules.rota_transporte_escolar',
-            'coluna' => 'ref_idpes_destino',
-        ],
+        
+        // ===== RELAÇÕES DE pmieducar.escola =====
         [
             'tabela' => 'pmieducar.escola',
             'coluna' => 'ref_idpes',
@@ -155,6 +191,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'pmieducar.escola',
             'coluna' => 'ref_idpes_secretario_escolar',
         ],
+        
+        // ===== RELAÇÕES DE cadastro.pessoa =====
         [
             'tabela' => 'cadastro.pessoa',
             'coluna' => 'idpes_cad',
@@ -163,6 +201,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'cadastro.pessoa',
             'coluna' => 'idpes_rev',
         ],
+        
+        // ===== PORTAL =====
         [
             'tabela' => 'portal.acesso',
             'coluna' => 'cod_pessoa',
@@ -191,6 +231,8 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'portal.funcionario',
             'coluna' => 'ref_ref_cod_pessoa_fj',
         ],
+        
+        // ===== OUTROS =====
         [
             'tabela' => 'pmieducar.aluno_excluidos',
             'coluna' => 'ref_idpes',
@@ -201,6 +243,9 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
         ],
     ];
 
+    /**
+     * Tabelas que terão registros deletados
+     */
     protected $chavesDeletarDuplicados = [
         [
             'tabela' => 'portal.funcionario',
@@ -208,6 +253,9 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
         ],
     ];
 
+    /**
+     * Triggers que precisam ser habilitadas
+     */
     protected $triggersNecessarias = [
         [
             'tabela' => 'pmieducar.aluno',
@@ -215,20 +263,98 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
         ],
     ];
 
-    public function unifica()
+    /**
+     * {@inheritdoc}
+     * 
+     * @return void
+     * @throws CoreExt_Exception
+     */
+    public function unifica(): void
     {
-        $unificadorServidor = new App_Unificacao_Servidor($this->codigoUnificador, $this->codigosDuplicados, $this->codPessoaLogada, $this->db, $this->unificationId);
+        // 1. Primeiro unifica servidores (se houver)
+        $unificadorServidor = new App_Unificacao_Servidor(
+            $this->codigoUnificador, 
+            $this->codigosDuplicados, 
+            $this->codPessoaLogada, 
+            $this->db, 
+            $this->unificationId
+        );
         $unificadorServidor->unifica();
+
+        // 2. Validação específica de pessoas
+        $this->validaPessoas();
+
+        // 3. Executa a unificação base
         parent::unifica();
     }
 
-    protected function validaParametros()
+    /**
+     * Validações específicas para unificação de pessoas
+     * 
+     * @return void
+     * @throws CoreExt_Exception
+     */
+    protected function validaPessoas(): void
+    {
+        $pessoas = implode(',', array_merge([$this->codigoUnificador], $this->codigosDuplicados));
+        
+        // Verifica se há mais de uma pessoa vinculada a alunos ativos
+        $numeroAlunos = $this->db->CampoUnico(
+            "SELECT COUNT(*) AS numero_alunos 
+             FROM pmieducar.aluno 
+             WHERE ref_idpes IN ({$pessoas}) 
+             AND ativo = 1"
+        );
+
+        if ($numeroAlunos > 1) {
+            throw new CoreExt_Exception(
+                'Não é permitido unificar mais de uma pessoa vinculada com alunos. ' .
+                'Efetue primeiro a unificação de alunos e tente novamente.'
+            );
+        }
+
+        // Validação adicional: verifica se há conflitos de CPF
+        $this->validaConflitoCpf($pessoas);
+    }
+
+    /**
+     * Valida se há conflitos de CPF entre as pessoas
+     * 
+     * @param string $pessoas
+     * @return void
+     * @throws CoreExt_Exception
+     */
+    protected function validaConflitoCpf(string $pessoas): void
+    {
+        $sql = "
+            SELECT 
+                cpf, 
+                COUNT(*) AS quantidade 
+            FROM cadastro.fisica 
+            WHERE idpes IN ({$pessoas}) 
+            AND cpf IS NOT NULL 
+            GROUP BY cpf 
+            HAVING COUNT(*) > 1
+        ";
+
+        $this->db->Consulta($sql);
+        if ($this->db->ProximoRegistro()) {
+            throw new CoreExt_Exception(
+                'Não é possível unificar pessoas com CPFs diferentes. ' .
+                'Verifique os cadastros antes de prosseguir.'
+            );
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     * 
+     * @return void
+     * @throws CoreExt_Exception
+     */
+    protected function validaParametros(): void
     {
         parent::validaParametros();
-        $pessoas = implode(',', (array_merge([$this->codigoUnificador], $this->codigosDuplicados)));
-        $numeroAlunos = $this->db->CampoUnico("SELECT count(*) numero_alunos FROM pmieducar.aluno where ref_idpes IN ({$pessoas}) AND ativo = 1 ");
-        if ($numeroAlunos > 1) {
-            throw new CoreExt_Exception('Não é permitido unificar mais de uma pessoa vinculada com alunos. Efetue primeiro a unificação de alunos e tente novamente.');
-        }
+        $this->validaPessoas();
     }
 }
