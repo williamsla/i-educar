@@ -4,13 +4,21 @@
  * Classe para unificação de pessoas
  * 
  * @package App_Unificacao
- * @version 2.0.0
+ * @version 2.0.2
+ * 
+ * CORREÇÃO: Ordem das tabelas ajustada para garantir que pmieducar.aluno
+ * seja processada ANTES de cadastro.fisica
  */
 class App_Unificacao_Pessoa extends App_Unificacao_Base
 {
     /**
      * Tabelas que devem manter o primeiro vínculo (DELETE + UPDATE)
-     * ORDEM CORRETA: Filhos primeiro, pais depois
+     * 
+     * ORDEM CORRETA: 
+     * 1. Filhos de cadastro.fisica (devem ser processados ANTES)
+     * 2. pmieducar.aluno (ANTES de fisica)
+     * 3. cadastro.fisica
+     * 4. cadastro.pessoa (ÚLTIMA)
      */
     protected $chavesManterPrimeiroVinculo = [
         // ===== FILHOS DE cadastro.fisica (devem ser processados ANTES) =====
@@ -39,13 +47,11 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'coluna' => 'person_id',
         ],
         
-        // ===== cadastro.fisica (pode ser deletado agora) =====
+        // ===== TABELAS QUE REFERENCIAM cadastro.fisica (ANTES de fisica) =====
         [
-            'tabela' => 'cadastro.fisica',
-            'coluna' => 'idpes',
+            'tabela' => 'pmieducar.aluno',
+            'coluna' => 'ref_idpes',
         ],
-        
-        // ===== TABELAS QUE REFERENCIAM cadastro.pessoa =====
         [
             'tabela' => 'pmieducar.escola_usuario',
             'coluna' => 'ref_cod_usuario',
@@ -58,9 +64,11 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
             'tabela' => 'modules.pessoa_transporte',
             'coluna' => 'cod_pessoa_transporte',
         ],
+        
+        // ===== cadastro.fisica (pode ser deletado agora) =====
         [
-            'tabela' => 'pmieducar.aluno',
-            'coluna' => 'ref_idpes',
+            'tabela' => 'cadastro.fisica',
+            'coluna' => 'idpes',
         ],
         
         // ===== cadastro.pessoa (RAIZ - DEVE SER A ÚLTIMA) =====
@@ -257,8 +265,6 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
 
     /**
      * {@inheritdoc}
-     * 
-     * Sobrescreve o método da classe base com a assinatura correta
      * 
      * @return void
      * @throws CoreExt_Exception
