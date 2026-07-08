@@ -7,6 +7,7 @@ use App\Models\LegacyInstitution;
 use App\Models\LegacySchool;
 use App_Model_LocalFuncionamentoDiferenciado;
 use App_Model_TipoMediacaoDidaticoPedagogico;
+use iEducar\Modules\Educacenso\Layout\CensoLayout2026;
 use iEducar\Modules\Educacenso\Model\EtapaAgregada;
 use iEducar\Modules\Educacenso\Model\FormaOrganizacaoTurma;
 use iEducar\Modules\Educacenso\Model\ModalidadeCurso;
@@ -47,6 +48,128 @@ class CheckMandatoryCensoFields implements Rule
                 return false;
             }
             if (!$this->validaCampoLocalFuncionamentoDiferenciado($params)) {
+                return false;
+            }
+            if (!$this->validaCampoEixoCursoProfissional($params)) {
+                return false;
+            }
+            if (!$this->validaCampoCargaHorariaCurso($params)) {
+                return false;
+            }
+            if (!$this->validaCorrespondenciaMediacaoTipoTurmaEtapa($params)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Retorna o ano letivo da turma para decidir se o layout 2026 se aplica.
+     */
+    private function anoLetivo($params): int
+    {
+        return (int) ($params->ano ?? $params->ano_letivo ?? 0);
+    }
+
+    /**
+     * Anexo 6 / registro 20 campo 25 (layout Censo 2026): o código do eixo do
+     * curso de qualificação profissional é obrigatório para as etapas 67, 68,
+     * 73 e 75.
+     */
+    public function validaCampoEixoCursoProfissional($params)
+    {
+        if (!CensoLayout2026::isEnabled($this->anoLetivo($params))) {
+            return true;
+        }
+
+        $etapasQueExigemEixo = [67, 68, 73, 75];
+
+        if (isset($params->etapa_educacenso) &&
+            in_array((int) $params->etapa_educacenso, $etapasQueExigemEixo, true) &&
+            empty($params->codigo_eixo_curso_profissional)
+        ) {
+            $this->message = 'O campo <b>"Código do eixo do curso de qualificação profissional"</b> é obrigatório quando a <b>Etapa de ensino</b> for 67, 68, 73 ou 75.';
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Anexo 8 / registro 20 campo 27 (layout Censo 2026): quando preenchida, a
+     * carga horária total do curso deve ser um número maior que 0 de até 4
+     * dígitos e respeitar a carga horária mínima da etapa.
+     */
+    public function validaCampoCargaHorariaCurso($params)
+    {
+        if (!CensoLayout2026::isEnabled($this->anoLetivo($params))) {
+            return true;
+        }
+
+        if ($params->carga_horaria_curso === null || $params->carga_horaria_curso === '') {
+            return true;
+        }
+
+        $cargaHoraria = (int) $params->carga_horaria_curso;
+
+        if ($cargaHoraria <= 0 || $cargaHoraria > 9999) {
+            $this->message = 'O campo <b>"Carga horária total do curso (em horas)"</b> deve ser um número maior que 0 e de até 4 dígitos.';
+
+            return false;
+        }
+
+        $cargaHorariaMinimaPorEtapa = [
+            68 => 160,
+            75 => 160,
+            73 => 760,
+            67 => 1200,
+            74 => 2400,
+        ];
+
+        $etapa = (int) $params->etapa_educacenso;
+
+        if (isset($cargaHorariaMinimaPorEtapa[$etapa]) && $cargaHoraria < $cargaHorariaMinimaPorEtapa[$etapa]) {
+            $this->message = "A <b>Carga horária total do curso (em horas)</b> para a Etapa {$etapa} deve ser de no mínimo {$cargaHorariaMinimaPorEtapa[$etapa]} horas (Anexo 8 do layout Censo 2026).";
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Anexo 7 (layout Censo 2026): correspondência entre Tipo de mediação
+     * didático-pedagógica, Tipo de turma e Etapa. Regra atualmente coberta: turma
+     * Presencial do tipo "Curricular (etapa de ensino) com Atividade complementar"
+     * só é permitida para Ensino Fundamental (14 a 21 e 41), Multi/Correção de
+     * fluxo (22 e 23), Ensino Médio (25 a 29) e Normal/Magistério (35 a 38).
+     */
+    public function validaCorrespondenciaMediacaoTipoTurmaEtapa($params)
+    {
+        if (!CensoLayout2026::isEnabled($this->anoLetivo($params))) {
+            return true;
+        }
+
+        $tipoAtendimento = $this->getTipoAtendimentoValues($params);
+
+        if (!is_array($tipoAtendimento) || !isset($params->etapa_educacenso)) {
+            return true;
+        }
+
+        $curricularComAtividadeComplementar =
+            in_array(TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO, $tipoAtendimento) &&
+            in_array(TipoAtendimentoTurma::ATIVIDADE_COMPLEMENTAR, $tipoAtendimento);
+
+        if ($params->tipo_mediacao_didatico_pedagogico == App_Model_TipoMediacaoDidaticoPedagogico::PRESENCIAL &&
+            $curricularComAtividadeComplementar
+        ) {
+            $etapasPermitidas = [14, 15, 16, 17, 18, 19, 20, 21, 41, 22, 23, 25, 26, 27, 28, 29, 35, 36, 37, 38];
+
+            if (!in_array((int) $params->etapa_educacenso, $etapasPermitidas, true)) {
+                $this->message = 'Para turma <b>Presencial</b> do tipo <b>"Curricular (etapa de ensino) com Atividade complementar"</b>, a Etapa de ensino deve ser Ensino Fundamental (14 a 21 e 41), Multi/Correção de fluxo (22 e 23), Ensino Médio (25 a 29) ou Normal/Magistério (35 a 38), conforme Anexo 7.';
+
                 return false;
             }
         }

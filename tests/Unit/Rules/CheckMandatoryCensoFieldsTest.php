@@ -3,8 +3,10 @@
 namespace Tests\Unit\Rules;
 
 use App\Rules\CheckMandatoryCensoFields;
+use App_Model_TipoMediacaoDidaticoPedagogico;
 use iEducar\Modules\Educacenso\Model\EtapaAgregada;
 use iEducar\Modules\Educacenso\Model\OrganizacaoCurricular;
+use iEducar\Modules\Educacenso\Model\TipoAtendimentoTurma;
 use Tests\TestCase;
 
 class CheckMandatoryCensoFieldsTest extends TestCase
@@ -223,5 +225,116 @@ class CheckMandatoryCensoFieldsTest extends TestCase
 
         $this->assertFalse($result);
         $this->assertStringContainsString('35, 36, 37 ou 38', $this->rule->message());
+    }
+
+    private function createParams2026(): \stdClass
+    {
+        $params = new \stdClass;
+        $params->ano = 2026;
+        $params->etapa_educacenso = null;
+        $params->etapa_agregada = null;
+        $params->codigo_eixo_curso_profissional = null;
+        $params->carga_horaria_curso = null;
+        $params->tipo_atendimento = null;
+        $params->tipo_mediacao_didatico_pedagogico = App_Model_TipoMediacaoDidaticoPedagogico::PRESENCIAL;
+
+        return $params;
+    }
+
+    public function test_eixo_obrigatorio_para_etapa_68_sem_eixo()
+    {
+        $params = $this->createParams2026();
+        $params->etapa_educacenso = 68;
+        $params->codigo_eixo_curso_profissional = null;
+
+        $this->assertFalse($this->rule->validaCampoEixoCursoProfissional($params));
+        $this->assertStringContainsString('67, 68, 73 ou 75', $this->rule->message());
+    }
+
+    public function test_eixo_valido_para_etapa_68_com_eixo()
+    {
+        $params = $this->createParams2026();
+        $params->etapa_educacenso = 68;
+        $params->codigo_eixo_curso_profissional = 4;
+
+        $this->assertTrue($this->rule->validaCampoEixoCursoProfissional($params));
+    }
+
+    public function test_eixo_nao_exigido_para_etapa_sem_qualificacao()
+    {
+        $params = $this->createParams2026();
+        $params->etapa_educacenso = 25;
+        $params->codigo_eixo_curso_profissional = null;
+
+        $this->assertTrue($this->rule->validaCampoEixoCursoProfissional($params));
+    }
+
+    public function test_eixo_nao_validado_fora_do_layout_2026()
+    {
+        $params = $this->createParams2026();
+        $params->ano = 2025;
+        $params->etapa_educacenso = 68;
+        $params->codigo_eixo_curso_profissional = null;
+
+        $this->assertTrue($this->rule->validaCampoEixoCursoProfissional($params));
+    }
+
+    public function test_carga_horaria_nula_e_valida()
+    {
+        $params = $this->createParams2026();
+        $params->etapa_educacenso = 68;
+        $params->carga_horaria_curso = null;
+
+        $this->assertTrue($this->rule->validaCampoCargaHorariaCurso($params));
+    }
+
+    public function test_carga_horaria_abaixo_do_minimo_da_etapa_67()
+    {
+        $params = $this->createParams2026();
+        $params->etapa_educacenso = 67;
+        $params->carga_horaria_curso = 800;
+
+        $this->assertFalse($this->rule->validaCampoCargaHorariaCurso($params));
+        $this->assertStringContainsString('1200', $this->rule->message());
+    }
+
+    public function test_carga_horaria_no_minimo_da_etapa_68()
+    {
+        $params = $this->createParams2026();
+        $params->etapa_educacenso = 68;
+        $params->carga_horaria_curso = 160;
+
+        $this->assertTrue($this->rule->validaCampoCargaHorariaCurso($params));
+    }
+
+    public function test_carga_horaria_invalida_quando_zero()
+    {
+        $params = $this->createParams2026();
+        $params->etapa_educacenso = 40;
+        $params->carga_horaria_curso = 0;
+
+        $this->assertFalse($this->rule->validaCampoCargaHorariaCurso($params));
+        $this->assertStringContainsString('maior que 0', $this->rule->message());
+    }
+
+    public function test_mediacao_presencial_curricular_com_complementar_etapa_invalida()
+    {
+        $params = $this->createParams2026();
+        $params->tipo_mediacao_didatico_pedagogico = App_Model_TipoMediacaoDidaticoPedagogico::PRESENCIAL;
+        $params->tipo_atendimento = '{' . TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO . ',' . TipoAtendimentoTurma::ATIVIDADE_COMPLEMENTAR . '}';
+        $params->etapa_educacenso = 1;
+
+        $this->assertFalse($this->rule->validaCorrespondenciaMediacaoTipoTurmaEtapa($params));
+        $this->assertStringContainsString('Anexo 7', $this->rule->message());
+    }
+
+    public function test_mediacao_presencial_curricular_com_complementar_etapa_valida()
+    {
+        $params = $this->createParams2026();
+        $params->tipo_mediacao_didatico_pedagogico = App_Model_TipoMediacaoDidaticoPedagogico::PRESENCIAL;
+        $params->tipo_atendimento = '{' . TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO . ',' . TipoAtendimentoTurma::ATIVIDADE_COMPLEMENTAR . '}';
+        $params->etapa_educacenso = 14;
+
+        $this->assertTrue($this->rule->validaCorrespondenciaMediacaoTipoTurmaEtapa($params));
     }
 }
