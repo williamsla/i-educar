@@ -1388,14 +1388,24 @@ return new class extends clsCadastro
         return true;
     }
 
+    /**
+     * Valida os caracteres permitidos no campo Complemento
+     * Agora aceita letras acentuadas, números, espaços e pontuação
+     */
     protected function validaCaracteresPermitidosComplemento()
     {
         if (empty($this->complement)) {
             return true;
         }
-        $pattern = '/^[a-zA-Z0-9ªº\/–\ .,-]+$/';
+        
+        // Permite letras (incluindo acentuadas), números, espaços e caracteres especiais permitidos
+        // \pL = todas as letras (inclui acentuadas)
+        // \pN = todos os números
+        // \s = espaços
+        // Os caracteres especiais permitidos: ª º – / . , - e espaço
+        $pattern = '/^[\pL\pN\sªº–\/\.,-]+$/u';
 
-        return preg_match(pattern: $pattern, subject: $this->complement);
+        return preg_match($pattern, $this->complement);
     }
 
     protected function createOrUpdatePessoa($pessoaId = null)
