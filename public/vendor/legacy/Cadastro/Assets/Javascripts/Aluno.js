@@ -2950,37 +2950,45 @@ function canShowParentsFields() {
       var pessoaId = dataResponse.id;
 
       if (pessoaId && pessoaId != $j("#pessoa_id").val()) {
-        // Verifica se as duas pessoas já estão vinculadas a uma matrícula de
-        // aluno ativa. A tela de unificação de pessoas não permite unificar
-        // duas pessoas que já são alunos (pede para unificar os alunos
-        // primeiro), então nesse caso o link já deve apontar direto para a
-        // tela correta (unificação de alunos).
-        var codAlunoAtual = $j("#id").val();
-        var codAlunoDuplic = dataResponse.aluno_id;
+        // Verifica se o cadastro atual (aluno sendo editado) e o cadastro
+        // duplicado (dono do CPF) já são alunos. Se os dois já forem, a
+        // unificação precisa ser feita pela tela de alunos, pois a tela de
+        // pessoas não permite unificar duas pessoas vinculadas a alunos.
+        var params = new URLSearchParams(window.location.search);
+        var codAlunoAtual = params.get("id");
+        var codAlunoDuplicado = dataResponse.cod_aluno;
 
-        var linkHref;
-        var linkTexto;
+        var urlUnifica;
+        var textoLink;
 
-        if (codAlunoAtual && codAlunoDuplic) {
-          linkHref = "/intranet/educar_unifica_aluno.php?aluno1=" + codAlunoAtual + "&aluno2=" + codAlunoDuplic;
-          linkTexto = "unificar alunos duplicados.";
+        if (codAlunoAtual && codAlunoDuplicado) {
+          urlUnifica =
+            "/intranet/educar_unifica_aluno.php?aluno1=" +
+            codAlunoAtual +
+            "&aluno2=" +
+            codAlunoDuplicado;
+          textoLink = "🔗 unificar alunos duplicados.";
         } else {
           var pessoaAtualId = $j("#pessoa_id").val();
-          linkHref = "/intranet/educar_unifica_pessoa.php?pessoa1=" + pessoaAtualId + "&pessoa2=" + pessoaId;
-          linkTexto = "unificar cadastros duplicados.";
+          urlUnifica =
+            "/intranet/educar_unifica_pessoa.php?pessoa1=" +
+            pessoaAtualId +
+            "&pessoa2=" +
+            pessoaId;
+          textoLink = "🔗 unificar cadastros duplicados.";
         }
 
         $cpfNotice
           .html(
-            "CPF já utilizado pela pessoa código " + pessoaId + ", 🔗 "
+            "CPF já utilizado pela pessoa código " + pessoaId + ", "
           )
           .slideDown("fast");
 
         $j("<a>")
           .addClass("decorated")
-          .attr("href", linkHref)
+          .attr("href", urlUnifica)
           .attr("target", "_blank")
-          .html(linkTexto)
+          .html(textoLink)
           .appendTo($cpfNotice);
 
         $j("body,html").animate(

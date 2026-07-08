@@ -41,11 +41,7 @@ class PessoaController extends ApiCoreController
     // load resources
     protected function tryLoadAlunoId($pessoaId)
     {
-        // Considera apenas o vínculo ativo (mesmo critério usado em
-        // Unificacao/Pessoa::validaPessoas() e em atendidos_cad.php), para
-        // que o front-end não trate um cadastro de aluno inativo como se a
-        // pessoa ainda estivesse vinculada a uma matrícula.
-        $sql = 'select cod_aluno as id from pmieducar.aluno where ref_idpes = $1 and ativo = 1';
+        $sql = 'select cod_aluno as id from pmieducar.aluno where ref_idpes = $1';
         $id = $this->fetchPreparedQuery($sql, $pessoaId, false, 'first-field');
 
         if (empty($id)) {
@@ -422,6 +418,16 @@ class PessoaController extends ApiCoreController
             $pessoa = Portabilis_Array_Utils::merge($pessoa, $details);
 
             $pessoa['deficiencias'] = $this->loadDeficiencias($pessoa['id']);
+
+            // Indica se essa pessoa já possui cadastro de aluno vinculado
+            // (usado para decidir, no front-end, se um conflito de CPF deve
+            // ser resolvido pela tela de unificação de alunos ou de pessoas).
+            if ($pessoa['id']) {
+                $pessoa['cod_aluno'] = Portabilis_Utils_Database::selectField(
+                    'select cod_aluno from pmieducar.aluno where ref_idpes = $1 order by cod_aluno desc limit 1',
+                    [$pessoa['id']]
+                ) ?: null;
+            }
         }
 
         return $pessoa;

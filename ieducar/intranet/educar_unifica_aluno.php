@@ -849,23 +849,27 @@ return new class extends clsCadastro
  
         // ========== LISTAGEM DE DUPLICATAS ==========
         if (!empty($duplicatas) && count($duplicatas) > 0) {
-            echo '<div class="titulo-duplicatas">📋 Grupos de possíveis duplicatas encontrados</div>';
- 
+            echo '<div class="titulo-duplicatas" id="titulo-secao-grupos" onclick="toggleSecaoGrupos();" style="cursor:pointer; user-select:none;">'
+                . '<span id="seta-secao-grupos">▶</span> 📋 Grupos de possíveis duplicatas encontrados'
+                . '</div>';
+
+            echo '<div id="secao-grupos-corpo" style="display:none;">';
+
             $totalGrupos  = count($duplicatas);
             $totalPaginas = ceil($totalGrupos / $this->itens_por_pagina);
- 
+
             if ($this->pagina_atual < 1) $this->pagina_atual = 1;
             if ($this->pagina_atual > $totalPaginas) $this->pagina_atual = $totalPaginas;
- 
+
             $inicio       = ($this->pagina_atual - 1) * $this->itens_por_pagina;
             $gruposPagina = array_slice($duplicatas, $inicio, $this->itens_por_pagina);
- 
+
             echo '<div id="todos-grupos" class="accordion-container">';
             foreach ($gruposPagina as $indice => $grupo) {
                 $this->gerarCardGrupoAcordeon($grupo, $inicio + $indice);
             }
             echo '</div>';
- 
+
             if ($totalPaginas > 1) {
                 echo '<div class="paginacao">';
                 if ($this->pagina_atual > 1) {
@@ -887,9 +891,26 @@ return new class extends clsCadastro
                 echo '</div>';
                 echo '<div style="text-align:center;margin:10px 0 20px 0;color:#666;">Total de grupos: ' . $totalGrupos . ' | Página ' . $this->pagina_atual . ' de ' . $totalPaginas . '</div>';
             }
+
+            echo '</div>'; // fecha #secao-grupos-corpo
         } else {
             echo "<div class='accordion-container'><p>✅ Nenhuma duplicata encontrada no sistema.</p></div>";
         }
+
+        // Alterna a exibição de toda a lista de grupos de duplicatas
+        echo <<<JSTOGGLE
+<script>
+function toggleSecaoGrupos() {
+    var corpo = document.getElementById('secao-grupos-corpo');
+    var seta  = document.getElementById('seta-secao-grupos');
+    if (!corpo) return;
+    var aberto = corpo.style.display !== 'none';
+    corpo.style.display = aberto ? 'none' : 'block';
+    if (seta) seta.textContent = aberto ? '▶' : '▼';
+}
+</script>
+JSTOGGLE;
+
 
         // ── PRÉ-CARREGAMENTO VIA GET COM POLLING ──────────────────────────
         // Vem do aviso de CPF duplicado em atendidos_cad.php, quando as duas
