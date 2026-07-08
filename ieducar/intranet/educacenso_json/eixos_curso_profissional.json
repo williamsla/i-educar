@@ -1,15 +1,15 @@
 {
-    "1": "1 - Ambiente e saúde",
-    "2": "2 - Desenvolvimento educacional e social",
-    "3": "3 - Controle e processos industriais",
-    "4": "4 - Gestão e negócios",
-    "5": "5 - Turismo, hospitalidade e lazer",
-    "6": "6 - Informação e comunicação",
-    "7": "7 - Infraestrutura",
-    "8": "8 - Militar",
-    "9": "9 - Produção alimentícia",
-    "10": "10 - Produção cultural e design",
-    "11": "11 - Produção industrial",
-    "12": "12 - Recursos naturais",
-    "13": "13 - Segurança"
+    "1000": "1000 - Ambiente e saúde",
+    "2000": "2000 - Desenvolvimento educacional e social",
+    "3000": "3000 - Controle e processos industriais",
+    "4000": "4000 - Gestão e negócios",
+    "5000": "5000 - Turismo, hospitalidade e lazer",
+    "6000": "6000 - Informação e comunicação",
+    "7000": "7000 - Infraestrutura",
+    "8000": "8000 - Militar",
+    "9000": "9000 - Produção alimentícia",
+    "10000": "10000 - Produção cultural e design",
+    "11000": "11000 - Produção industrial",
+    "12000": "12000 - Recursos naturais",
+    "13000": "13000 - Segurança"
 }

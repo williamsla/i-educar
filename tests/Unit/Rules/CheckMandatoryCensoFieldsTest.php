@@ -255,7 +255,7 @@ class CheckMandatoryCensoFieldsTest extends TestCase
     {
         $params = $this->createParams2026();
         $params->etapa_educacenso = 68;
-        $params->codigo_eixo_curso_profissional = 4;
+        $params->codigo_eixo_curso_profissional = 2000;
 
         $this->assertTrue($this->rule->validaCampoEixoCursoProfissional($params));
     }
