@@ -20,6 +20,12 @@ return new class extends clsCadastro
  
     public $pagina_atual = 1;
     public $itens_por_pagina = 10;
+
+    // Pré-carregamento via URL (vindo do aviso de CPF duplicado em atendidos_cad.php,
+    // quando as duas pessoas já são alunos)
+    public $preload_aluno1 = 0;
+
+    public $preload_aluno2 = 0;
  
     public function Inicializar()
     {
@@ -27,6 +33,14 @@ return new class extends clsCadastro
  
         if (isset($_GET['pagina'])) {
             $this->pagina_atual = (int) $_GET['pagina'];
+        }
+
+        if (isset($_GET['aluno1']) && is_numeric($_GET['aluno1'])) {
+            $this->preload_aluno1 = (int) $_GET['aluno1'];
+        }
+
+        if (isset($_GET['aluno2']) && is_numeric($_GET['aluno2'])) {
+            $this->preload_aluno2 = (int) $_GET['aluno2'];
         }
  
         $this->breadcrumb(currentPage: 'Cadastrar unificação', breadcrumbs: [
@@ -835,23 +849,27 @@ return new class extends clsCadastro
  
         // ========== LISTAGEM DE DUPLICATAS ==========
         if (!empty($duplicatas) && count($duplicatas) > 0) {
-            echo '<div class="titulo-duplicatas">📋 Grupos de possíveis duplicatas encontrados</div>';
- 
+            echo '<div class="titulo-duplicatas" id="titulo-secao-grupos" onclick="toggleSecaoGrupos();" style="cursor:pointer; user-select:none;">'
+                . '<span id="seta-secao-grupos">▶</span> 📋 Grupos de possíveis duplicatas encontrados'
+                . '</div>';
+
+            echo '<div id="secao-grupos-corpo" style="display:none;">';
+
             $totalGrupos  = count($duplicatas);
             $totalPaginas = ceil($totalGrupos / $this->itens_por_pagina);
- 
+
             if ($this->pagina_atual < 1) $this->pagina_atual = 1;
             if ($this->pagina_atual > $totalPaginas) $this->pagina_atual = $totalPaginas;
- 
+
             $inicio       = ($this->pagina_atual - 1) * $this->itens_por_pagina;
             $gruposPagina = array_slice($duplicatas, $inicio, $this->itens_por_pagina);
- 
+
             echo '<div id="todos-grupos" class="accordion-container">';
             foreach ($gruposPagina as $indice => $grupo) {
                 $this->gerarCardGrupoAcordeon($grupo, $inicio + $indice);
             }
             echo '</div>';
- 
+
             if ($totalPaginas > 1) {
                 echo '<div class="paginacao">';
                 if ($this->pagina_atual > 1) {
@@ -873,8 +891,102 @@ return new class extends clsCadastro
                 echo '</div>';
                 echo '<div style="text-align:center;margin:10px 0 20px 0;color:#666;">Total de grupos: ' . $totalGrupos . ' | Página ' . $this->pagina_atual . ' de ' . $totalPaginas . '</div>';
             }
+
+            echo '</div>'; // fecha #secao-grupos-corpo
         } else {
             echo "<div class='accordion-container'><p>✅ Nenhuma duplicata encontrada no sistema.</p></div>";
+        }
+
+        // Alterna a exibição de toda a lista de grupos de duplicatas
+        echo <<<JSTOGGLE
+<script>
+function toggleSecaoGrupos() {
+    var corpo = document.getElementById('secao-grupos-corpo');
+    var seta  = document.getElementById('seta-secao-grupos');
+    if (!corpo) return;
+    var aberto = corpo.style.display !== 'none';
+    corpo.style.display = aberto ? 'none' : 'block';
+    if (seta) seta.textContent = aberto ? '▶' : '▼';
+}
+</script>
+JSTOGGLE;
+
+
+        // ── PRÉ-CARREGAMENTO VIA GET COM POLLING ──────────────────────────
+        // Vem do aviso de CPF duplicado em atendidos_cad.php, quando as duas
+        // pessoas envolvidas já são alunos. Substitui o auto-load do primeiro
+        // grupo de duplicatas, preenchendo direto os dois alunos corretos.
+        if ($this->preload_aluno1 > 0 && $this->preload_aluno2 > 0) {
+            $db = new clsBanco();
+            $preloadAlunos = [];
+
+            foreach ([$this->preload_aluno1, $this->preload_aluno2] as $codAluno) {
+                $db->Consulta("
+                    SELECT a.cod_aluno, p.nome
+                    FROM pmieducar.aluno a
+                    JOIN cadastro.pessoa p ON p.idpes = a.ref_idpes
+                    WHERE a.cod_aluno = {$codAluno}
+                ");
+                if ($db->ProximoRegistro()) {
+                    $row = $db->Tupla();
+                    $preloadAlunos[] = [
+                        'label' => $row['cod_aluno'] . ' - ' . $row['nome'],
+                    ];
+                }
+            }
+
+            if (count($preloadAlunos) === 2) {
+                $a0 = addslashes($preloadAlunos[0]['label']);
+                $a1 = addslashes($preloadAlunos[1]['label']);
+
+                echo <<<JSINLINE
+<script>
+// Sinaliza modo preload para o educar-unifica-aluno.js não rodar o auto-load de duplicatas
+window.__preloadAlunos = [
+    { label: '{$a0}' },
+    { label: '{$a1}' }
+];
+window.__preloadConcluido = false;
+
+// Polling: aguarda os inputs do formulário existirem, então preenche e dispara carregaDadosAlunos()
+(function() {
+    var tentativas = 0;
+    var maxTentativas = 40; // ~12 segundos (300ms * 40)
+    var timer = setInterval(function() {
+        tentativas++;
+
+        var inputs = document.querySelectorAll('input[id^="aluno_duplicado["]');
+
+        if (inputs.length >= 2) {
+            inputs[0].value = window.__preloadAlunos[0].label;
+            inputs[1].value = window.__preloadAlunos[1].label;
+
+            window.__preloadConcluido = true;
+
+            clearInterval(timer);
+
+            var formEl = document.querySelector('.formulario-superior');
+            if (formEl) {
+                formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            setTimeout(function() {
+                if (typeof carregaDadosAlunos === 'function') {
+                    carregaDadosAlunos();
+                }
+            }, 150);
+
+            return;
+        }
+
+        if (tentativas >= maxTentativas) {
+            clearInterval(timer);
+        }
+    }, 300);
+})();
+</script>
+JSINLINE;
+            }
         }
  
         $styles  = ['/vendor/legacy/Cadastro/Assets/Stylesheets/UnificaAluno.css'];

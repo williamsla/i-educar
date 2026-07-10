@@ -16,6 +16,11 @@ return new class extends clsCadastro
 
     public $pessoa_duplicada;
 
+    // Pré-carregamento via URL (vindo do aviso de CPF duplicado em atendidos_cad.php)
+    public $preload_pessoa1 = 0;
+
+    public $preload_pessoa2 = 0;
+
     public $pagina_atual = 1;
     public $itens_por_pagina = 10;
 
@@ -37,6 +42,15 @@ return new class extends clsCadastro
             $this->pagina_atual = (int) $_GET['pagina'];
         }
 
+        // Pré-carregamento de pessoas vindas do aviso de CPF duplicado em atendidos_cad.php
+        if (isset($_GET['pessoa1']) && is_numeric($_GET['pessoa1'])) {
+            $this->preload_pessoa1 = (int) $_GET['pessoa1'];
+        }
+
+        if (isset($_GET['pessoa2']) && is_numeric($_GET['pessoa2'])) {
+            $this->preload_pessoa2 = (int) $_GET['pessoa2'];
+        }
+
         $obj_permissoes = new clsPermissoes;
         $obj_permissoes->permissao_cadastra(
             int_processo_ap: 9998878,
@@ -51,6 +65,91 @@ return new class extends clsCadastro
     public function Gerar()
     {
         $duplicatas = $this->buscarPossiveisDuplicatas();
+
+        // ── PRÉ-CARREGAMENTO VIA GET COM POLLING ──────────────────────────
+        // Substitui o script simples por um polling robusto que aguarda os
+        // inputs existirem e preenche diretamente, evitando conflito de timing
+        if ($this->preload_pessoa1 > 0 && $this->preload_pessoa2 > 0) {
+            $db = new clsBanco();
+            $preloadPessoas = [];
+
+            foreach ([$this->preload_pessoa1, $this->preload_pessoa2] as $idpes) {
+                $db->Consulta("
+                    SELECT p.idpes, p.nome, to_char(f.data_nasc, 'dd/mm/yyyy') AS data_nasc
+                    FROM cadastro.pessoa p
+                    JOIN cadastro.fisica f ON f.idpes = p.idpes
+                    WHERE p.idpes = {$idpes}
+                ");
+                if ($db->ProximoRegistro()) {
+                    $row = $db->Tupla();
+                    $preloadPessoas[] = [
+                        'label' => $row['idpes'] . ' - ' . $row['nome'],
+                    ];
+                }
+            }
+
+            if (count($preloadPessoas) === 2) {
+                $p0 = addslashes($preloadPessoas[0]['label']);
+                $p1 = addslashes($preloadPessoas[1]['label']);
+                
+                echo <<<JSINLINE
+<script>
+// Sinaliza modo preload para o educar-unifica-pessoa.js não rodar o auto-load de duplicatas
+window.__preloadPessoas = [
+    { label: '{$p0}' },
+    { label: '{$p1}' }
+];
+window.__preloadConcluido = false;
+
+// Polling: aguarda os inputs do formulário existirem, então preenche e dispara carregaDadosPessoas()
+(function() {
+    var tentativas = 0;
+    var maxTentativas = 40; // ~12 segundos (300ms * 40)
+    var timer = setInterval(function() {
+        tentativas++;
+        
+        // Busca os inputs de pessoa duplicada
+        var inputs = document.querySelectorAll('input[id^="pessoa_duplicada["]');
+        
+        if (inputs.length >= 2) {
+            // Preenche os campos
+            inputs[0].value = window.__preloadPessoas[0].label;
+            inputs[1].value = window.__preloadPessoas[1].label;
+            
+            // Marca como concluído para evitar conflito com auto-load
+            window.__preloadConcluido = true;
+            
+            // Limpa o timer
+            clearInterval(timer);
+            
+            // Rola para o formulário
+            var formEl = document.querySelector('.formulario-superior');
+            if (formEl) {
+                formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            // Dispara o carregamento dos dados após um pequeno delay
+            setTimeout(function() {
+                if (typeof carregaDadosPessoas === 'function') {
+                    carregaDadosPessoas();
+                }
+            }, 150);
+            
+            console.log('[preload] Preenchimento concluído com sucesso.');
+            return;
+        }
+        
+        // Timeout: desiste após maxTentativas
+        if (tentativas >= maxTentativas) {
+            clearInterval(timer);
+            console.warn('[preload] Timeout: inputs não encontrados após ' + (maxTentativas * 300 / 1000) + 's');
+        }
+    }, 300);
+})();
+</script>
+JSINLINE;
+            }
+        }
 
         echo "
         <style>
@@ -739,7 +838,11 @@ return new class extends clsCadastro
 
         // ========== LISTAGEM DE DUPLICATAS ==========
         if (!empty($duplicatas) && count($duplicatas) > 0) {
-            echo '<div class="titulo-duplicatas">📋 Grupos de possíveis duplicatas encontrados</div>';
+            echo '<div class="titulo-duplicatas" id="titulo-secao-grupos" onclick="toggleSecaoGrupos();" style="cursor:pointer; user-select:none;">'
+                . '<span id="seta-secao-grupos">▶</span> 📋 Grupos de possíveis duplicatas encontrados'
+                . '</div>';
+
+            echo '<div id="secao-grupos-corpo" style="display:none;">';
 
             $totalGrupos  = count($duplicatas);
             $totalPaginas = ceil($totalGrupos / $this->itens_por_pagina);
@@ -785,9 +888,27 @@ return new class extends clsCadastro
                 echo 'Total de grupos: ' . $totalGrupos . ' | Página ' . $this->pagina_atual . ' de ' . $totalPaginas;
                 echo '</div>';
             }
+
+            echo '</div>'; // fecha #secao-grupos-corpo
         } else {
             echo "<div class='accordion-container'><p>✅ Nenhuma duplicata encontrada no sistema.</p></div>";
         }
+
+        // Alterna a exibição de toda a lista de grupos de duplicatas
+        echo <<<JSTOGGLE
+<script>
+function toggleSecaoGrupos() {
+    var corpo = document.getElementById('secao-grupos-corpo');
+    var seta  = document.getElementById('seta-secao-grupos');
+    if (!corpo) return;
+    var aberto = corpo.style.display !== 'none';
+    corpo.style.display = aberto ? 'none' : 'block';
+    if (seta) seta.textContent = aberto ? '▶' : '▼';
+}
+</script>
+JSTOGGLE;
+
+
 
         $styles  = ['/vendor/legacy/Cadastro/Assets/Stylesheets/UnificaPessoa.css'];
         $scripts = ['/vendor/legacy/Portabilis/Assets/Javascripts/ClientApi.js'];
@@ -896,7 +1017,7 @@ return new class extends clsCadastro
         ";
     }
 
-        private function buscarPossiveisDuplicatas()
+    private function buscarPossiveisDuplicatas()
     {
         $db = new clsBanco();
         

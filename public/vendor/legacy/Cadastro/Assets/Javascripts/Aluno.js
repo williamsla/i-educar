@@ -2950,6 +2950,34 @@ function canShowParentsFields() {
       var pessoaId = dataResponse.id;
 
       if (pessoaId && pessoaId != $j("#pessoa_id").val()) {
+        // Verifica se o cadastro atual (aluno sendo editado) e o cadastro
+        // duplicado (dono do CPF) já são alunos. Se os dois já forem, a
+        // unificação precisa ser feita pela tela de alunos, pois a tela de
+        // pessoas não permite unificar duas pessoas vinculadas a alunos.
+        var params = new URLSearchParams(window.location.search);
+        var codAlunoAtual = params.get("id");
+        var codAlunoDuplicado = dataResponse.cod_aluno;
+
+        var urlUnifica;
+        var textoLink;
+
+        if (codAlunoAtual && codAlunoDuplicado) {
+          urlUnifica =
+            "/intranet/educar_unifica_aluno.php?aluno1=" +
+            codAlunoAtual +
+            "&aluno2=" +
+            codAlunoDuplicado;
+          textoLink = "🔗 unificar alunos duplicados.";
+        } else {
+          var pessoaAtualId = $j("#pessoa_id").val();
+          urlUnifica =
+            "/intranet/educar_unifica_pessoa.php?pessoa1=" +
+            pessoaAtualId +
+            "&pessoa2=" +
+            pessoaId;
+          textoLink = "🔗 unificar cadastros duplicados.";
+        }
+
         $cpfNotice
           .html(
             "CPF já utilizado pela pessoa código " + pessoaId + ", "
@@ -2958,12 +2986,9 @@ function canShowParentsFields() {
 
         $j("<a>")
           .addClass("decorated")
-          .attr(
-            "href",
-            "/intranet/atendidos_cad.php?cod_pessoa_fj=" + pessoaId
-          )
+          .attr("href", urlUnifica)
           .attr("target", "_blank")
-          .html("acessar cadastro.")
+          .html(textoLink)
           .appendTo($cpfNotice);
 
         $j("body,html").animate(

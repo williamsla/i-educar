@@ -212,7 +212,7 @@ class LegacyStudentBuilder extends LegacyBuilder
 
         return $builder->paginate(
             $studentFilter->perPage,
-            ['ref_idpes', 'cod_aluno', 'tipo_responsavel'],
+            ['ref_idpes', 'cod_aluno', 'tipo_responsavel', 'aluno.ativo'],
             'pagina_' . $studentFilter->pageName
         );
     }

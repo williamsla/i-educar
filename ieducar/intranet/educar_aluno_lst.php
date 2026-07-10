@@ -61,9 +61,36 @@ return new class extends clsListagem
 
     public $situacao_matricula_id;
 
+    // Checkbox para incluir alunos com cadastro desativado na busca
+    // (útil para localizar alunos desativados durante uma unificação de pessoas)
+    public $incluir_inativos;
+
     public function Gerar()
     {
         $this->titulo = 'Aluno - Listagem';
+
+        // Permite reativar um aluno inativo direto na listagem, sem precisar
+        // abrir o cadastro. Reaproveita o mesmo endpoint 'enable' já usado
+        // pelo botão "reativar cadastro" da tela de edição (Aluno.js).
+        echo "
+        <script>
+        function reativarAlunoNaLista(codAluno) {
+            if (!confirm('Confirma reativação do cadastro?')) {
+                return;
+            }
+
+            var url = '/module/Api/Aluno?oper=enable&resource=aluno&id=' + codAluno;
+
+            \$j.getJSON(url, function(data) {
+                if (!data.any_error_msg) {
+                    window.location.reload();
+                } else {
+                    alert('Não foi possível reativar o cadastro.');
+                }
+            });
+        }
+        </script>
+        ";
 
         $configuracoes = new clsPmieducarConfiguracoesGerais;
         $configuracoes = $configuracoes->detalhe();
@@ -93,6 +120,15 @@ return new class extends clsListagem
         $this->campoTexto(nome: 'nome_pai', campo: 'Nome do Pai', valor: $this->nome_pai, tamanhovisivel: 50, tamanhomaximo: 255);
         $this->campoTexto(nome: 'nome_mae', campo: 'Nome da Mãe', valor: $this->nome_mae, tamanhovisivel: 50, tamanhomaximo: 255);
         $this->campoTexto(nome: 'nome_responsavel', campo: 'Nome do Responsável', valor: $this->nome_responsavel, tamanhovisivel: 50, tamanhomaximo: 255);
+
+        $this->campoCheck(
+            nome: 'incluir_inativos',
+            campo: 'Incluir alunos inativos',
+            valor: request()->has('incluir_inativos'),
+            desc: 'Mostrar também alunos com cadastro inativo (desativados)',
+            dica: 'Útil para localizar alunos que foram unificados ou desativados'
+        );
+
         $this->campoRotulo(nome: 'filtros_matricula', campo: '<b>Filtros de alunos</b>');
 
         $this->inputsHelper()->integer(attrName: 'ano', inputOptions: ['required' => false, 'value' => $this->ano, 'max_length' => 4, 'label_hint' => 'Retorna alunos com matrículas no ano selecionado']);
@@ -117,6 +153,7 @@ return new class extends clsListagem
             'Nome da Mãe',
             'Nome do Responsável',
             'CPF Responsável',
+            'Status',
         ];
 
         $this->addCabecalhos(coluna: array_filter(array: $cabecalhos));
@@ -155,7 +192,61 @@ return new class extends clsListagem
         $this->offset = ($_GET["pagina_{$this->nome}"]) ? $_GET["pagina_{$this->nome}"] * $this->limite - $this->limite : 0;
 
         $studentFilter = new StudentFilter(...$dataFilter);
-        $students = LegacyStudent::query()->findStudentWithMultipleSearch(studentFilter: $studentFilter);
+
+        // ── Correção: alunos desativados na busca ──────────────────────────────
+        // findStudentWithMultipleSearch() sempre aplica ->active() (aluno.ativo = 1)
+        // sem opção de desativar esse filtro, então quando a checkbox "Incluir
+        // alunos inativos" está marcada, montamos a mesma consulta manualmente,
+        // reaproveitando os mesmos relacionamentos e filtros, mas sem forçar
+        // o ativo = 1.
+        if (request()->has('incluir_inativos')) {
+            $query = LegacyStudent::query()
+                ->with([
+                    'individual' => function ($query) {
+                        $query->select(['idpes', 'idpes_mae', 'idpes_pai', 'nome_social', 'idpes_responsavel']);
+                        $query
+                            ->with('father:nome,idpes', 'father.individual:cpf,idpes')
+                            ->with('mother:nome,idpes', 'mother.individual:cpf,idpes')
+                            ->with('responsible:nome,idpes', 'responsible.individual:cpf,idpes');
+                    },
+                    'person:idpes,nome',
+                    'inep:cod_aluno,cod_aluno_inep',
+                ])
+                ->filter([
+                    'student' => $studentFilter->studentCode,
+                    'student_name' => !$studentFilter->similarity ? $studentFilter->studentName : null,
+                    'student_name_similarity' => $studentFilter->similarity ? $studentFilter->studentName : null,
+                    'mother_name' => $studentFilter->motherName,
+                    'father_name' => $studentFilter->fatherName,
+                    'guardian_name' => $studentFilter->responsableName,
+                    'inep' => $studentFilter->inep,
+                    'cpf' => $studentFilter->cpf,
+                    'rg' => $studentFilter->rg,
+                    'state_network' => $studentFilter->stateNetwork,
+                    'birthdate' => $studentFilter->birthdate,
+                    'registration' => [
+                        'grade' => $studentFilter->grade,
+                        'course' => $studentFilter->course,
+                        'school' => $studentFilter->school,
+                        'year' => $studentFilter->year,
+                    ],
+                ]);
+
+            if ($studentFilter->similarity) {
+                $query->join('cadastro.pessoa', 'pessoa.idpes', '=', 'aluno.ref_idpes');
+                $query->orderByRaw('LEVENSHTEIN(UPPER(nome), UPPER(?), 1, 0, 4), nome ASC', $studentFilter->studentName);
+            } else {
+                $query->orderBy('data_cadastro', 'desc');
+            }
+
+            $students = $query->paginate(
+                $studentFilter->perPage,
+                ['ref_idpes', 'cod_aluno', 'tipo_responsavel', 'aluno.ativo'],
+                'pagina_' . $studentFilter->pageName
+            );
+        } else {
+            $students = LegacyStudent::query()->findStudentWithMultipleSearch(studentFilter: $studentFilter);
+        }
 
         foreach ($students as $student) {
             $nomeAluno = $student->person->name;
@@ -169,6 +260,11 @@ return new class extends clsListagem
             $cpfResponsavel = ucfirst(string: $student->getGuardianCpf());
             $nomeMae = mb_strtoupper(string: $student->individual->mother->name ?? '-');
 
+            $statusAluno = ($student->ativo ?? 0) == 1
+                ? '<span style="color: green; font-weight: bold;">✅ Ativo</span>'
+                : '<span style="color: red; font-weight: bold;">❌ Inativo</span>'
+                    . ' <a href="#" onclick="reativarAlunoNaLista(' . $student->cod_aluno . '); return false;" style="margin-left:6px; text-decoration:underline;">reativar cadastro</a>';
+
             $linhas = array_filter(array: [
                 "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$student->cod_aluno</a>",
                 $configuracoes['mostrar_codigo_inep_aluno'] === 1 ? "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">" . ($student->inepNumber ?? '-'). '</a>' : null,
@@ -176,6 +272,7 @@ return new class extends clsListagem
                 "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$nomeMae</a>",
                 "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$nomeResponsavel</a>",
                 "<a href=\"educar_aluno_det.php?cod_aluno=$student->cod_aluno\">$cpfResponsavel</a>",
+                $statusAluno,
             ]);
 
             $this->addLinhas(linha: $linhas);
