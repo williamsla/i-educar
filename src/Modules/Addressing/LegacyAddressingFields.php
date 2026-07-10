@@ -58,16 +58,31 @@ trait LegacyAddressingFields
             }
         }
 
-        $place = Place::query()->updateOrCreate([
-            'id' => $person->place->id ?? 0,
-        ], [
+        $placeData = [
             'address' => $this->address ?: null,
             'number' => $this->number ?: null,
             'complement' => $this->complement ?: null,
             'neighborhood' => $this->neighborhood ?: null,
             'city_id' => $this->city_id ?: null,
             'postal_code' => empty($this->postal_code) ? null : idFederal2int($this->postal_code),
-        ]);
+        ];
+
+        $personHasPlace = PersonHasPlace::query()
+            ->where('person_id', $person->getKey())
+            ->where('type', 1)
+            ->first();
+
+        $canUpdateExistingPlace = $personHasPlace
+            && PersonHasPlace::query()
+                ->where('place_id', $personHasPlace->place_id)
+                ->count() === 1;
+
+        if ($canUpdateExistingPlace) {
+            $place = Place::query()->find($personHasPlace->place_id);
+            $place->update($placeData);
+        } else {
+            $place = Place::query()->create($placeData);
+        }
 
         PersonHasPlace::query()->updateOrCreate([
             'person_id' => $person->getKey(),

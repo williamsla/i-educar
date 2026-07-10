@@ -1514,7 +1514,7 @@ function afterChangePessoa(targetWindow, parentType, parentId, parentName) {
     $tempIdField = $j(buildId(parentType + "_id"));
     $tempNomeField = $j(buildId(parentType + "_nome"));
   } else {
-    $tempIdField = $j("pessoa_id");
+    $tempIdField = $j("#pessoa_id");
     $tempNomeField = $nomeField;
   }
 
