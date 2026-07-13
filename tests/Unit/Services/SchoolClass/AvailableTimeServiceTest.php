@@ -229,6 +229,48 @@ class AvailableTimeServiceTest extends TestCase
     }
 
     /**
+     * Garante a exceção AEE + curricular quando tipo_atendimento vem como integer[] do Postgres.
+     *
+     * @return void
+     */
+    public function test_with_enrollments_aee_and_curricular_as_native_array_returns_true()
+    {
+        $schoolClass = LegacySchoolClassFactory::new()->morning()->create(
+            [
+                'tipo_mediacao_didatico_pedagogico' => 1,
+                'tipo_atendimento' => [TipoAtendimentoTurma::AEE],
+            ]
+        );
+        $otherSchoolClass = LegacySchoolClassFactory::new()->morning()->create(
+            [
+                'tipo_mediacao_didatico_pedagogico' => 1,
+                'tipo_atendimento' => [TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO],
+                'hora_final' => '15:45',
+            ]
+        );
+
+        $registration = LegacyRegistrationFactory::new()->create([
+            'ano' => $schoolClass->ano,
+            'aprovado' => 3,
+        ]);
+
+        LegacySchoolClassStageFactory::new()->create([
+            'ref_cod_turma' => $schoolClass,
+        ]);
+
+        LegacySchoolClassStageFactory::new()->create([
+            'ref_cod_turma' => $otherSchoolClass,
+        ]);
+
+        LegacyEnrollmentFactory::new()->active()->create([
+            'ref_cod_turma' => $otherSchoolClass->cod_turma,
+            'ref_cod_matricula' => $registration->cod_matricula,
+        ]);
+
+        $this->assertTrue($this->service->isAvailable($registration->ref_cod_aluno, $schoolClass->cod_turma));
+    }
+
+    /**
      * @return void
      */
     public function test_with_inactive_enrollments_same_day_same_time_same_year_returns_true()
