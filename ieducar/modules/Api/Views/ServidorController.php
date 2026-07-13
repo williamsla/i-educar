@@ -98,7 +98,6 @@ class ServidorController extends ApiCoreController
                 s.cod_servidor as servidor_id,
                 public.formata_cpf(f.cpf) as cpf,
                 p.nome as nome,
-                formata_cpf(f.cpf) as cpf,
                 s.ativo as ativo,
                 sa.ref_cod_escola as escola_id,
                 func.nm_funcao as nm_funcao,
