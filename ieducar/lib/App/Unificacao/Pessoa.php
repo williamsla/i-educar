@@ -286,6 +286,13 @@ class App_Unificacao_Pessoa extends App_Unificacao_Base
 
         // 3. Executa a unificação base
         parent::unifica();
+
+        // 4. Garante que a pessoa principal fique ativa após a unificação
+        $this->db->Consulta(
+            "UPDATE cadastro.fisica
+             SET ativo = 1, data_exclusao = null, ref_usuario_exc = null
+             WHERE idpes = {$this->codigoUnificador}"
+        );
     }
 
     /**
