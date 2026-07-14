@@ -249,6 +249,12 @@
                         <i class="fab fa-whatsapp"></i>
                         Suporte via WhatsApp
                     </a>
+                    @if($diarioProfessorUrl && !empty($diarioProfessorUrl))
+                    <a href="{{ $diarioProfessorUrl }}" class="support-link diary" target="_blank">
+                        <i class="fas fa-book-open"></i>
+                        Diário do Professor
+                    </a>
+                    @endif
                 </div>
             </div>
             @endif
