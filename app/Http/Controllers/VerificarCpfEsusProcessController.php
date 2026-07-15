@@ -92,18 +92,24 @@ class VerificarCpfEsusProcessController extends Controller
             return response()->json(['message' => 'Processamento não encontrado.'], 404);
         }
 
+        $filtro = VerificarCpfEsusExportController::normalizarFiltro($request->query('filtro_exibicao'));
+
         if (($payload['status'] ?? '') === 'done') {
             $resultado = is_array($payload['resultado'] ?? null) ? $payload['resultado'] : [];
-            $itens = $resultado['cpfs_nao_cadastrados'] ?? [];
-            if (is_array($itens) && $itens !== []) {
+            $sem = $resultado['cpfs_nao_cadastrados'] ?? [];
+            $com = $resultado['cpfs_com_matricula'] ?? [];
+            if ((! is_array($sem) || $sem === []) && (! is_array($com) || $com === [])) {
+                VerificarCpfEsusExportController::limparExportacao();
+            } else {
                 VerificarCpfEsusExportController::armazenarParaExportacao(
                     (int) ($resultado['cpfs_extraidos'] ?? 0),
                     (int) ($resultado['ano_letivo'] ?? date('Y')),
-                    $itens,
-                    (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false)
+                    is_array($sem) ? $sem : [],
+                    (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false),
+                    is_array($com) ? $com : [],
+                    $filtro,
+                    (string) ($resultado['tipo_fonte'] ?? 'esus')
                 );
-            } else {
-                VerificarCpfEsusExportController::limparExportacao();
             }
         }
 
@@ -113,7 +119,8 @@ class VerificarCpfEsusProcessController extends Controller
             'sucesso' => $payload['sucesso'] ?? null,
             'mensagem' => $payload['mensagem'] ?? '',
             'resultado' => $payload['resultado'] ?? null,
-            'export_url' => url('/relatorios/verificar-cpf-esus/exportar'),
+            'filtro_exibicao' => $filtro,
+            'export_url' => url('/relatorios/verificar-cpf-esus/exportar').'?filtro='.urlencode($filtro),
         ]);
     }
 }

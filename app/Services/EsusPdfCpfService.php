@@ -514,6 +514,17 @@ class EsusPdfCpfService
      */
     public function getItensSemMatriculaNoAno(array $registrosPorCpf, int $anoLetivo): array
     {
+        return $this->classificarPorMatriculaNoAno($registrosPorCpf, $anoLetivo)['sem_matricula'];
+    }
+
+    /**
+     * Separa registros com e sem matrícula ativa no ano letivo.
+     *
+     * @param  array<string, array<string, mixed>>  $registrosPorCpf
+     * @return array{sem_matricula: list<array<string, mixed>>, com_matricula: list<array<string, mixed>>}
+     */
+    public function classificarPorMatriculaNoAno(array $registrosPorCpf, int $anoLetivo): array
+    {
         $preparados = [];
         $cpfsConsulta = [];
         $cnssConsulta = [];
@@ -548,14 +559,15 @@ class EsusPdfCpfService
             array_keys($cnssConsulta)
         );
 
-        $lista = [];
+        $listaSem = [];
+        $listaCom = [];
         foreach ($preparados as $item) {
             $cpfNormalizado = $item['cpf'];
             $cnsDb = $item['cns'];
             $dados = $item['dados'];
 
             if ($cpfNormalizado === '' && $cnsDb === '') {
-                $lista[] = $this->normalizarLinhaItem($dados);
+                $listaSem[] = $this->normalizarLinhaItem($dados);
 
                 continue;
             }
@@ -564,6 +576,8 @@ class EsusPdfCpfService
                 ($cpfNormalizado !== '' && isset($comMatricula['cpf'][$cpfNormalizado]))
                 || ($cnsDb !== '' && isset($comMatricula['cns'][$cnsDb]))
             ) {
+                $listaCom[] = $this->normalizarLinhaItem($dados);
+
                 continue;
             }
 
@@ -571,7 +585,7 @@ class EsusPdfCpfService
                 || ($cnsDb !== '' && isset($comAluno['cns'][$cnsDb]));
             if ($temAlunoPorDocumento) {
                 // Aluno cadastrado, sem matrícula ativa no ano — segue para as regras de filtro.
-                $lista[] = $this->normalizarLinhaItem($dados);
+                $listaSem[] = $this->normalizarLinhaItem($dados);
 
                 continue;
             }
@@ -585,15 +599,20 @@ class EsusPdfCpfService
                     $data
                 );
             if ($idpesFallback !== [] && $this->possuiMatriculaAtivaNoAnoPorCpfOuCns('', '', $anoLetivo, $idpesFallback)) {
+                $listaCom[] = $this->normalizarLinhaItem($dados);
+
                 continue;
             }
 
-            $lista[] = $this->normalizarLinhaItem($dados);
+            $listaSem[] = $this->normalizarLinhaItem($dados);
         }
 
-        $lista = $this->aplicarRegrasListaEsus($lista, $anoLetivo);
+        $listaSem = $this->aplicarRegrasListaEsus($listaSem, $anoLetivo);
 
-        return $this->enriquecerEnderecoAluno($lista);
+        return [
+            'sem_matricula' => $this->enriquecerEnderecoAluno($listaSem),
+            'com_matricula' => $this->enriquecerEnderecoAluno($listaCom),
+        ];
     }
 
     /**
@@ -1583,12 +1602,13 @@ class EsusPdfCpfService
     }
 
     /**
-     * Processa o PDF: extrai registros e retorna os que não têm matrícula ativa no ano letivo, com nome e data de nascimento.
+     * Processa o PDF: extrai registros e classifica com/sem matrícula ativa no ano letivo.
      *
      * @return array{
      *     cpfs_extraidos: int,
      *     ano_letivo: int,
      *     cpfs_nao_cadastrados: list<array<string, mixed>>,
+     *     cpfs_com_matricula: list<array<string, mixed>>,
      *     excluir_sem_cpf_somente_cns: bool,
      *     erro?: string
      * }
@@ -1600,34 +1620,21 @@ class EsusPdfCpfService
             $pdf = $parser->parseFile($pdfPath);
             $text = $pdf->getText();
             $registros = $this->extrairRegistrosDoTexto($text);
-            $semMatricula = $this->getItensSemMatriculaNoAno($registros, $anoLetivo);
-            $semMatricula = $this->filtrarItensExcluindoSomenteCnsSemCpfSeOpcao($semMatricula, $excluirSomenteCnsSemCpfNoArquivo);
 
-            return [
-                'cpfs_extraidos' => count($registros),
-                'ano_letivo' => $anoLetivo,
-                'cpfs_nao_cadastrados' => $semMatricula,
-                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
-            ];
+            return $this->montarResultadoClassificacao($registros, $anoLetivo, $excluirSomenteCnsSemCpfNoArquivo);
         } catch (Throwable $e) {
-            return [
-                'cpfs_extraidos' => 0,
-                'ano_letivo' => $anoLetivo,
-                'cpfs_nao_cadastrados' => [],
-                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
-                'erro' => $e->getMessage(),
-            ];
+            return $this->montarResultadoErro($anoLetivo, $excluirSomenteCnsSemCpfNoArquivo, $e->getMessage());
         }
     }
 
     /**
-     * Processa CSV do eSUS (Acompanhamento de cidadãos vinculados): extrai registros e
-     * retorna os que não têm matrícula ativa no ano letivo.
+     * Processa CSV do eSUS (Acompanhamento de cidadãos vinculados).
      *
      * @return array{
      *     cpfs_extraidos: int,
      *     ano_letivo: int,
      *     cpfs_nao_cadastrados: list<array<string, mixed>>,
+     *     cpfs_com_matricula: list<array<string, mixed>>,
      *     excluir_sem_cpf_somente_cns: bool,
      *     erro?: string
      * }
@@ -1637,23 +1644,10 @@ class EsusPdfCpfService
         try {
             $conteudo = (string) file_get_contents($csvPath);
             $registros = $this->extrairRegistrosDoCsv($conteudo);
-            $semMatricula = $this->getItensSemMatriculaNoAno($registros, $anoLetivo);
-            $semMatricula = $this->filtrarItensExcluindoSomenteCnsSemCpfSeOpcao($semMatricula, $excluirSomenteCnsSemCpfNoArquivo);
 
-            return [
-                'cpfs_extraidos' => count($registros),
-                'ano_letivo' => $anoLetivo,
-                'cpfs_nao_cadastrados' => $semMatricula,
-                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
-            ];
+            return $this->montarResultadoClassificacao($registros, $anoLetivo, $excluirSomenteCnsSemCpfNoArquivo);
         } catch (Throwable $e) {
-            return [
-                'cpfs_extraidos' => 0,
-                'ano_letivo' => $anoLetivo,
-                'cpfs_nao_cadastrados' => [],
-                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
-                'erro' => $e->getMessage(),
-            ];
+            return $this->montarResultadoErro($anoLetivo, $excluirSomenteCnsSemCpfNoArquivo, $e->getMessage());
         }
     }
 
@@ -1675,32 +1669,76 @@ class EsusPdfCpfService
             $conteudo = $this->converterXlsxCadastroCidadaoParaCsv($xlsxPath);
             $registros = $this->extrairRegistrosDoCsv($conteudo);
             if ($registros === []) {
-                return [
-                    'cpfs_extraidos' => 0,
-                    'ano_letivo' => $anoLetivo,
-                    'cpfs_nao_cadastrados' => [],
-                    'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
-                    'erro' => 'Não foi possível ler registros da planilha. Confirme se o arquivo é a Relação de Cadastro do Cidadão (colunas CPF/CNS, Nome e Data de nascimento).',
-                ];
+                return $this->montarResultadoErro(
+                    $anoLetivo,
+                    $excluirSomenteCnsSemCpfNoArquivo,
+                    'Não foi possível ler registros da planilha. Confirme se o arquivo é a Relação de Cadastro do Cidadão (colunas CPF/CNS, Nome e Data de nascimento).'
+                );
             }
-            $semMatricula = $this->getItensSemMatriculaNoAno($registros, $anoLetivo);
-            $semMatricula = $this->filtrarItensExcluindoSomenteCnsSemCpfSeOpcao($semMatricula, $excluirSomenteCnsSemCpfNoArquivo);
 
-            return [
-                'cpfs_extraidos' => count($registros),
-                'ano_letivo' => $anoLetivo,
-                'cpfs_nao_cadastrados' => $semMatricula,
-                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
-            ];
+            return $this->montarResultadoClassificacao($registros, $anoLetivo, $excluirSomenteCnsSemCpfNoArquivo);
         } catch (Throwable $e) {
-            return [
-                'cpfs_extraidos' => 0,
-                'ano_letivo' => $anoLetivo,
-                'cpfs_nao_cadastrados' => [],
-                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
-                'erro' => $e->getMessage(),
-            ];
+            return $this->montarResultadoErro($anoLetivo, $excluirSomenteCnsSemCpfNoArquivo, $e->getMessage());
         }
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $registros
+     * @return array{
+     *     cpfs_extraidos: int,
+     *     ano_letivo: int,
+     *     cpfs_nao_cadastrados: list<array<string, mixed>>,
+     *     cpfs_com_matricula: list<array<string, mixed>>,
+     *     excluir_sem_cpf_somente_cns: bool
+     * }
+     */
+    private function montarResultadoClassificacao(
+        array $registros,
+        int $anoLetivo,
+        bool $excluirSomenteCnsSemCpfNoArquivo
+    ): array {
+        $classificados = $this->classificarPorMatriculaNoAno($registros, $anoLetivo);
+        $semMatricula = $this->filtrarItensExcluindoSomenteCnsSemCpfSeOpcao(
+            $classificados['sem_matricula'],
+            $excluirSomenteCnsSemCpfNoArquivo
+        );
+        $comMatricula = $this->filtrarItensExcluindoSomenteCnsSemCpfSeOpcao(
+            $classificados['com_matricula'],
+            $excluirSomenteCnsSemCpfNoArquivo
+        );
+
+        return [
+            'cpfs_extraidos' => count($registros),
+            'ano_letivo' => $anoLetivo,
+            'cpfs_nao_cadastrados' => $semMatricula,
+            'cpfs_com_matricula' => $comMatricula,
+            'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     cpfs_extraidos: int,
+     *     ano_letivo: int,
+     *     cpfs_nao_cadastrados: list<array<string, mixed>>,
+     *     cpfs_com_matricula: list<array<string, mixed>>,
+     *     excluir_sem_cpf_somente_cns: bool,
+     *     erro: string
+     * }
+     */
+    private function montarResultadoErro(
+        int $anoLetivo,
+        bool $excluirSomenteCnsSemCpfNoArquivo,
+        string $erro
+    ): array {
+        return [
+            'cpfs_extraidos' => 0,
+            'ano_letivo' => $anoLetivo,
+            'cpfs_nao_cadastrados' => [],
+            'cpfs_com_matricula' => [],
+            'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
+            'erro' => $erro,
+        ];
     }
 
     /**

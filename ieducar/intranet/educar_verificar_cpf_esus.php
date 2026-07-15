@@ -27,6 +27,9 @@ return new class extends clsCadastro
     /** Origem da importação: esus | cadastro_cidadao */
     public $tipo_fonte;
 
+    /** Filtro de exibição/exportação: nao_encontrados | encontrados | ambos */
+    public $filtro_exibicao;
+
     public function Formular()
     {
         // Intercepta AJAX antes do MakeAll (menu/HTML), quando o LegacyController chama Formular().
@@ -217,19 +220,14 @@ return new class extends clsCadastro
 
         if (($final['status'] ?? '') === 'done') {
             $resultado = is_array($final['resultado'] ?? null) ? $final['resultado'] : [];
-            $itens = $resultado['cpfs_nao_cadastrados'] ?? [];
-            if (is_array($itens) && $itens !== []) {
-                VerificarCpfEsusExportController::armazenarParaExportacao(
-                    (int) ($resultado['cpfs_extraidos'] ?? 0),
-                    (int) ($resultado['ano_letivo'] ?? date('Y')),
-                    $itens,
-                    (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false)
-                );
-            } else {
-                VerificarCpfEsusExportController::limparExportacao();
-            }
+            $this->persistirExportacaoDaSessao(
+                $resultado,
+                $_POST['filtro_exibicao'] ?? null,
+                $_POST['tipo_fonte'] ?? ($resultado['tipo_fonte'] ?? null)
+            );
         }
 
+        $filtro = VerificarCpfEsusExportController::normalizarFiltro($_POST['filtro_exibicao'] ?? null);
         $this->responderJson([
             'token' => $token,
             'status' => $final['status'] ?? 'queued',
@@ -237,7 +235,8 @@ return new class extends clsCadastro
             'message' => $final['mensagem'] ?? $payload['mensagem'],
             'mensagem' => $final['mensagem'] ?? $payload['mensagem'],
             'resultado' => $final['resultado'] ?? null,
-            'export_url' => url('/relatorios/verificar-cpf-esus/exportar'),
+            'filtro_exibicao' => $filtro,
+            'export_url' => url('/relatorios/verificar-cpf-esus/exportar').'?filtro='.urlencode($filtro),
             'sincrono' => $processarSincrono,
         ]);
     }
@@ -273,19 +272,17 @@ return new class extends clsCadastro
             $this->responderJson(['message' => 'Processamento não pertence ao usuário logado.'], 403);
         }
 
+        $filtro = VerificarCpfEsusExportController::normalizarFiltro(
+            request()->query('filtro_exibicao') ?? $_GET['filtro_exibicao'] ?? null
+        );
+
         if (($payload['status'] ?? '') === 'done') {
             $resultado = is_array($payload['resultado'] ?? null) ? $payload['resultado'] : [];
-            $itens = $resultado['cpfs_nao_cadastrados'] ?? [];
-            if (is_array($itens) && $itens !== []) {
-                VerificarCpfEsusExportController::armazenarParaExportacao(
-                    (int) ($resultado['cpfs_extraidos'] ?? 0),
-                    (int) ($resultado['ano_letivo'] ?? date('Y')),
-                    $itens,
-                    (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false)
-                );
-            } else {
-                VerificarCpfEsusExportController::limparExportacao();
-            }
+            $this->persistirExportacaoDaSessao(
+                $resultado,
+                $filtro,
+                $resultado['tipo_fonte'] ?? null
+            );
         }
 
         $this->responderJson([
@@ -295,7 +292,8 @@ return new class extends clsCadastro
             'mensagem' => $payload['mensagem'] ?? '',
             'message' => $payload['mensagem'] ?? '',
             'resultado' => $payload['resultado'] ?? null,
-            'export_url' => url('/relatorios/verificar-cpf-esus/exportar'),
+            'filtro_exibicao' => $filtro,
+            'export_url' => url('/relatorios/verificar-cpf-esus/exportar').'?filtro='.urlencode($filtro),
         ]);
     }
 
@@ -356,6 +354,24 @@ return new class extends clsCadastro
             campo: 'Excluir da análise registros sem CPF no arquivo (somente cartão CNS)',
             valor: $this->esus_excluir_sem_cpf_somente_cns ?? '',
             desc: 'Marcado: não entram na lista nem no PDF exportado as linhas em que só há CNS (sem CPF na planilha/PDF). Desmarcado: inclui todos os identificadores.'
+        );
+
+        $filtroExibicao = VerificarCpfEsusExportController::normalizarFiltro($this->filtro_exibicao ?? null);
+        $this->campoLista(
+            nome: 'filtro_exibicao',
+            campo: 'Exibir no relatório',
+            valor: [
+                'nao_encontrados' => 'Somente não encontrados (sem matrícula ativa)',
+                'encontrados' => 'Somente encontrados (com matrícula ativa)',
+                'ambos' => 'Ambos (com e sem matrícula ativa)',
+            ],
+            default: $filtroExibicao,
+            acao: '',
+            duplo: false,
+            descricao: 'Define quais cidadãos entram no PDF exportado. Você também pode trocar o filtro na página do relatório.',
+            complemento: '',
+            desabilitado: false,
+            obrigatorio: true
         );
 
         $this->array_botao[] = 'Verificar';
@@ -577,22 +593,18 @@ JS;
     }
     var ano = parseInt(resultado.ano_letivo || new Date().getFullYear(), 10);
     var total = parseInt(resultado.cpfs_extraidos || 0, 10);
-    var n = Array.isArray(resultado.cpfs_nao_cadastrados) ? resultado.cpfs_nao_cadastrados.length : 0;
-    var texto;
-    if (n === 0) {
-      texto = '<strong>Resumo:</strong> ' + total + ' CPF(s) lidos do arquivo. Ano letivo <strong>'
-        + ano + '</strong>. Todos possuem matrícula ativa neste ano.';
-    } else {
-      texto = '<strong>Resumo:<br/>Ano letivo <strong>' + ano + '</strong>. <br/></strong> '
-        + total + ' CPF(s) lidos do arquivo. <br/><strong>' + n
-        + '</strong> sem matrícula ativa (aluno e matrícula ativos).';
-    }
+    var nSem = Array.isArray(resultado.cpfs_nao_cadastrados) ? resultado.cpfs_nao_cadastrados.length : 0;
+    var nCom = Array.isArray(resultado.cpfs_com_matricula) ? resultado.cpfs_com_matricula.length : 0;
+    var texto = '<strong>Resumo:</strong> Ano letivo <strong>' + ano + '</strong>. '
+      + total + ' CPF(s) lidos do arquivo. <strong>' + nCom
+      + '</strong> com matrícula ativa (encontrados) e <strong>' + nSem
+      + '</strong> sem matrícula ativa (não encontrados).';
     var html = '<div class="form">' + texto + '</div>';
-    if (n > 0 && payload.export_url) {
+    if ((nSem > 0 || nCom > 0) && payload.export_url) {
       html += '<div class="form" style="margin-top:8px;"><a href="'
         + escapeHtml(payload.export_url)
         + '" target="_blank" rel="noopener" class="decorated"><strong>Exportar relatório em PDF</strong></a>'
-        + ' — CPF/CNS, nome, nascimento, endereço (sem CEP), último atendimento de saúde, data da última matrícula ou transferência no cadastro escolar.</div>';
+        + ' — use o filtro da tela ou o seletor no relatório para ver encontrados e/ou não encontrados.</div>';
     }
     host.innerHTML = html;
   }
@@ -605,7 +617,11 @@ JS;
   }
 
   function pollStatus(token) {
-    var statusUrl = pageUrl + (pageUrl.indexOf('?') >= 0 ? '&' : '?') + 'ajax=status&token=' + encodeURIComponent(token);
+    var filtroEl = document.getElementById('filtro_exibicao');
+    var filtro = filtroEl ? filtroEl.value : 'nao_encontrados';
+    var statusUrl = pageUrl + (pageUrl.indexOf('?') >= 0 ? '&' : '?')
+      + 'ajax=status&token=' + encodeURIComponent(token)
+      + '&filtro_exibicao=' + encodeURIComponent(filtro);
     fetch(statusUrl, {
       method: 'GET',
       credentials: 'same-origin',
@@ -656,9 +672,11 @@ JS;
     var ano = document.getElementById('ano_letivo');
     var tipo = document.getElementById('tipo_fonte');
     var excluir = document.getElementById('esus_excluir_sem_cpf_somente_cns');
+    var filtro = document.getElementById('filtro_exibicao');
     if (ano) { fd.append('ano_letivo', ano.value); }
     if (tipo) { fd.append('tipo_fonte', tipo.value); }
     if (excluir && excluir.checked) { fd.append('esus_excluir_sem_cpf_somente_cns', '1'); }
+    if (filtro) { fd.append('filtro_exibicao', filtro.value); }
 
     fetch(pageUrl, {
       method: 'POST',
@@ -792,32 +810,48 @@ HTML;
             $this->sucesso = false;
         } else {
             $this->sucesso = true;
-            $n = count($resultado['cpfs_nao_cadastrados']);
+            $nSem = count($resultado['cpfs_nao_cadastrados'] ?? []);
+            $nCom = count($resultado['cpfs_com_matricula'] ?? []);
             $ano = (int) ($resultado['ano_letivo'] ?? $anoLetivo);
-            if ($n === 0) {
-                VerificarCpfEsusExportController::limparExportacao();
-                $this->_mensagem = sprintf(
-                    'Foram encontrados %d CPF(s) no arquivo. Todos possuem matrícula ativa em %d.',
-                    $resultado['cpfs_extraidos'],
-                    $ano
-                );
-            } else {
-                VerificarCpfEsusExportController::armazenarParaExportacao(
-                    (int) $resultado['cpfs_extraidos'],
-                    $ano,
-                    $resultado['cpfs_nao_cadastrados'],
-                    (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false)
-                );
-                $this->_mensagem = sprintf(
-                    'Foram encontrados %d CPF(s) no arquivo. %d não possuem matrícula ativa em %d. Veja o resumo e use Exportar relatório em PDF para a lista completa.',
-                    $resultado['cpfs_extraidos'],
-                    $n,
-                    $ano
-                );
-            }
+            $this->persistirExportacaoDaSessao(
+                $resultado,
+                $this->filtro_exibicao ?? null,
+                $this->tipo_fonte ?? null
+            );
+            $this->_mensagem = sprintf(
+                'Foram lidos %d CPF(s) no arquivo. %d com matrícula ativa e %d sem matrícula ativa em %d. Veja o resumo e use Exportar relatório em PDF.',
+                $resultado['cpfs_extraidos'],
+                $nCom,
+                $nSem,
+                $ano
+            );
         }
 
         return $resultado;
+    }
+
+    /**
+     * @param  array<string, mixed>  $resultado
+     */
+    private function persistirExportacaoDaSessao(array $resultado, mixed $filtro = null, mixed $tipoFonte = null): void
+    {
+        $sem = $resultado['cpfs_nao_cadastrados'] ?? [];
+        $com = $resultado['cpfs_com_matricula'] ?? [];
+        if ((! is_array($sem) || $sem === []) && (! is_array($com) || $com === [])) {
+            VerificarCpfEsusExportController::limparExportacao();
+
+            return;
+        }
+
+        VerificarCpfEsusExportController::armazenarParaExportacao(
+            (int) ($resultado['cpfs_extraidos'] ?? 0),
+            (int) ($resultado['ano_letivo'] ?? date('Y')),
+            is_array($sem) ? $sem : [],
+            (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false),
+            is_array($com) ? $com : [],
+            VerificarCpfEsusExportController::normalizarFiltro($filtro),
+            $this->normalizarTipoFonte($tipoFonte ?? $this->tipo_fonte ?? ($_POST['tipo_fonte'] ?? null))
+        );
     }
 
     private function normalizarTipoFonte(mixed $valor): string
@@ -845,27 +879,23 @@ HTML;
         $ano = (int) ($resultado['ano_letivo'] ?? date('Y'));
         $total = (int) ($resultado['cpfs_extraidos'] ?? 0);
         $n = count($resultado['cpfs_nao_cadastrados'] ?? []);
+        $nCom = count($resultado['cpfs_com_matricula'] ?? []);
+        $filtro = VerificarCpfEsusExportController::normalizarFiltro($this->filtro_exibicao ?? null);
 
-        if ($n === 0) {
-            $texto = sprintf(
-                '<strong>Resumo:</strong> %d CPF(s) lidos do arquivo. Ano letivo <strong>%d</strong>. Todos possuem matrícula ativa neste ano.',
-                $total,
-                $ano
-            );
-        } else {
-            $texto = sprintf(
-                '<strong>Resumo:<br/>Ano letivo <strong>%d</strong>. <br/></strong> %d CPF(s) lidos do arquivo. <br/><strong>%d</strong> sem matrícula ativa (aluno e matrícula ativos).',
-                $ano,
-                $total,
-                $n
-            );
-        }
+        $texto = sprintf(
+            '<strong>Resumo:</strong> Ano letivo <strong>%d</strong>. %d CPF(s) lidos do arquivo. '
+            .'<strong>%d</strong> com matrícula ativa (encontrados) e <strong>%d</strong> sem matrícula ativa (não encontrados).',
+            $ano,
+            $total,
+            $nCom,
+            $n
+        );
 
         $html = '<tr><td class="formmdtd" colspan="2"><span class="form">' . $texto . '</span></td></tr>';
 
-        if ($n > 0) {
-            $exportUrl = url('/relatorios/verificar-cpf-esus/exportar');
-            $html .= '<tr><td class="formmdtd" colspan="2"><span class="form"><a href="' . htmlspecialchars($exportUrl) . '" target="_blank" rel="noopener" class="decorated"><strong>Exportar relatório em PDF</strong></a> — CPF/CNS, nome, nascimento, endereço (sem CEP), último atendimento de saúde, data da última matrícula ou transferência no cadastro escolar.</span></td></tr>';
+        if ($n > 0 || $nCom > 0) {
+            $exportUrl = url('/relatorios/verificar-cpf-esus/exportar').'?filtro='.urlencode($filtro);
+            $html .= '<tr><td class="formmdtd" colspan="2"><span class="form"><a href="' . htmlspecialchars($exportUrl) . '" target="_blank" rel="noopener" class="decorated"><strong>Exportar relatório em PDF</strong></a> — use o filtro da tela ou o seletor no relatório para ver encontrados e/ou não encontrados.</span></td></tr>';
         }
 
         $this->addHtml($html);

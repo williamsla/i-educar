@@ -84,6 +84,8 @@ class VerificarCpfEsusProcessJob implements ShouldQueue
                 );
             }
 
+            $resultado['tipo_fonte'] = $this->tipoFonte;
+
             if (! empty($resultado['erro'])) {
                 $this->atualizarStatus([
                     'status' => 'failed',
@@ -95,22 +97,16 @@ class VerificarCpfEsusProcessJob implements ShouldQueue
                 return;
             }
 
-            $n = count($resultado['cpfs_nao_cadastrados'] ?? []);
+            $nSem = count($resultado['cpfs_nao_cadastrados'] ?? []);
+            $nCom = count($resultado['cpfs_com_matricula'] ?? []);
             $ano = (int) ($resultado['ano_letivo'] ?? $this->anoLetivo);
-            if ($n === 0) {
-                $mensagem = sprintf(
-                    'Foram encontrados %d CPF(s) no arquivo. Todos possuem matrícula ativa em %d.',
-                    (int) $resultado['cpfs_extraidos'],
-                    $ano
-                );
-            } else {
-                $mensagem = sprintf(
-                    'Foram encontrados %d CPF(s) no arquivo. %d não possuem matrícula ativa em %d. Veja o resumo e use Exportar relatório em PDF para a lista completa.',
-                    (int) $resultado['cpfs_extraidos'],
-                    $n,
-                    $ano
-                );
-            }
+            $mensagem = sprintf(
+                'Foram lidos %d CPF(s) no arquivo. %d com matrícula ativa e %d sem matrícula ativa em %d. Veja o resumo e use Exportar relatório em PDF.',
+                (int) $resultado['cpfs_extraidos'],
+                $nCom,
+                $nSem,
+                $ano
+            );
 
             $this->atualizarStatus([
                 'status' => 'done',
