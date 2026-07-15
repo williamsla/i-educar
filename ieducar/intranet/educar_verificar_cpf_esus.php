@@ -1,9 +1,15 @@
 <?php
 
 use App\Http\Controllers\VerificarCpfEsusExportController;
+use App\Jobs\VerificarCpfEsusProcessJob;
 use App\Process;
 use App\Services\EsusPdfCpfService;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 
 return new class extends clsCadastro
 {
@@ -23,12 +29,17 @@ return new class extends clsCadastro
 
     public function Formular()
     {
+        // Intercepta AJAX antes do MakeAll (menu/HTML), quando o LegacyController chama Formular().
+        $this->processarAjaxSeNecessario();
+
         $this->title = 'Verificar CPFs - Relatório eSUS / Cadastro cidadão';
         $this->processoAp = Process::CONFIGURATIONS_TOOLS;
     }
 
     public function Inicializar()
     {
+        $this->processarAjaxSeNecessario();
+
         $obj_permissoes = new clsPermissoes;
 
         if (! Gate::allows('view', Process::CONFIGURATIONS_TOOLS)) {
@@ -51,6 +62,8 @@ return new class extends clsCadastro
     {
         $this->tipoacao = $_POST['tipoacao'] ?? null;
 
+        $this->processarAjaxSeNecessario();
+
         if ($this->tipoacao === 'Verificar') {
             foreach ($_POST as $variavel => $valor) {
                 if (property_exists($this, $variavel)) {
@@ -70,6 +83,175 @@ return new class extends clsCadastro
         }
 
         parent::Processar();
+    }
+
+    private function processarAjaxSeNecessario(): void
+    {
+        $ajax = (string) (
+            request()->input('ajax')
+            ?? $_GET['ajax']
+            ?? $_POST['ajax']
+            ?? ''
+        );
+        $tipoacao = (string) ($_POST['tipoacao'] ?? request()->input('tipoacao') ?? '');
+
+        if ($ajax === 'status') {
+            $this->responderAjaxStatus();
+        }
+
+        if ($ajax === 'enfileirar' || $tipoacao === 'EnfileirarAsync') {
+            $this->responderAjaxEnfileirar();
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function responderJson(array $data, int $status = 200): never
+    {
+        throw new HttpResponseException(response()->json($data, $status));
+    }
+
+    private function responderAjaxEnfileirar(): never
+    {
+        if (! Gate::allows('view', Process::CONFIGURATIONS_TOOLS)) {
+            $this->responderJson(['message' => 'Sem permissão.'], 403);
+        }
+
+        $tipoFonte = $this->normalizarTipoFonte($_POST['tipo_fonte'] ?? null);
+        $extensoesOk = $tipoFonte === 'cadastro_cidadao' ? ['xlsx'] : ['pdf', 'csv'];
+        $anoLetivo = (int) ($_POST['ano_letivo'] ?? date('Y'));
+        $anoMax = (int) date('Y') + 2;
+        if ($anoLetivo < 1990 || $anoLetivo > $anoMax) {
+            $this->responderJson(['message' => "Informe um ano letivo válido (entre 1990 e {$anoMax})."], 422);
+        }
+
+        $file = $_FILES['arquivo_pdf'] ?? null;
+        if (! $file || empty($file['tmp_name']) || ! is_uploaded_file($file['tmp_name'])) {
+            $this->responderJson(['message' => 'Selecione um arquivo para enviar.'], 422);
+        }
+
+        $ext = strtolower((string) pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        if (! in_array($ext, $extensoesOk, true)) {
+            $this->responderJson([
+                'message' => $tipoFonte === 'cadastro_cidadao'
+                    ? 'Para Cadastro cidadão o arquivo deve ser do tipo XLSX.'
+                    : 'Para eSUS o arquivo deve ser do tipo PDF ou CSV.',
+            ], 422);
+        }
+
+        $maxSize = 20 * 1024 * 1024;
+        if (($file['size'] ?? 0) > $maxSize) {
+            $this->responderJson(['message' => 'O arquivo não pode ter mais de 20 MB.'], 422);
+        }
+
+        $token = (string) Str::uuid();
+        $dir = storage_path('app/temp/verificar-cpf-esus');
+        if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
+            $this->responderJson(['message' => 'Não foi possível preparar o armazenamento temporário.'], 500);
+        }
+
+        $storagePath = 'temp/verificar-cpf-esus/'.$token.'.'.$ext;
+        $absolutePath = storage_path('app/'.$storagePath);
+        if (! @move_uploaded_file($file['tmp_name'], $absolutePath)) {
+            $this->responderJson(['message' => 'Falha ao salvar o arquivo enviado.'], 500);
+        }
+
+        if (! Auth::check()) {
+            $this->responderJson(['message' => 'Sessão expirada. Atualize a página e faça login novamente.'], 401);
+        }
+
+        $userId = (int) Auth::id();
+        $payload = [
+            'status' => 'queued',
+            'sucesso' => null,
+            'mensagem' => 'Arquivo enfileirado. Aguarde o processamento…',
+            'token' => $token,
+            'user_id' => $userId,
+            'resultado' => null,
+            'atualizado_em' => now()->toIso8601String(),
+        ];
+        Cache::put(VerificarCpfEsusProcessJob::cacheKey($token), $payload, now()->addHours(2));
+
+        try {
+            VerificarCpfEsusProcessJob::dispatch(
+                $token,
+                DB::getDefaultConnection(),
+                $storagePath,
+                $tipoFonte,
+                $ext,
+                $anoLetivo,
+                ! empty($_POST['esus_excluir_sem_cpf_somente_cns']),
+                $userId,
+            );
+        } catch (\Throwable $e) {
+            $this->responderJson([
+                'message' => 'Não foi possível enfileirar o processamento: '.$e->getMessage(),
+            ], 500);
+        }
+
+        $this->responderJson([
+            'token' => $token,
+            'status' => 'queued',
+            'message' => $payload['mensagem'],
+        ]);
+    }
+
+    private function responderAjaxStatus(): never
+    {
+        if (! Auth::check()) {
+            $this->responderJson(['message' => 'Sessão expirada. Atualize a página e faça login novamente.'], 401);
+        }
+
+        if (! Gate::allows('view', Process::CONFIGURATIONS_TOOLS)) {
+            $this->responderJson(['message' => 'Sem permissão.'], 403);
+        }
+
+        $token = (string) (request()->query('token') ?? $_GET['token'] ?? '');
+        if ($token === '' || ! preg_match('/^[a-f0-9\-]{36}$/i', $token)) {
+            $this->responderJson([
+                'message' => 'Token inválido ou ausente na consulta de status.',
+            ], 422);
+        }
+
+        $payload = Cache::get(VerificarCpfEsusProcessJob::cacheKey($token));
+        if (! is_array($payload)) {
+            $this->responderJson([
+                'message' => 'Processamento não encontrado ou expirado. Envie o arquivo novamente.',
+            ], 404);
+        }
+
+        $userId = (int) Auth::id();
+        $payloadUserId = (int) ($payload['user_id'] ?? 0);
+        // Aceita user_id 0 (quando Auth falhou no enqueue) e o usuário atual.
+        if ($payloadUserId > 0 && $payloadUserId !== $userId) {
+            $this->responderJson(['message' => 'Processamento não pertence ao usuário logado.'], 403);
+        }
+
+        if (($payload['status'] ?? '') === 'done') {
+            $resultado = is_array($payload['resultado'] ?? null) ? $payload['resultado'] : [];
+            $itens = $resultado['cpfs_nao_cadastrados'] ?? [];
+            if (is_array($itens) && $itens !== []) {
+                VerificarCpfEsusExportController::armazenarParaExportacao(
+                    (int) ($resultado['cpfs_extraidos'] ?? 0),
+                    (int) ($resultado['ano_letivo'] ?? date('Y')),
+                    $itens,
+                    (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false)
+                );
+            } else {
+                VerificarCpfEsusExportController::limparExportacao();
+            }
+        }
+
+        $this->responderJson([
+            'token' => $token,
+            'status' => $payload['status'] ?? 'unknown',
+            'sucesso' => $payload['sucesso'] ?? null,
+            'mensagem' => $payload['mensagem'] ?? '',
+            'message' => $payload['mensagem'] ?? '',
+            'resultado' => $payload['resultado'] ?? null,
+            'export_url' => url('/relatorios/verificar-cpf-esus/exportar'),
+        ]);
     }
 
     public function Gerar()
@@ -271,8 +453,7 @@ JS;
 <div id="verificar-cpf-esus-resultado-async" style="margin-top:12px;"></div>
 <script type="text/javascript">
 (function () {
-  var processUrl = %processUrl%;
-  var statusUrlBase = %statusUrlBase%;
+  var pageUrl = window.location.pathname;
   var pollTimer = null;
 
   function setLoading(visible, titulo, subtitulo) {
@@ -298,6 +479,30 @@ JS;
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function parseJsonResponse(res) {
+    return res.text().then(function (text) {
+      var data = null;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        var hint = 'Resposta inválida do servidor (HTTP ' + res.status + ').';
+        if (res.status === 401 || res.status === 403) {
+          hint = 'Sessão expirada ou sem permissão. Atualize a página e tente novamente.';
+        } else if (res.status === 404) {
+          hint = 'Endpoint não encontrado. Atualize a página (Ctrl+F5) e tente novamente.';
+        } else if (res.status === 413) {
+          hint = 'Arquivo muito grande para o servidor (limite do proxy).';
+        } else if (res.status >= 500) {
+          hint = 'Erro interno no servidor ao processar o arquivo.';
+        } else if (text && text.indexOf('<html') !== -1) {
+          hint = 'O servidor retornou HTML em vez de JSON. Atualize a página e tente novamente.';
+        }
+        throw new Error(hint);
+      }
+      return { ok: res.ok, status: res.status, data: data || {} };
+    });
   }
 
   function mostrarFlash(mensagem, sucesso) {
@@ -355,31 +560,30 @@ JS;
   }
 
   function pollStatus(token) {
-    fetch(statusUrlBase + encodeURIComponent(token), {
+    var statusUrl = pageUrl + (pageUrl.indexOf('?') >= 0 ? '&' : '?') + 'ajax=status&token=' + encodeURIComponent(token);
+    fetch(statusUrl, {
       method: 'GET',
       credentials: 'same-origin',
       headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-    }).then(function (res) {
-      return res.json().then(function (data) {
-        return { ok: res.ok, data: data };
-      });
-    }).then(function (result) {
+    }).then(parseJsonResponse).then(function (result) {
       if (!result.ok) {
-        throw new Error((result.data && result.data.message) || 'Falha ao consultar status.');
+        var erroMsg = (result.data && (result.data.message || result.data.mensagem))
+          || ('Falha ao consultar status (HTTP ' + result.status + ').');
+        throw new Error(erroMsg);
       }
       var status = result.data.status;
       if (status === 'queued' || status === 'processing') {
         setLoading(
           true,
           status === 'queued' ? 'Na fila…' : 'Processando arquivo…',
-          (result.data.mensagem || 'Aguarde. Arquivos grandes podem levar alguns minutos.')
+          (result.data.mensagem || result.data.message || 'Aguarde. Arquivos grandes podem levar alguns minutos.')
         );
         pollTimer = window.setTimeout(function () { pollStatus(token); }, 2000);
         return;
       }
       limparPoll();
       setLoading(false);
-      mostrarFlash(result.data.mensagem || 'Processamento finalizado.', !!result.data.sucesso);
+      mostrarFlash(result.data.mensagem || result.data.message || 'Processamento finalizado.', !!result.data.sucesso);
       renderResultado(result.data);
     }).catch(function (err) {
       limparPoll();
@@ -401,6 +605,8 @@ JS;
     setLoading(true, 'Enviando arquivo…', 'O processamento continuará em segundo plano.');
 
     var fd = new FormData();
+    fd.append('tipoacao', 'EnfileirarAsync');
+    fd.append('ajax', 'enfileirar');
     fd.append('arquivo_pdf', fileInput.files[0]);
     var ano = document.getElementById('ano_letivo');
     var tipo = document.getElementById('tipo_fonte');
@@ -409,16 +615,12 @@ JS;
     if (tipo) { fd.append('tipo_fonte', tipo.value); }
     if (excluir && excluir.checked) { fd.append('esus_excluir_sem_cpf_somente_cns', '1'); }
 
-    fetch(processUrl, {
+    fetch(pageUrl, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       body: fd
-    }).then(function (res) {
-      return res.json().then(function (data) {
-        return { ok: res.ok, status: res.status, data: data };
-      });
-    }).then(function (result) {
+    }).then(parseJsonResponse).then(function (result) {
       if (!result.ok) {
         var msg = (result.data && (result.data.message || result.data.mensagem)) || 'Não foi possível iniciar o processamento.';
         if (result.data && result.data.errors) {
@@ -442,10 +644,7 @@ JS;
 </script>
 HTML;
 
-        return strtr($html, [
-            '%processUrl%' => json_encode(url('/relatorios/verificar-cpf-esus/processar'), JSON_UNESCAPED_SLASHES),
-            '%statusUrlBase%' => json_encode(url('/relatorios/verificar-cpf-esus/status/'), JSON_UNESCAPED_SLASHES),
-        ]);
+        return $html;
     }
 
     /**
