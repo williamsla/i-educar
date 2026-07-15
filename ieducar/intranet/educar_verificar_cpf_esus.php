@@ -173,27 +173,72 @@ return new class extends clsCadastro
         ];
         Cache::put(VerificarCpfEsusProcessJob::cacheKey($token), $payload, now()->addHours(2));
 
+        // Em local (ou QUEUE_CONNECTION=sync) o Horizon costuma não estar rodando —
+        // processa na hora para não ficar eterno em "Na fila…".
+        $processarSincrono = app()->environment('local', 'testing')
+            || config('queue.default') === 'sync';
+
         try {
-            VerificarCpfEsusProcessJob::dispatch(
-                $token,
-                DB::getDefaultConnection(),
-                $storagePath,
-                $tipoFonte,
-                $ext,
-                $anoLetivo,
-                ! empty($_POST['esus_excluir_sem_cpf_somente_cns']),
-                $userId,
-            );
+            if ($processarSincrono) {
+                set_time_limit(0);
+                ini_set('memory_limit', '512M');
+                VerificarCpfEsusProcessJob::dispatchSync(
+                    $token,
+                    DB::getDefaultConnection(),
+                    $storagePath,
+                    $tipoFonte,
+                    $ext,
+                    $anoLetivo,
+                    ! empty($_POST['esus_excluir_sem_cpf_somente_cns']),
+                    $userId,
+                );
+            } else {
+                VerificarCpfEsusProcessJob::dispatch(
+                    $token,
+                    DB::getDefaultConnection(),
+                    $storagePath,
+                    $tipoFonte,
+                    $ext,
+                    $anoLetivo,
+                    ! empty($_POST['esus_excluir_sem_cpf_somente_cns']),
+                    $userId,
+                );
+            }
         } catch (\Throwable $e) {
             $this->responderJson([
-                'message' => 'Não foi possível enfileirar o processamento: '.$e->getMessage(),
+                'message' => 'Não foi possível processar o arquivo: '.$e->getMessage(),
             ], 500);
+        }
+
+        $final = Cache::get(VerificarCpfEsusProcessJob::cacheKey($token), $payload);
+        if (! is_array($final)) {
+            $final = $payload;
+        }
+
+        if (($final['status'] ?? '') === 'done') {
+            $resultado = is_array($final['resultado'] ?? null) ? $final['resultado'] : [];
+            $itens = $resultado['cpfs_nao_cadastrados'] ?? [];
+            if (is_array($itens) && $itens !== []) {
+                VerificarCpfEsusExportController::armazenarParaExportacao(
+                    (int) ($resultado['cpfs_extraidos'] ?? 0),
+                    (int) ($resultado['ano_letivo'] ?? date('Y')),
+                    $itens,
+                    (bool) ($resultado['excluir_sem_cpf_somente_cns'] ?? false)
+                );
+            } else {
+                VerificarCpfEsusExportController::limparExportacao();
+            }
         }
 
         $this->responderJson([
             'token' => $token,
-            'status' => 'queued',
-            'message' => $payload['mensagem'],
+            'status' => $final['status'] ?? 'queued',
+            'sucesso' => $final['sucesso'] ?? null,
+            'message' => $final['mensagem'] ?? $payload['mensagem'],
+            'mensagem' => $final['mensagem'] ?? $payload['mensagem'],
+            'resultado' => $final['resultado'] ?? null,
+            'export_url' => url('/relatorios/verificar-cpf-esus/exportar'),
+            'sincrono' => $processarSincrono,
         ]);
     }
 
@@ -602,7 +647,7 @@ JS;
     }
 
     limparPoll();
-    setLoading(true, 'Enviando arquivo…', 'O processamento continuará em segundo plano.');
+    setLoading(true, 'Processando arquivo…', 'Aguarde. Arquivos grandes podem levar alguns minutos.');
 
     var fd = new FormData();
     fd.append('tipoacao', 'EnfileirarAsync');
@@ -632,7 +677,18 @@ JS;
       if (!result.data.token) {
         throw new Error('Token de processamento não retornado.');
       }
-      setLoading(true, 'Na fila…', result.data.message || 'Aguarde o processamento…');
+
+      var status = result.data.status;
+      // Processamento síncrono (local) já vem finalizado na resposta do envio.
+      if (status === 'done' || status === 'failed') {
+        limparPoll();
+        setLoading(false);
+        mostrarFlash(result.data.mensagem || result.data.message || 'Processamento finalizado.', !!result.data.sucesso);
+        renderResultado(result.data);
+        return;
+      }
+
+      setLoading(true, 'Na fila…', result.data.message || result.data.mensagem || 'Aguarde o processamento…');
       pollStatus(result.data.token);
     }).catch(function (err) {
       limparPoll();

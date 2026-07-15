@@ -43,11 +43,14 @@ class VerificarCpfEsusProcessController extends Controller
         }
 
         $token = (string) Str::uuid();
-        $storagePath = $file->storeAs(
-            'temp/verificar-cpf-esus',
-            $token.'.'.$ext,
-            'local'
-        );
+        $dir = storage_path('app/temp/verificar-cpf-esus');
+        if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
+            return response()->json(['message' => 'Não foi possível preparar o armazenamento temporário.'], 500);
+        }
+        $storagePath = 'temp/verificar-cpf-esus/'.$token.'.'.$ext;
+        if (! $file->move(storage_path('app/temp/verificar-cpf-esus'), $token.'.'.$ext)) {
+            return response()->json(['message' => 'Falha ao salvar o arquivo enviado.'], 500);
+        }
 
         $payload = [
             'status' => 'queued',

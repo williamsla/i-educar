@@ -10,7 +10,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class VerificarCpfEsusProcessJob implements ShouldQueue
@@ -45,7 +44,9 @@ class VerificarCpfEsusProcessJob implements ShouldQueue
             'mensagem' => 'Processando arquivo…',
         ]);
 
-        $absolutePath = Storage::disk('local')->path($this->storagePath);
+        // Mesmo caminho usado no upload: storage/app/{storagePath}
+        // (o disco "local" deste projeto aponta para storage/app/public — não usar).
+        $absolutePath = $this->caminhoAbsolutoArquivo();
         if (! is_file($absolutePath)) {
             $this->atualizarStatus([
                 'status' => 'failed',
@@ -130,7 +131,7 @@ class VerificarCpfEsusProcessJob implements ShouldQueue
                 ],
             ]);
         } finally {
-            Storage::disk('local')->delete($this->storagePath);
+            $this->removerArquivoTemporario();
         }
     }
 
@@ -147,7 +148,20 @@ class VerificarCpfEsusProcessJob implements ShouldQueue
                 'erro' => $exception?->getMessage() ?: 'falha na fila',
             ],
         ]);
-        Storage::disk('local')->delete($this->storagePath);
+        $this->removerArquivoTemporario();
+    }
+
+    private function caminhoAbsolutoArquivo(): string
+    {
+        return storage_path('app/'.$this->storagePath);
+    }
+
+    private function removerArquivoTemporario(): void
+    {
+        $path = $this->caminhoAbsolutoArquivo();
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 
     /**
