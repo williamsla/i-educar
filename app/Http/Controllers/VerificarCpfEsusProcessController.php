@@ -6,10 +6,8 @@ use App\Jobs\VerificarCpfEsusProcessJob;
 use App\Process;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class VerificarCpfEsusProcessController extends Controller
@@ -52,16 +50,12 @@ class VerificarCpfEsusProcessController extends Controller
             return response()->json(['message' => 'Falha ao salvar o arquivo enviado.'], 500);
         }
 
-        $payload = [
+        $payload = VerificarCpfEsusProcessJob::gravarStatus($token, [
             'status' => 'queued',
             'sucesso' => null,
             'mensagem' => 'Arquivo enfileirado. Aguarde o processamento…',
-            'token' => $token,
-            'user_id' => (int) $request->user()->id,
             'resultado' => null,
-            'atualizado_em' => now()->toIso8601String(),
-        ];
-        Cache::put(VerificarCpfEsusProcessJob::cacheKey($token), $payload, now()->addHours(2));
+        ], (int) $request->user()->id);
 
         VerificarCpfEsusProcessJob::dispatch(
             $token,
@@ -87,7 +81,7 @@ class VerificarCpfEsusProcessController extends Controller
             return response()->json(['message' => 'Sem permissão.'], 403);
         }
 
-        $payload = Cache::get(VerificarCpfEsusProcessJob::cacheKey($token));
+        $payload = VerificarCpfEsusProcessJob::lerStatus($token);
         if (! is_array($payload) || (int) ($payload['user_id'] ?? 0) !== (int) $request->user()->id) {
             return response()->json(['message' => 'Processamento não encontrado.'], 404);
         }

@@ -6,7 +6,6 @@ use App\Process;
 use App\Services\EsusPdfCpfService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -166,16 +165,12 @@ return new class extends clsCadastro
         }
 
         $userId = (int) Auth::id();
-        $payload = [
+        $payload = VerificarCpfEsusProcessJob::gravarStatus($token, [
             'status' => 'queued',
             'sucesso' => null,
             'mensagem' => 'Arquivo enfileirado. Aguarde o processamento…',
-            'token' => $token,
-            'user_id' => $userId,
             'resultado' => null,
-            'atualizado_em' => now()->toIso8601String(),
-        ];
-        Cache::put(VerificarCpfEsusProcessJob::cacheKey($token), $payload, now()->addHours(2));
+        ], $userId);
 
         // Em local (ou QUEUE_CONNECTION=sync) o Horizon costuma não estar rodando —
         // processa na hora para não ficar eterno em "Na fila…".
@@ -221,10 +216,7 @@ return new class extends clsCadastro
             ], 500);
         }
 
-        $final = Cache::get(VerificarCpfEsusProcessJob::cacheKey($token), $payload);
-        if (! is_array($final)) {
-            $final = $payload;
-        }
+        $final = VerificarCpfEsusProcessJob::lerStatus($token) ?? $payload;
 
         if (($final['status'] ?? '') === 'done') {
             $resultado = is_array($final['resultado'] ?? null) ? $final['resultado'] : [];
@@ -266,8 +258,14 @@ return new class extends clsCadastro
             ], 422);
         }
 
-        $payload = Cache::get(VerificarCpfEsusProcessJob::cacheKey($token));
+        $payload = VerificarCpfEsusProcessJob::lerStatus($token);
         if (! is_array($payload)) {
+            Log::warning('VerificarCpfEsus: status não encontrado no poll', [
+                'token' => $token,
+                'status_path' => VerificarCpfEsusProcessJob::statusPath($token),
+                'cache_store' => config('cache.default'),
+                'queue' => config('queue.default'),
+            ]);
             $this->responderJson([
                 'message' => 'Processamento não encontrado ou expirado. Envie o arquivo novamente.',
             ], 404);
