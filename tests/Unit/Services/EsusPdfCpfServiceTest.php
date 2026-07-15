@@ -247,3 +247,85 @@ test('desmerge limpa endereco mas mantem data nascimento ja preenchida', functio
     expect($out['data_nascimento'])->toBe('10/10/2020')
         ->and($out['endereco_relatorio'])->toBe('Sítio CASA - ZONA RURAL');
 });
+
+test('extrai registros de xlsx de cadastro cidadao convertendo datas serial excel', function () {
+    $path = sys_get_temp_dir().'/cadastro_cidadao_teste_'.uniqid('', true).'.xlsx';
+
+    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->fromArray([
+        ['RELAÇÃO DE CADASTRO DO CIDADÃO DE TESTE'],
+        [],
+        [
+            'Nome equipe',
+            'INE equipe',
+            'Microárea',
+            'Endereço',
+            'CPF/CNS',
+            'Nome',
+            'Idade',
+            'Sexo',
+            'Identidade de gênero',
+            'Data de nascimento',
+            'Telefone celular',
+            'Telefone residencial',
+            'Telefone de contato',
+            'Última atualização cadastral',
+            'Origem',
+        ],
+        [
+            'ZONA RURAL',
+            162817,
+            3,
+            'Sítio TESTE, 001 - ZONA RURAL, Belém - AL | 57630-000',
+            '635.868.944-49',
+            'ABELARDO DO NASCIMENTO',
+            '62 anos e 5 meses',
+            'Masculino',
+            'Homem cisgênero',
+            23361, // 16/12/1963
+            '(82) 99999-9999',
+            '-',
+            '-',
+            46138, // 26/04/2026
+            'CDS',
+        ],
+        [
+            'ZONA URBANA',
+            162825,
+            1,
+            'Rua CENTRAL, 10 - CENTRO',
+            '898005000000000',
+            'PESSOA COM CNS',
+            '10 anos',
+            'Feminino',
+            '-',
+            44506, // 06/11/2021
+            '-',
+            '-',
+            '-',
+            45874,
+            'PEC',
+        ],
+    ], null, 'A1', true);
+
+    $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+    $writer->save($path);
+
+    try {
+        $s = new EsusPdfCpfService;
+        $csv = $s->converterXlsxCadastroCidadaoParaCsv($path);
+        $reg = $s->extrairRegistrosDoCsv($csv);
+
+        expect($reg)->toHaveKey('635.868.944-49')
+            ->and($reg['635.868.944-49']['nome'])->toBe('ABELARDO DO NASCIMENTO')
+            ->and($reg['635.868.944-49']['data_nascimento'])->toBe('16/12/1963')
+            ->and($reg['635.868.944-49']['ultima_atualizacao_cadastral'])->toBe('26/04/2026')
+            ->and($reg['635.868.944-49']['endereco_relatorio'])->toContain('Sítio TESTE')
+            ->and($reg)->toHaveKey('cns:898005000000000')
+            ->and($reg['cns:898005000000000']['nome'])->toBe('PESSOA COM CNS')
+            ->and($reg['cns:898005000000000']['data_nascimento'])->toBe('06/11/2021');
+    } finally {
+        @unlink($path);
+    }
+});

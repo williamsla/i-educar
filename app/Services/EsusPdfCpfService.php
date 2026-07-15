@@ -5,6 +5,9 @@ namespace App\Services;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use Smalot\PdfParser\Parser;
 use Throwable;
 
@@ -511,7 +514,9 @@ class EsusPdfCpfService
      */
     public function getItensSemMatriculaNoAno(array $registrosPorCpf, int $anoLetivo): array
     {
-        $lista = [];
+        $preparados = [];
+        $cpfsConsulta = [];
+        $cnssConsulta = [];
 
         foreach ($registrosPorCpf as $_chave => $dados) {
             $cpfNormalizado = idFederal2int((string) ($dados['cpf'] ?? ''));
@@ -519,26 +524,116 @@ class EsusPdfCpfService
                 $cpfNormalizado = '';
             }
             $cnsDigitos = $this->normalizarCnsCartaoSus($dados['cns'] ?? '');
-            if ($cpfNormalizado === '' && $cnsDigitos === '') {
+            $cnsDb = $this->cnsParaConsultaCadastro($cpfNormalizado, $cnsDigitos);
+            if ($cpfNormalizado !== '') {
+                $cpfsConsulta[$cpfNormalizado] = true;
+            }
+            if ($cnsDb !== '') {
+                $cnssConsulta[$cnsDb] = true;
+            }
+            $preparados[] = [
+                'dados' => $dados,
+                'cpf' => $cpfNormalizado,
+                'cns' => $cnsDb,
+            ];
+        }
+
+        $comMatricula = $this->buscarDocumentosComMatriculaAtivaNoAno(
+            array_keys($cpfsConsulta),
+            array_keys($cnssConsulta),
+            $anoLetivo
+        );
+
+        $lista = [];
+        foreach ($preparados as $item) {
+            $cpfNormalizado = $item['cpf'];
+            $cnsDb = $item['cns'];
+            $dados = $item['dados'];
+
+            if ($cpfNormalizado === '' && $cnsDb === '') {
                 $lista[] = $this->normalizarLinhaItem($dados);
 
                 continue;
             }
-            $cnsDb = $this->cnsParaConsultaCadastro($cpfNormalizado, $cnsDigitos);
+
+            if (
+                ($cpfNormalizado !== '' && isset($comMatricula['cpf'][$cpfNormalizado]))
+                || ($cnsDb !== '' && isset($comMatricula['cns'][$cnsDb]))
+            ) {
+                continue;
+            }
+
+            // Só consulta fallback (nome + nascimento) quando o documento não tem matrícula no ano.
             $idpesFallback = $this->resolverIdpesFallbackNomeEDataSeDocumentoNaoLocalizaAluno(
                 $cpfNormalizado,
                 $cnsDb,
                 trim((string) ($dados['nome'] ?? '')),
                 (string) ($dados['data_nascimento'] ?? '')
             );
-            if (! $this->possuiMatriculaAtivaNoAnoPorCpfOuCns($cpfNormalizado, $cnsDb, $anoLetivo, $idpesFallback)) {
-                $lista[] = $this->normalizarLinhaItem($dados);
+            if ($idpesFallback !== [] && $this->possuiMatriculaAtivaNoAnoPorCpfOuCns('', '', $anoLetivo, $idpesFallback)) {
+                continue;
             }
+
+            $lista[] = $this->normalizarLinhaItem($dados);
         }
 
         $lista = $this->aplicarRegrasListaEsus($lista, $anoLetivo);
 
         return $this->enriquecerEnderecoAluno($lista);
+    }
+
+    /**
+     * Pré-carrega, em lotes, documentos com matrícula ativa no ano (evita 1 query por linha do arquivo).
+     *
+     * @param  list<string|int>  $cpfs
+     * @param  list<string>  $cnss
+     * @return array{cpf: array<string, true>, cns: array<string, true>}
+     */
+    private function buscarDocumentosComMatriculaAtivaNoAno(array $cpfs, array $cnss, int $anoLetivo): array
+    {
+        $out = ['cpf' => [], 'cns' => []];
+        $cpfs = array_values(array_unique(array_filter($cpfs, static fn ($v) => $v !== null && $v !== '')));
+        $cnss = array_values(array_unique(array_filter($cnss, static fn ($v) => is_string($v) && strlen($v) === 15)));
+
+        foreach (array_chunk($cpfs, 500) as $chunk) {
+            $rows = DB::table('pmieducar.matricula as m')
+                ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
+                ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
+                ->where('m.ano', $anoLetivo)
+                ->where('m.ativo', 1)
+                ->where('a.ativo', 1)
+                ->whereIn('f.cpf', $chunk)
+                ->distinct()
+                ->pluck('f.cpf');
+            foreach ($rows as $cpf) {
+                $out['cpf'][(string) $cpf] = true;
+            }
+        }
+
+        foreach (array_chunk($cnss, 500) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $rows = DB::table('pmieducar.matricula as m')
+                ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
+                ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
+                ->where('m.ano', $anoLetivo)
+                ->where('m.ativo', 1)
+                ->where('a.ativo', 1)
+                ->whereRaw(
+                    "regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') in ({$placeholders})",
+                    $chunk
+                )
+                ->selectRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') as cns_norm")
+                ->distinct()
+                ->pluck('cns_norm');
+            foreach ($rows as $cns) {
+                $cnsNorm = $this->normalizarCnsCartaoSus($cns);
+                if ($cnsNorm !== '') {
+                    $out['cns'][$cnsNorm] = true;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -1473,6 +1568,162 @@ class EsusPdfCpfService
                 'erro' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Processa planilha XLSX "Relação de Cadastro do Cidadão" (colunas no padrão eSUS).
+     * Datas em serial Excel são convertidas para DD/MM/AAAA antes da extração.
+     *
+     * @return array{
+     *     cpfs_extraidos: int,
+     *     ano_letivo: int,
+     *     cpfs_nao_cadastrados: list<array<string, mixed>>,
+     *     excluir_sem_cpf_somente_cns: bool,
+     *     erro?: string
+     * }
+     */
+    public function processarXlsxCadastroCidadao(string $xlsxPath, int $anoLetivo, bool $excluirSomenteCnsSemCpfNoArquivo = false): array
+    {
+        try {
+            $conteudo = $this->converterXlsxCadastroCidadaoParaCsv($xlsxPath);
+            $registros = $this->extrairRegistrosDoCsv($conteudo);
+            if ($registros === []) {
+                return [
+                    'cpfs_extraidos' => 0,
+                    'ano_letivo' => $anoLetivo,
+                    'cpfs_nao_cadastrados' => [],
+                    'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
+                    'erro' => 'Não foi possível ler registros da planilha. Confirme se o arquivo é a Relação de Cadastro do Cidadão (colunas CPF/CNS, Nome e Data de nascimento).',
+                ];
+            }
+            $semMatricula = $this->getItensSemMatriculaNoAno($registros, $anoLetivo);
+            $semMatricula = $this->filtrarItensExcluindoSomenteCnsSemCpfSeOpcao($semMatricula, $excluirSomenteCnsSemCpfNoArquivo);
+
+            return [
+                'cpfs_extraidos' => count($registros),
+                'ano_letivo' => $anoLetivo,
+                'cpfs_nao_cadastrados' => $semMatricula,
+                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'cpfs_extraidos' => 0,
+                'ano_letivo' => $anoLetivo,
+                'cpfs_nao_cadastrados' => [],
+                'excluir_sem_cpf_somente_cns' => $excluirSomenteCnsSemCpfNoArquivo,
+                'erro' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Converte a planilha de cadastro cidadão em CSV delimitado por `;`
+     * no mesmo layout usado pelo relatório eSUS.
+     */
+    public function converterXlsxCadastroCidadaoParaCsv(string $xlsxPath): string
+    {
+        $reader = IOFactory::createReader('Xlsx');
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($xlsxPath);
+        $sheet = $spreadsheet->getActiveSheet();
+        $highestRow = (int) $sheet->getHighestRow();
+        $highestColumn = $sheet->getHighestColumn();
+        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+        $indicesColunasData = [];
+        $cabecalhoLocalizado = false;
+        $linhasCsv = [];
+        for ($row = 1; $row <= $highestRow; $row++) {
+            $colunas = [];
+            $linhaVazia = true;
+            for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                $cell = $sheet->getCellByColumnAndRow($col, $row);
+                $idx = $col - 1;
+                $tratarComoData = $cabecalhoLocalizado && isset($indicesColunasData[$idx]);
+                $texto = $this->formatarCelulaXlsxCadastroCidadao($cell, $tratarComoData);
+                if ($texto !== '') {
+                    $linhaVazia = false;
+                }
+                $colunas[] = $texto;
+            }
+            if ($linhaVazia) {
+                continue;
+            }
+            if (! $cabecalhoLocalizado) {
+                $candidatos = $this->detectarIndicesColunasDataCabecalhoXlsx($colunas);
+                if ($candidatos !== []) {
+                    $indicesColunasData = $candidatos;
+                    $cabecalhoLocalizado = true;
+                }
+            }
+            $linhasCsv[] = $this->montarLinhaCsvDelimitadoPorPontoEVirgula($colunas);
+        }
+
+        return implode("\n", $linhasCsv);
+    }
+
+    /**
+     * @param  list<string>  $colunasCabecalho
+     * @return array<int, true>
+     */
+    private function detectarIndicesColunasDataCabecalhoXlsx(array $colunasCabecalho): array
+    {
+        $mapa = [];
+        foreach ($colunasCabecalho as $i => $coluna) {
+            $mapa[$this->normalizarCabecalho((string) $coluna)] = $i;
+        }
+        if (! isset($mapa['cpf/cns'], $mapa['nome'], $mapa['data de nascimento'])) {
+            return [];
+        }
+
+        $indices = [$mapa['data de nascimento'] => true];
+        if (isset($mapa['ultima atualizacao cadastral'])) {
+            $indices[$mapa['ultima atualizacao cadastral']] = true;
+        }
+
+        return $indices;
+    }
+
+    /**
+     * @param  list<string>  $colunas
+     */
+    private function montarLinhaCsvDelimitadoPorPontoEVirgula(array $colunas): string
+    {
+        $escaped = [];
+        foreach ($colunas as $coluna) {
+            $valor = str_replace('"', '""', $coluna);
+            if (str_contains($valor, ';') || str_contains($valor, '"') || str_contains($valor, "\n")) {
+                $escaped[] = '"'.$valor.'"';
+            } else {
+                $escaped[] = $valor;
+            }
+        }
+
+        return implode(';', $escaped);
+    }
+
+    private function formatarCelulaXlsxCadastroCidadao(Cell $cell, bool $tratarComoData = false): string
+    {
+        $valor = $cell->getValue();
+        if ($valor === null || $valor === '') {
+            return '';
+        }
+        if (is_numeric($valor) && ($tratarComoData || ExcelDate::isDateTime($cell))) {
+            try {
+                return ExcelDate::excelToDateTimeObject((float) $valor)->format('d/m/Y');
+            } catch (Throwable) {
+                // segue formatação numérica/textual
+            }
+        }
+        if (is_float($valor) || is_int($valor)) {
+            if (is_float($valor) && floor($valor) != $valor) {
+                return rtrim(rtrim(sprintf('%.15F', $valor), '0'), '.');
+            }
+
+            return (string) (int) $valor;
+        }
+
+        return trim((string) $valor);
     }
 
     /**
