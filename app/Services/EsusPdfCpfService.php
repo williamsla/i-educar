@@ -543,6 +543,10 @@ class EsusPdfCpfService
             array_keys($cnssConsulta),
             $anoLetivo
         );
+        $comAluno = $this->buscarDocumentosComAlunoAtivo(
+            array_keys($cpfsConsulta),
+            array_keys($cnssConsulta)
+        );
 
         $lista = [];
         foreach ($preparados as $item) {
@@ -563,13 +567,23 @@ class EsusPdfCpfService
                 continue;
             }
 
-            // Só consulta fallback (nome + nascimento) quando o documento não tem matrícula no ano.
-            $idpesFallback = $this->resolverIdpesFallbackNomeEDataSeDocumentoNaoLocalizaAluno(
-                $cpfNormalizado,
-                $cnsDb,
-                trim((string) ($dados['nome'] ?? '')),
-                (string) ($dados['data_nascimento'] ?? '')
-            );
+            $temAlunoPorDocumento = ($cpfNormalizado !== '' && isset($comAluno['cpf'][$cpfNormalizado]))
+                || ($cnsDb !== '' && isset($comAluno['cns'][$cnsDb]));
+            if ($temAlunoPorDocumento) {
+                // Aluno cadastrado, sem matrícula ativa no ano — segue para as regras de filtro.
+                $lista[] = $this->normalizarLinhaItem($dados);
+
+                continue;
+            }
+
+            // Sem aluno pelo documento: tenta nome + nascimento (sem query de "existe aluno" redundante).
+            $data = $this->parseDataBr((string) ($dados['data_nascimento'] ?? ''));
+            $idpesFallback = $data === null
+                ? []
+                : $this->buscarIdpesAlunoAtivoPorNomeEDataNascimento(
+                    trim((string) ($dados['nome'] ?? '')),
+                    $data
+                );
             if ($idpesFallback !== [] && $this->possuiMatriculaAtivaNoAnoPorCpfOuCns('', '', $anoLetivo, $idpesFallback)) {
                 continue;
             }
@@ -661,6 +675,26 @@ class EsusPdfCpfService
      */
     private function aplicarRegrasListaEsus(array $itens, int $anoLetivo): array
     {
+        $cpfs = [];
+        $cnss = [];
+        foreach ($itens as $dados) {
+            $cpfNormalizado = idFederal2int((string) ($dados['cpf'] ?? ''));
+            if ($cpfNormalizado === null) {
+                $cpfNormalizado = '';
+            }
+            $cnsDb = $this->cnsParaConsultaCadastro(
+                $cpfNormalizado,
+                $this->normalizarCnsCartaoSus($dados['cns'] ?? '')
+            );
+            if ($cpfNormalizado !== '') {
+                $cpfs[$cpfNormalizado] = true;
+            }
+            if ($cnsDb !== '') {
+                $cnss[$cnsDb] = true;
+            }
+        }
+        $comAluno = $this->buscarDocumentosComAlunoAtivo(array_keys($cpfs), array_keys($cnss));
+
         $filtrados = [];
 
         foreach ($itens as $dados) {
@@ -678,13 +712,20 @@ class EsusPdfCpfService
             $ultimaEsus = $this->parseDataBr((string) ($dados['ultima_atualizacao_cadastral'] ?? ''));
 
             $cnsDb = $this->cnsParaConsultaCadastro($cpfNormalizado, $cnsDigitos);
-            $idpesFallback = $this->resolverIdpesFallbackNomeEDataSeDocumentoNaoLocalizaAluno(
-                $cpfNormalizado,
-                $cnsDb,
-                trim((string) ($dados['nome'] ?? '')),
-                (string) ($dados['data_nascimento'] ?? '')
-            );
-            if (! $this->existeAlunoAtivoPorCpfCnsOuIdpesFallback($cpfNormalizado, $cnsDb, $idpesFallback)) {
+            $temAlunoPorDocumento = ($cpfNormalizado !== '' && isset($comAluno['cpf'][$cpfNormalizado]))
+                || ($cnsDb !== '' && isset($comAluno['cns'][$cnsDb]));
+
+            $idpesFallback = [];
+            if (! $temAlunoPorDocumento) {
+                $idpesFallback = $this->resolverIdpesFallbackNomeEDataSeDocumentoNaoLocalizaAluno(
+                    $cpfNormalizado,
+                    $cnsDb,
+                    trim((string) ($dados['nome'] ?? '')),
+                    (string) ($dados['data_nascimento'] ?? '')
+                );
+            }
+
+            if (! $temAlunoPorDocumento && $idpesFallback === []) {
                 $filtrados[] = $dados;
 
                 continue;
@@ -717,6 +758,52 @@ class EsusPdfCpfService
         }
 
         return $filtrados;
+    }
+
+    /**
+     * @param  list<string|int>  $cpfs
+     * @param  list<string>  $cnss
+     * @return array{cpf: array<string, true>, cns: array<string, true>}
+     */
+    private function buscarDocumentosComAlunoAtivo(array $cpfs, array $cnss): array
+    {
+        $out = ['cpf' => [], 'cns' => []];
+        $cpfs = array_values(array_unique(array_filter($cpfs, static fn ($v) => $v !== null && $v !== '')));
+        $cnss = array_values(array_unique(array_filter($cnss, static fn ($v) => is_string($v) && strlen($v) === 15)));
+
+        foreach (array_chunk($cpfs, 500) as $chunk) {
+            $rows = DB::table('pmieducar.aluno as al')
+                ->join('cadastro.fisica as f', 'f.idpes', '=', 'al.ref_idpes')
+                ->where('al.ativo', 1)
+                ->whereIn('f.cpf', $chunk)
+                ->distinct()
+                ->pluck('f.cpf');
+            foreach ($rows as $cpf) {
+                $out['cpf'][(string) $cpf] = true;
+            }
+        }
+
+        foreach (array_chunk($cnss, 500) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $rows = DB::table('pmieducar.aluno as al')
+                ->join('cadastro.fisica as f', 'f.idpes', '=', 'al.ref_idpes')
+                ->where('al.ativo', 1)
+                ->whereRaw(
+                    "regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') in ({$placeholders})",
+                    $chunk
+                )
+                ->selectRaw("regexp_replace(coalesce(f.sus::text, ''), '[^0-9]', '', 'g') as cns_norm")
+                ->distinct()
+                ->pluck('cns_norm');
+            foreach ($rows as $cns) {
+                $cnsNorm = $this->normalizarCnsCartaoSus($cns);
+                if ($cnsNorm !== '') {
+                    $out['cns'][$cnsNorm] = true;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /**

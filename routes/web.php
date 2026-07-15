@@ -7,6 +7,7 @@ use App\Http\Controllers\SchoolClassController;
 use App\Http\Controllers\SocialiteCallbackController;
 use App\Http\Controllers\SocialiteRedirectController;
 use App\Http\Controllers\VerificarCpfEsusExportController;
+use App\Http\Controllers\VerificarCpfEsusProcessController;
 use App\Http\Controllers\WebController;
 use App\Http\Middleware\AnnouncementMiddleware;
 use App\Process;
@@ -104,6 +105,14 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
     Route::get('/relatorios/verificar-cpf-esus/exportar', VerificarCpfEsusExportController::class)
         ->middleware('can:view:' . Process::CONFIGURATIONS_TOOLS)
         ->name('verificar-cpf-esus.export');
+
+    Route::post('/relatorios/verificar-cpf-esus/processar', [VerificarCpfEsusProcessController::class, 'store'])
+        ->middleware('can:view:' . Process::CONFIGURATIONS_TOOLS)
+        ->name('verificar-cpf-esus.process');
+
+    Route::get('/relatorios/verificar-cpf-esus/status/{token}', [VerificarCpfEsusProcessController::class, 'status'])
+        ->middleware('can:view:' . Process::CONFIGURATIONS_TOOLS)
+        ->name('verificar-cpf-esus.status');
 
     Route::any('module/{module}/{path}/{resource}', 'LegacyModuleRewriteController@rewrite')
         ->where('module', '.*')

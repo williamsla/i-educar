@@ -136,7 +136,7 @@ return new class extends clsCadastro
         $this->array_botao_id[] = 'btn_verificar';
 
         $this->addHtml($this->htmlScriptAtualizarRotuloArquivoPorTipoFonte());
-        $this->addHtml($this->htmlScriptLoadingProcessamento());
+        $this->addHtml($this->htmlScriptLoadingProcessamentoComUrls());
 
         if ($this->resultadoVerificacao !== null) {
             $this->exibirResultado();
@@ -210,11 +210,11 @@ JS;
     }
 
     /**
-     * Overlay de loading enquanto o servidor processa o arquivo enviado.
+     * Overlay + envio assíncrono (fila) para evitar 504 no gateway.
      */
-    private function htmlScriptLoadingProcessamento(): string
+    private function htmlScriptLoadingProcessamentoComUrls(): string
     {
-        return <<<'HTML'
+        $html = <<<'HTML'
 <style type="text/css">
 #verificar-cpf-esus-loading {
   position: fixed;
@@ -264,35 +264,188 @@ JS;
 <div id="verificar-cpf-esus-loading" aria-live="polite" aria-busy="true" role="status">
   <div class="box">
     <div class="spinner" aria-hidden="true"></div>
-    <div class="titulo">Processando arquivo…</div>
-    <div class="subtitulo">Aguarde. Arquivos grandes podem levar alguns minutos.</div>
+    <div class="titulo" id="verificar-cpf-esus-loading-titulo">Enviando arquivo…</div>
+    <div class="subtitulo" id="verificar-cpf-esus-loading-sub">Aguarde. O processamento ocorre em segundo plano e pode levar alguns minutos.</div>
   </div>
 </div>
+<div id="verificar-cpf-esus-resultado-async" style="margin-top:12px;"></div>
 <script type="text/javascript">
-window.verificarCpfEsusEnviar = function () {
-  var overlay = document.getElementById('verificar-cpf-esus-loading');
-  var form = document.getElementById('formcadastro');
-  var tipoacao = document.getElementById('tipoacao');
-  var btn = document.getElementById('btn_verificar');
-  if (!form || !tipoacao) {
-    return;
+(function () {
+  var processUrl = %processUrl%;
+  var statusUrlBase = %statusUrlBase%;
+  var pollTimer = null;
+
+  function setLoading(visible, titulo, subtitulo) {
+    var overlay = document.getElementById('verificar-cpf-esus-loading');
+    var btn = document.getElementById('btn_verificar');
+    if (overlay) {
+      overlay.classList.toggle('is-visible', !!visible);
+    }
+    var t = document.getElementById('verificar-cpf-esus-loading-titulo');
+    var s = document.getElementById('verificar-cpf-esus-loading-sub');
+    if (t && titulo) { t.textContent = titulo; }
+    if (s && subtitulo) { s.textContent = subtitulo; }
+    if (btn) {
+      btn.disabled = !!visible;
+      btn.style.opacity = visible ? '0.6' : '';
+      btn.style.cursor = visible ? 'wait' : '';
+    }
   }
-  if (overlay) {
-    overlay.classList.add('is-visible');
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
-  if (btn) {
-    btn.disabled = true;
-    btn.style.opacity = '0.6';
-    btn.style.cursor = 'wait';
+
+  function mostrarFlash(mensagem, sucesso) {
+    var form = document.getElementById('formcadastro');
+    if (!form) { return; }
+    var existente = document.getElementById('verificar-cpf-esus-flash');
+    if (existente) { existente.remove(); }
+    var box = document.createElement('div');
+    box.id = 'verificar-cpf-esus-flash';
+    box.style.margin = '10px 0';
+    box.style.padding = '10px 12px';
+    box.style.border = '1px solid ' + (sucesso ? '#9ccc9c' : '#e0a0a0');
+    box.style.background = sucesso ? '#eef9ee' : '#fff0f0';
+    box.style.color = sucesso ? '#1b5e20' : '#8b0000';
+    box.innerHTML = '<strong>' + escapeHtml(mensagem) + '</strong>';
+    form.parentNode.insertBefore(box, form);
   }
-  tipoacao.value = 'Verificar';
-  // Garante que o overlay pinte na tela antes do submit bloquear a UI.
-  window.setTimeout(function () {
-    form.submit();
-  }, 50);
-};
+
+  function renderResultado(payload) {
+    var host = document.getElementById('verificar-cpf-esus-resultado-async');
+    if (!host) { return; }
+    var resultado = payload.resultado || {};
+    if (resultado.erro) {
+      host.innerHTML = '<div class="form" style="color:#c00;"><strong>Resumo:</strong> '
+        + escapeHtml(resultado.erro) + '</div>';
+      return;
+    }
+    var ano = parseInt(resultado.ano_letivo || new Date().getFullYear(), 10);
+    var total = parseInt(resultado.cpfs_extraidos || 0, 10);
+    var n = Array.isArray(resultado.cpfs_nao_cadastrados) ? resultado.cpfs_nao_cadastrados.length : 0;
+    var texto;
+    if (n === 0) {
+      texto = '<strong>Resumo:</strong> ' + total + ' CPF(s) lidos do arquivo. Ano letivo <strong>'
+        + ano + '</strong>. Todos possuem matrícula ativa neste ano.';
+    } else {
+      texto = '<strong>Resumo:<br/>Ano letivo <strong>' + ano + '</strong>. <br/></strong> '
+        + total + ' CPF(s) lidos do arquivo. <br/><strong>' + n
+        + '</strong> sem matrícula ativa (aluno e matrícula ativos).';
+    }
+    var html = '<div class="form">' + texto + '</div>';
+    if (n > 0 && payload.export_url) {
+      html += '<div class="form" style="margin-top:8px;"><a href="'
+        + escapeHtml(payload.export_url)
+        + '" target="_blank" rel="noopener" class="decorated"><strong>Exportar relatório em PDF</strong></a>'
+        + ' — CPF/CNS, nome, nascimento, endereço (sem CEP), último atendimento de saúde, data da última matrícula ou transferência no cadastro escolar.</div>';
+    }
+    host.innerHTML = html;
+  }
+
+  function limparPoll() {
+    if (pollTimer) {
+      window.clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function pollStatus(token) {
+    fetch(statusUrlBase + encodeURIComponent(token), {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { ok: res.ok, data: data };
+      });
+    }).then(function (result) {
+      if (!result.ok) {
+        throw new Error((result.data && result.data.message) || 'Falha ao consultar status.');
+      }
+      var status = result.data.status;
+      if (status === 'queued' || status === 'processing') {
+        setLoading(
+          true,
+          status === 'queued' ? 'Na fila…' : 'Processando arquivo…',
+          (result.data.mensagem || 'Aguarde. Arquivos grandes podem levar alguns minutos.')
+        );
+        pollTimer = window.setTimeout(function () { pollStatus(token); }, 2000);
+        return;
+      }
+      limparPoll();
+      setLoading(false);
+      mostrarFlash(result.data.mensagem || 'Processamento finalizado.', !!result.data.sucesso);
+      renderResultado(result.data);
+    }).catch(function (err) {
+      limparPoll();
+      setLoading(false);
+      mostrarFlash(err.message || 'Erro ao consultar o processamento.', false);
+    });
+  }
+
+  window.verificarCpfEsusEnviar = function () {
+    var form = document.getElementById('formcadastro');
+    var fileInput = document.getElementById('arquivo_pdf');
+    if (!form || !fileInput) { return; }
+    if (!fileInput.files || !fileInput.files.length) {
+      mostrarFlash('Selecione um arquivo para enviar.', false);
+      return;
+    }
+
+    limparPoll();
+    setLoading(true, 'Enviando arquivo…', 'O processamento continuará em segundo plano.');
+
+    var fd = new FormData();
+    fd.append('arquivo_pdf', fileInput.files[0]);
+    var ano = document.getElementById('ano_letivo');
+    var tipo = document.getElementById('tipo_fonte');
+    var excluir = document.getElementById('esus_excluir_sem_cpf_somente_cns');
+    if (ano) { fd.append('ano_letivo', ano.value); }
+    if (tipo) { fd.append('tipo_fonte', tipo.value); }
+    if (excluir && excluir.checked) { fd.append('esus_excluir_sem_cpf_somente_cns', '1'); }
+
+    fetch(processUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { ok: res.ok, status: res.status, data: data };
+      });
+    }).then(function (result) {
+      if (!result.ok) {
+        var msg = (result.data && (result.data.message || result.data.mensagem)) || 'Não foi possível iniciar o processamento.';
+        if (result.data && result.data.errors) {
+          var first = Object.values(result.data.errors)[0];
+          if (first && first[0]) { msg = first[0]; }
+        }
+        throw new Error(msg);
+      }
+      if (!result.data.token) {
+        throw new Error('Token de processamento não retornado.');
+      }
+      setLoading(true, 'Na fila…', result.data.message || 'Aguarde o processamento…');
+      pollStatus(result.data.token);
+    }).catch(function (err) {
+      limparPoll();
+      setLoading(false);
+      mostrarFlash(err.message || 'Erro ao enviar o arquivo.', false);
+    });
+  };
+})();
 </script>
 HTML;
+
+        return strtr($html, [
+            '%processUrl%' => json_encode(url('/relatorios/verificar-cpf-esus/processar'), JSON_UNESCAPED_SLASHES),
+            '%statusUrlBase%' => json_encode(url('/relatorios/verificar-cpf-esus/status/'), JSON_UNESCAPED_SLASHES),
+        ]);
     }
 
     /**
