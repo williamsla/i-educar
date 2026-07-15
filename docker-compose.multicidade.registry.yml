@@ -8,6 +8,19 @@ x-nginx-image: &nginx-image
   working_dir: /var/www/ieducar
   restart: unless-stopped
 
+# Worker de fila (jobs longos: verificar CPF eSUS/cadastro cidadão, exports, etc.)
+x-queue-command: &queue-command
+  [
+    "php",
+    "artisan",
+    "queue:work",
+    "redis",
+    "--sleep=1",
+    "--tries=1",
+    "--timeout=1800",
+    "--memory=512",
+  ]
+
 services:
   php_cidade1:
     <<: *app-image
@@ -28,6 +41,17 @@ services:
     depends_on:
       - redis_cidade1
     command: ["php-fpm", "-F"]
+    volumes:
+      - ieducar_storage_cidade1:/var/www/ieducar/storage
+
+  queue_cidade1:
+    <<: *app-image
+    container_name: ieducar-queue-${CIDADE1_SLUG:-cidade1}-prod
+    env_file:
+      - ${ENV_CIDADE1_FILE:-.env.cidade1}
+    depends_on:
+      - redis_cidade1
+    command: *queue-command
     volumes:
       - ieducar_storage_cidade1:/var/www/ieducar/storage
 
@@ -71,6 +95,17 @@ services:
     volumes:
       - ieducar_storage_cidade2:/var/www/ieducar/storage
 
+  queue_cidade2:
+    <<: *app-image
+    container_name: ieducar-queue-${CIDADE2_SLUG:-cidade2}-prod
+    env_file:
+      - ${ENV_CIDADE2_FILE:-.env.cidade2}
+    depends_on:
+      - redis_cidade2
+    command: *queue-command
+    volumes:
+      - ieducar_storage_cidade2:/var/www/ieducar/storage
+
   nginx_cidade2:
     <<: *nginx-image
     container_name: ieducar-nginx-${CIDADE2_SLUG:-cidade2}-prod
@@ -88,7 +123,6 @@ services:
     image: redis:8-alpine
     container_name: ieducar-redis-${CIDADE2_SLUG:-cidade2}-prod
     restart: unless-stopped
-
 
   php_cidade3:
     <<: *app-image
@@ -112,6 +146,17 @@ services:
     volumes:
       - ieducar_storage_cidade3:/var/www/ieducar/storage
 
+  queue_cidade3:
+    <<: *app-image
+    container_name: ieducar-queue-${CIDADE3_SLUG:-cidade3}-prod
+    env_file:
+      - ${ENV_CIDADE3_FILE:-.env.cidade3}
+    depends_on:
+      - redis_cidade3
+    command: *queue-command
+    volumes:
+      - ieducar_storage_cidade3:/var/www/ieducar/storage
+
   nginx_cidade3:
     <<: *nginx-image
     container_name: ieducar-nginx-${CIDADE3_SLUG:-cidade3}-prod
@@ -129,7 +174,6 @@ services:
     image: redis:8-alpine
     container_name: ieducar-redis-${CIDADE3_SLUG:-cidade3}-prod
     restart: unless-stopped
-
 
   php_cidade4:
     <<: *app-image
@@ -153,6 +197,17 @@ services:
     volumes:
       - ieducar_storage_cidade4:/var/www/ieducar/storage
 
+  queue_cidade4:
+    <<: *app-image
+    container_name: ieducar-queue-${CIDADE4_SLUG:-cidade4}-prod
+    env_file:
+      - ${ENV_CIDADE4_FILE:-.env.cidade4}
+    depends_on:
+      - redis_cidade4
+    command: *queue-command
+    volumes:
+      - ieducar_storage_cidade4:/var/www/ieducar/storage
+
   nginx_cidade4:
     <<: *nginx-image
     container_name: ieducar-nginx-${CIDADE4_SLUG:-cidade4}-prod
@@ -170,7 +225,6 @@ services:
     image: redis:8-alpine
     container_name: ieducar-redis-${CIDADE4_SLUG:-cidade4}-prod
     restart: unless-stopped
-
 
   php_cidade5:
     <<: *app-image
@@ -194,6 +248,17 @@ services:
     volumes:
       - ieducar_storage_cidade5:/var/www/ieducar/storage
 
+  queue_cidade5:
+    <<: *app-image
+    container_name: ieducar-queue-${CIDADE5_SLUG:-cidade5}-prod
+    env_file:
+      - ${ENV_CIDADE5_FILE:-.env.cidade5}
+    depends_on:
+      - redis_cidade5
+    command: *queue-command
+    volumes:
+      - ieducar_storage_cidade5:/var/www/ieducar/storage
+
   nginx_cidade5:
     <<: *nginx-image
     container_name: ieducar-nginx-${CIDADE5_SLUG:-cidade5}-prod
@@ -211,7 +276,6 @@ services:
     image: redis:8-alpine
     container_name: ieducar-redis-${CIDADE5_SLUG:-cidade5}-prod
     restart: unless-stopped
-
 
   php_cidade6:
     <<: *app-image
@@ -232,6 +296,17 @@ services:
     depends_on:
       - redis_cidade6
     command: ["php-fpm", "-F"]
+    volumes:
+      - ieducar_storage_cidade6:/var/www/ieducar/storage
+
+  queue_cidade6:
+    <<: *app-image
+    container_name: ieducar-queue-${CIDADE6_SLUG:-cidade6}-prod
+    env_file:
+      - ${ENV_CIDADE6_FILE:-.env.cidade6}
+    depends_on:
+      - redis_cidade6
+    command: *queue-command
     volumes:
       - ieducar_storage_cidade6:/var/www/ieducar/storage
 

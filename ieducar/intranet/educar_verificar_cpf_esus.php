@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 return new class extends clsCadastro
@@ -208,6 +209,13 @@ return new class extends clsCadastro
                 );
             }
         } catch (\Throwable $e) {
+            report($e);
+            Log::error('VerificarCpfEsus enfileirar falhou', [
+                'message' => $e->getMessage(),
+                'tipo_fonte' => $tipoFonte,
+                'ext' => $ext,
+                'ano_letivo' => $anoLetivo,
+            ]);
             $this->responderJson([
                 'message' => 'Não foi possível processar o arquivo: '.$e->getMessage(),
             ], 500);
@@ -556,7 +564,11 @@ JS;
         } else if (res.status === 413) {
           hint = 'Arquivo muito grande para o servidor (limite do proxy).';
         } else if (res.status >= 500) {
-          hint = 'Erro interno no servidor ao processar o arquivo.';
+          hint = 'Erro interno no servidor ao processar o arquivo (HTTP ' + res.status + ').';
+          var snippet = (text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          if (snippet) {
+            hint += ' Detalhe: ' + snippet.substring(0, 280);
+          }
         } else if (text && text.indexOf('<html') !== -1) {
           hint = 'O servidor retornou HTML em vez de JSON. Atualize a página e tente novamente.';
         }
