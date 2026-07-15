@@ -522,6 +522,27 @@ JS;
 (function () {
   var pageUrl = window.location.pathname;
   var pollTimer = null;
+  var pollToken = null;
+
+  function isNetworkError(err) {
+    if (!err) { return false; }
+    var msg = String(err.message || err);
+    return err.name === 'TypeError' || /failed to fetch|networkerror|network error|load failed/i.test(msg);
+  }
+
+  function formatNetworkError(err, contexto) {
+    var base = 'Conexão com o servidor interrompida';
+    if (contexto === 'envio') {
+      base += ' durante o envio do arquivo';
+    } else if (contexto === 'status') {
+      base += ' ao consultar o processamento';
+    }
+    base += '. Em produção isso costuma ser timeout do proxy (Cloudflare/nginx) ou fila sem worker.';
+    if (err && err.message) {
+      base += ' (' + err.message + ')';
+    }
+    return base;
+  }
 
   function setLoading(visible, titulo, subtitulo) {
     var overlay = document.getElementById('verificar-cpf-esus-loading');
@@ -624,9 +645,12 @@ JS;
       window.clearTimeout(pollTimer);
       pollTimer = null;
     }
+    pollToken = null;
   }
 
-  function pollStatus(token) {
+  function pollStatus(token, tentativasRede) {
+    tentativasRede = tentativasRede || 0;
+    pollToken = token;
     var filtroEl = document.getElementById('filtro_exibicao');
     var filtro = filtroEl ? filtroEl.value : 'nao_encontrados';
     var statusUrl = pageUrl + (pageUrl.indexOf('?') >= 0 ? '&' : '?')
@@ -635,13 +659,16 @@ JS;
     fetch(statusUrl, {
       method: 'GET',
       credentials: 'same-origin',
-      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      cache: 'no-store'
     }).then(parseJsonResponse).then(function (result) {
+      if (pollToken !== token) { return; }
       if (!result.ok) {
         var erroMsg = (result.data && (result.data.message || result.data.mensagem))
           || ('Falha ao consultar status (HTTP ' + result.status + ').');
         throw new Error(erroMsg);
       }
+      tentativasRede = 0;
       var status = result.data.status;
       if (status === 'queued' || status === 'processing') {
         setLoading(
@@ -649,7 +676,7 @@ JS;
           status === 'queued' ? 'Na fila…' : 'Processando arquivo…',
           (result.data.mensagem || result.data.message || 'Aguarde. Arquivos grandes podem levar alguns minutos.')
         );
-        pollTimer = window.setTimeout(function () { pollStatus(token); }, 2000);
+        pollTimer = window.setTimeout(function () { pollStatus(token, 0); }, 2000);
         return;
       }
       limparPoll();
@@ -657,9 +684,24 @@ JS;
       mostrarFlash(result.data.mensagem || result.data.message || 'Processamento finalizado.', !!result.data.sucesso);
       renderResultado(result.data);
     }).catch(function (err) {
+      if (pollToken !== token) { return; }
+      if (isNetworkError(err) && tentativasRede < 60) {
+        setLoading(
+          true,
+          'Reconectando…',
+          'Falha temporária de rede. Tentativa ' + (tentativasRede + 1) + ' de 60…'
+        );
+        pollTimer = window.setTimeout(function () {
+          pollStatus(token, tentativasRede + 1);
+        }, 3000);
+        return;
+      }
       limparPoll();
       setLoading(false);
-      mostrarFlash(err.message || 'Erro ao consultar o processamento.', false);
+      mostrarFlash(
+        isNetworkError(err) ? formatNetworkError(err, 'status') : (err.message || 'Erro ao consultar o processamento.'),
+        false
+      );
     });
   }
 
@@ -692,7 +734,8 @@ JS;
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      body: fd
+      body: fd,
+      cache: 'no-store'
     }).then(parseJsonResponse).then(function (result) {
       if (!result.ok) {
         var msg = (result.data && (result.data.message || result.data.mensagem)) || 'Não foi possível iniciar o processamento.';
@@ -721,7 +764,10 @@ JS;
     }).catch(function (err) {
       limparPoll();
       setLoading(false);
-      mostrarFlash(err.message || 'Erro ao enviar o arquivo.', false);
+      mostrarFlash(
+        isNetworkError(err) ? formatNetworkError(err, 'envio') : (err.message || 'Erro ao enviar o arquivo.'),
+        false
+      );
     });
   };
 })();

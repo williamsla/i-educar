@@ -266,6 +266,12 @@ docker-compose --env-file docker/.env.registry -f docker-compose.multicidade.reg
 docker-compose --env-file docker/.env.registry -f docker-compose.multicidade.registry.yml up -d
 ```
 
+Cada cidade sobe um worker de fila (`queue_cidadeN` → container `ieducar-queue-{slug}-prod`) com:
+
+`php artisan queue:work redis --sleep=1 --tries=1 --timeout=1800 --memory=512`
+
+No `.env` da cidade use `QUEUE_CONNECTION=redis` (e `CACHE_STORE=redis`). Sem esse container, jobs longos (ex.: verificar CPF eSUS) ficam eternamente em "Na fila…".
+
 ### 8.5 Migrations por cidade
 
 ```bash

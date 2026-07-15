@@ -8,14 +8,14 @@
         * { box-sizing: border-box; }
         body {
             font-family: DejaVu Sans, Liberation Sans, Arial, sans-serif;
-            font-size: 11pt;
+            font-size: 8pt;
             color: #222;
             margin: 0;
             padding: 16px 24px 32px;
-            line-height: 1.4;
+            line-height: 1.3;
         }
         h1 {
-            font-size: 16pt;
+            font-size: 12pt;
             font-weight: bold;
             margin: 0 0 8px;
             text-align: center;
@@ -24,30 +24,34 @@
             margin-bottom: 20px;
             padding-bottom: 12px;
             border-bottom: 1px solid #ccc;
+            font-size: 8pt;
         }
-        .meta p { margin: 4px 0; }
+        .meta p { margin: 3px 0; }
         .label { font-weight: bold; }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 8px;
+            font-size: 7.5pt;
         }
         th, td {
             border: 1px solid #333;
-            padding: 6px 8px;
+            padding: 3px 4px;
             text-align: left;
             vertical-align: top;
+            font-size: 7.5pt;
         }
         th {
             background: #e8e8e8;
             font-weight: bold;
+            font-size: 7pt;
         }
         tr:nth-child(even) td { background: #f9f9f9; }
         .resumo-ano {
             margin: 24px 0 8px;
         }
         .resumo-ano h2 {
-            font-size: 12pt;
+            font-size: 9pt;
             font-weight: bold;
             margin: 0 0 8px;
         }
@@ -117,16 +121,16 @@
         <thead>
             <tr>
                 @if (! empty($mostrar_coluna_situacao))
-                    <th style="width: 10%;">Situação</th>
+                    <th style="width: 8%;">Situação</th>
                 @endif
-                <th style="width: 12%;">CPF / CNS</th>
-                <th style="width: 18%;">Nome completo</th>
-                <th style="width: 8%;">Data de nascimento</th>
-                <th style="width: 22%;">Endereço</th>
+                <th style="width: 11%;">CPF / CNS</th>
+                <th style="width: 16%;">Nome completo</th>
+                <th style="width: 7%;">Data de nascimento</th>
+                <th style="width: 34%;">Endereço</th>
                 @if ($mostrar_coluna_ultimo_atendimento ?? true)
-                    <th style="width: 12%;">Último atendimento de saúde</th>
+                    <th style="width: 10%;">Último atendimento de saúde</th>
                 @endif
-                <th style="width: 14%;">Última matrícula ou transferência</th>
+                <th style="width: 4%;">Última matrícula ou transferência</th>
             </tr>
         </thead>
         <tbody>

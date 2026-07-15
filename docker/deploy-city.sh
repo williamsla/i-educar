@@ -22,6 +22,7 @@ RUNTIME_ENV_FILE="${RUNTIME_ENV_FILE:-.env}"
 
 php_service="php_cidade${CITY_INDEX}"
 fpm_service="fpm_cidade${CITY_INDEX}"
+queue_service="queue_cidade${CITY_INDEX}"
 nginx_service="nginx_cidade${CITY_INDEX}"
 redis_service="redis_cidade${CITY_INDEX}"
 
@@ -57,33 +58,44 @@ image_id_from_container() {
 
 old_php_cid="$(container_id "${php_service}")"
 old_fpm_cid="$(container_id "${fpm_service}")"
+old_queue_cid="$(container_id "${queue_service}")"
 old_nginx_cid="$(container_id "${nginx_service}")"
 
 load_runtime_env
 
 old_php_image="$(image_id_from_container "${old_php_cid}")"
 old_fpm_image="$(image_id_from_container "${old_fpm_cid}")"
+old_queue_image="$(image_id_from_container "${old_queue_cid}")"
 old_nginx_image="$(image_id_from_container "${old_nginx_cid}")"
 
-echo ">> Pull de imagens (${php_service}, ${fpm_service}, ${nginx_service})"
-compose pull "${php_service}" "${fpm_service}" "${nginx_service}"
+echo ">> Pull de imagens (${php_service}, ${fpm_service}, ${queue_service}, ${nginx_service})"
+compose pull "${php_service}" "${fpm_service}" "${queue_service}" "${nginx_service}"
 
-echo ">> Subindo/recriando serviços da cidade ${CITY_INDEX}"
-compose up -d --force-recreate "${redis_service}" "${php_service}" "${fpm_service}" "${nginx_service}"
+echo ">> Subindo/recriando serviços da cidade ${CITY_INDEX} (inclui worker de fila)"
+compose up -d --force-recreate \
+  "${redis_service}" \
+  "${php_service}" \
+  "${fpm_service}" \
+  "${queue_service}" \
+  "${nginx_service}"
 
 new_php_cid="$(container_id "${php_service}")"
 new_fpm_cid="$(container_id "${fpm_service}")"
+new_queue_cid="$(container_id "${queue_service}")"
 new_nginx_cid="$(container_id "${nginx_service}")"
 
 new_php_image="$(image_id_from_container "${new_php_cid}")"
 new_fpm_image="$(image_id_from_container "${new_fpm_cid}")"
+new_queue_image="$(image_id_from_container "${new_queue_cid}")"
 new_nginx_image="$(image_id_from_container "${new_nginx_cid}")"
 
 images_changed="false"
 if [ "${old_php_image}" != "${new_php_image}" ] || \
    [ "${old_fpm_image}" != "${new_fpm_image}" ] || \
+   [ "${old_queue_image}" != "${new_queue_image}" ] || \
    [ "${old_nginx_image}" != "${new_nginx_image}" ] || \
-   [ -z "${old_php_cid}" ]; then
+   [ -z "${old_php_cid}" ] || \
+   [ -z "${old_queue_cid}" ]; then
   images_changed="true"
 fi
 
@@ -98,7 +110,11 @@ if [ "${images_changed}" = "true" ]; then
     [ "${DB_CONNECTION:-}" = "pgsql" ] || { echo "ERRO: DB_CONNECTION=${DB_CONNECTION:-vazio} (esperado: pgsql)"; exit 1; }
     [ "${CACHE_DRIVER:-}" = "redis" ] || { echo "ERRO: CACHE_DRIVER=${CACHE_DRIVER:-vazio} (esperado: redis)"; exit 1; }
     [ "${CACHE_STORE:-}" = "redis" ] || { echo "ERRO: CACHE_STORE=${CACHE_STORE:-vazio} (esperado: redis)"; exit 1; }
+    [ "${QUEUE_CONNECTION:-}" = "redis" ] || { echo "ERRO: QUEUE_CONNECTION=${QUEUE_CONNECTION:-vazio} (esperado: redis)"; exit 1; }
   '
+
+  echo ">> Worker de fila (${queue_service}):"
+  compose ps "${queue_service}" || true
 
   compose exec -T "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
 
