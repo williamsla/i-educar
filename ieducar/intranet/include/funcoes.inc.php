@@ -411,8 +411,18 @@ function isArrayEmpty($value): bool
 
 function transformStringFromDBInArray($string): ?array
 {
+    if (is_array($string)) {
+        return array_values(array_map(static fn ($value) => (string) $value, $string));
+    }
+
     if (is_string($string)) {
-        return explode(',', str_replace(['{', '}'], '', $string));
+        $normalized = str_replace(['{', '}'], '', $string);
+
+        if ($normalized === '') {
+            return [];
+        }
+
+        return explode(',', $normalized);
     }
 
     return null;

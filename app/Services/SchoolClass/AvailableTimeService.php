@@ -206,22 +206,38 @@ class AvailableTimeService
      */
     private function hasEscolarizacaoAndAee(LegacySchoolClass $schoolClass, LegacySchoolClass $otherSchoolClass)
     {
-        $tipoAtendimento = transformStringFromDBInArray($schoolClass->tipo_atendimento);
-        $otherTipoAtendimento = transformStringFromDBInArray($otherSchoolClass->tipo_atendimento);
+        $tipoAtendimento = $this->normalizeTipoAtendimento($schoolClass->tipo_atendimento);
+        $otherTipoAtendimento = $this->normalizeTipoAtendimento($otherSchoolClass->tipo_atendimento);
 
-        if (is_array($tipoAtendimento) && is_array($otherTipoAtendimento) &&
-            in_array(TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO, $tipoAtendimento) &&
-            in_array(TipoAtendimentoTurma::AEE, $otherTipoAtendimento)) {
-            return true;
+        if (empty($tipoAtendimento) || empty($otherTipoAtendimento)) {
+            return false;
         }
 
-        if (is_array($tipoAtendimento) && is_array($otherTipoAtendimento) &&
-            in_array(TipoAtendimentoTurma::AEE, $tipoAtendimento) &&
-            in_array(TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO, $otherTipoAtendimento)) {
-            return true;
+        $hasCurricularAndAee =
+            in_array(TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO, $tipoAtendimento, true) &&
+            in_array(TipoAtendimentoTurma::AEE, $otherTipoAtendimento, true);
+
+        $hasAeeAndCurricular =
+            in_array(TipoAtendimentoTurma::AEE, $tipoAtendimento, true) &&
+            in_array(TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO, $otherTipoAtendimento, true);
+
+        return $hasCurricularAndAee || $hasAeeAndCurricular;
+    }
+
+    /**
+     * Normaliza tipo_atendimento vindo do banco como string "{0,5}" ou array nativo.
+     *
+     * @return array<int>
+     */
+    private function normalizeTipoAtendimento(mixed $tipoAtendimento): array
+    {
+        $values = transformStringFromDBInArray($tipoAtendimento);
+
+        if (!is_array($values)) {
+            return [];
         }
 
-        return false;
+        return array_map('intval', $values);
     }
 
     public function hasDates(LegacySchoolClass $schoolClass)
