@@ -271,6 +271,82 @@ class AvailableTimeServiceTest extends TestCase
     }
 
     /**
+     * Permite AEE + turma curricular sem tipo_atendimento (legado / array vazio).
+     *
+     * @return void
+     */
+    public function test_with_enrollments_aee_and_empty_tipo_atendimento_returns_true()
+    {
+        $schoolClass = LegacySchoolClassFactory::new()->morning()->create([
+            'tipo_mediacao_didatico_pedagogico' => 1,
+            'tipo_atendimento' => '{' . TipoAtendimentoTurma::AEE . '}',
+        ]);
+        $otherSchoolClass = LegacySchoolClassFactory::new()->morning()->create([
+            'tipo_mediacao_didatico_pedagogico' => 1,
+            'tipo_atendimento' => '{}',
+            'hora_final' => '15:45',
+        ]);
+
+        $registration = LegacyRegistrationFactory::new()->create([
+            'ano' => $schoolClass->ano,
+            'aprovado' => 3,
+        ]);
+
+        LegacySchoolClassStageFactory::new()->create([
+            'ref_cod_turma' => $schoolClass,
+        ]);
+
+        LegacySchoolClassStageFactory::new()->create([
+            'ref_cod_turma' => $otherSchoolClass,
+        ]);
+
+        LegacyEnrollmentFactory::new()->active()->create([
+            'ref_cod_turma' => $otherSchoolClass->cod_turma,
+            'ref_cod_matricula' => $registration->cod_matricula,
+        ]);
+
+        $this->assertTrue($this->service->isAvailable($registration->ref_cod_aluno, $schoolClass->cod_turma));
+    }
+
+    /**
+     * Não permite AEE + atividade complementar no mesmo horário.
+     *
+     * @return void
+     */
+    public function test_with_enrollments_aee_and_atividade_complementar_returns_false()
+    {
+        $schoolClass = LegacySchoolClassFactory::new()->morning()->create([
+            'tipo_mediacao_didatico_pedagogico' => 1,
+            'tipo_atendimento' => '{' . TipoAtendimentoTurma::AEE . '}',
+        ]);
+        $otherSchoolClass = LegacySchoolClassFactory::new()->morning()->create([
+            'tipo_mediacao_didatico_pedagogico' => 1,
+            'tipo_atendimento' => '{' . TipoAtendimentoTurma::ATIVIDADE_COMPLEMENTAR . '}',
+            'hora_final' => '15:45',
+        ]);
+
+        $registration = LegacyRegistrationFactory::new()->create([
+            'ano' => $schoolClass->ano,
+            'aprovado' => 3,
+        ]);
+
+        LegacySchoolClassStageFactory::new()->create([
+            'ref_cod_turma' => $schoolClass,
+        ]);
+
+        LegacySchoolClassStageFactory::new()->create([
+            'ref_cod_turma' => $otherSchoolClass,
+        ]);
+
+        LegacyEnrollmentFactory::new()->active()->create([
+            'ref_cod_turma' => $otherSchoolClass->cod_turma,
+            'ref_cod_matricula' => $registration->cod_matricula,
+        ]);
+
+        $this->assertFalse($this->service->isAvailable($registration->ref_cod_aluno, $schoolClass->cod_turma));
+    }
+
+    /**
      * @return void
      */
     public function test_with_inactive_enrollments_same_day_same_time_same_year_returns_true()

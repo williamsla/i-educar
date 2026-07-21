@@ -102,11 +102,8 @@ class AvailableTimeService
     private function schedulesMatch(LegacySchoolClass $schoolClass, LegacySchoolClass $otherSchoolClass, int $studentId, $turnoId = null)
     {
         // O aluno pode ter matrícula em duas turmas no mesmo horário desde que:
-        //
-        // - Uma turma seja de Escolarização e a outra seja de Atendimento
-        //   educacional especializado - AEE.
-
-        if ($this->hasEscolarizacaoAndAee($schoolClass, $otherSchoolClass)) {
+        // uma seja curricular (etapa de ensino) e a outra AEE (Educacenso).
+        if ($this->hasCurricularAndAee($schoolClass, $otherSchoolClass)) {
             return false;
         }
 
@@ -199,45 +196,58 @@ class AvailableTimeService
     }
 
     /**
-     * Retorna true caso uma das turmas for Curricular (etapa de ensino) e a outra Atendimento educacional especializado - AEE
-     *
-     *
-     * @return bool
+     * Permite horário coincidente quando uma turma for AEE e a outra curricular
+     * (etapa de ensino), inclusive com tipo_atendimento vazio (legado).
      */
-    private function hasEscolarizacaoAndAee(LegacySchoolClass $schoolClass, LegacySchoolClass $otherSchoolClass)
+    private function hasCurricularAndAee(LegacySchoolClass $schoolClass, LegacySchoolClass $otherSchoolClass): bool
     {
         $tipoAtendimento = $this->normalizeTipoAtendimento($schoolClass->tipo_atendimento);
         $otherTipoAtendimento = $this->normalizeTipoAtendimento($otherSchoolClass->tipo_atendimento);
 
-        if (empty($tipoAtendimento) || empty($otherTipoAtendimento)) {
-            return false;
-        }
+        $isAee = fn (array $tipos): bool => in_array(TipoAtendimentoTurma::AEE, $tipos, true);
+        $isCurricular = fn (array $tipos): bool => $this->isCurricularTipoAtendimento($tipos);
 
-        $hasCurricularAndAee =
-            in_array(TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO, $tipoAtendimento, true) &&
-            in_array(TipoAtendimentoTurma::AEE, $otherTipoAtendimento, true);
-
-        $hasAeeAndCurricular =
-            in_array(TipoAtendimentoTurma::AEE, $tipoAtendimento, true) &&
-            in_array(TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO, $otherTipoAtendimento, true);
-
-        return $hasCurricularAndAee || $hasAeeAndCurricular;
+        return ($isAee($tipoAtendimento) && $isCurricular($otherTipoAtendimento))
+            || ($isAee($otherTipoAtendimento) && $isCurricular($tipoAtendimento));
     }
 
     /**
-     * Normaliza tipo_atendimento vindo do banco como string "{0,5}" ou array nativo.
+     * Curricular (etapa de ensino), ou sem tipo informado (turmas legadas).
+     * Não considera curricular quando for apenas atividade complementar ou AEE.
+     *
+     * @param  array<int>  $tipos
+     */
+    private function isCurricularTipoAtendimento(array $tipos): bool
+    {
+        if (empty($tipos)) {
+            return true;
+        }
+
+        if (in_array(TipoAtendimentoTurma::AEE, $tipos, true)) {
+            return false;
+        }
+
+        return in_array(TipoAtendimentoTurma::CURRICULAR_ETAPA_ENSINO, $tipos, true);
+    }
+
+    /**
+     * Normaliza tipo_atendimento vindo do banco como string "{0,5}", array nativo ou inteiro legado.
      *
      * @return array<int>
      */
     private function normalizeTipoAtendimento(mixed $tipoAtendimento): array
     {
+        if (is_int($tipoAtendimento) || (is_string($tipoAtendimento) && is_numeric($tipoAtendimento))) {
+            return [(int) $tipoAtendimento];
+        }
+
         $values = transformStringFromDBInArray($tipoAtendimento);
 
         if (!is_array($values)) {
             return [];
         }
 
-        return array_map('intval', $values);
+        return array_map('intval', array_filter($values, static fn ($value) => $value !== '' && $value !== null));
     }
 
     public function hasDates(LegacySchoolClass $schoolClass)
