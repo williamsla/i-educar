@@ -12,31 +12,54 @@ ensure_laravel_runtime_dirs() {
     bootstrap/cache
 }
 
+# Bind mount (ex.: ../i-educar-reports-package no docker-compose): detectar ANTES de
+# qualquer rm. `rm -rf` num mountpoint apaga o conteúdo do host (incl. .git) e só
+# depois falha com "Resource busy" — a verificação antiga chegava tarde demais.
+is_mountpoint() {
+  dir="$1"
+  [ -d "$dir" ] || return 1
+
+  if command -v mountpoint >/dev/null 2>&1; then
+    mountpoint -q "$dir" 2>/dev/null && return 0
+  fi
+
+  abs=$(cd "$dir" 2>/dev/null && pwd -P) || return 1
+  awk -v p="$abs" '$5 == p { found=1; exit } END { exit !found }' /proc/self/mountinfo 2>/dev/null
+}
+
+reuse_existing_package_tree() {
+  target_dir="$1"
+  repo_ref="${2:-}"
+
+  echo ">> '$target_dir' é bind mount / checkout local; a reutilizar árvore (preserva .git)."
+  if [ ! -f "$target_dir/composer.json" ]; then
+    echo "ERRO: '$target_dir' sem composer.json; não será limpo o bind mount do host." >&2
+    exit 1
+  fi
+  if [ -n "$repo_ref" ] && [ -d "$target_dir/.git" ]; then
+    git -C "$target_dir" fetch origin 2>/dev/null || true
+    git -C "$target_dir" checkout "$repo_ref" 2>/dev/null || true
+  fi
+}
+
 clone_or_update_repo() {
   repo_url="$1"
   target_dir="$2"
   repo_ref="${3:-}"
 
-  # rm -rf no próprio path falha com "Resource busy" quando target_dir é bind mount
-  # (ex.: ../i-educar-reports-package no docker-compose).
-  if ! rm -rf "$target_dir" 2>/dev/null; then
-    if [ ! -d "$target_dir" ]; then
-      echo "ERRO: não foi possível preparar '$target_dir'." >&2
-      exit 1
-    fi
-    # Já há pacote no mount: não apagar conteúdo do host; só alinhar ref opcional.
-    if [ -f "$target_dir/composer.json" ]; then
-      echo ">> '$target_dir' não removível (típico: bind mount); a reutilizar árvore existente."
-      if [ -n "$repo_ref" ] && [ -d "$target_dir/.git" ]; then
-        git -C "$target_dir" fetch origin 2>/dev/null || true
-        git -C "$target_dir" checkout "$repo_ref" 2>/dev/null || true
-      fi
-      return 0
-    fi
-    echo ">> '$target_dir' não removível; a limpar conteúdo para git clone."
-    find "$target_dir" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  # Nunca apagar conteúdo de bind mount (preserva .git e configs do repositório no host).
+  if is_mountpoint "$target_dir"; then
+    reuse_existing_package_tree "$target_dir" "$repo_ref"
+    return 0
   fi
 
+  # Checkout com .git já presente (path repo / volume sem aparecer como mountpoint).
+  if [ -d "$target_dir/.git" ]; then
+    reuse_existing_package_tree "$target_dir" "$repo_ref"
+    return 0
+  fi
+
+  rm -rf "$target_dir"
   mkdir -p "$target_dir"
   git clone "$repo_url" "$target_dir"
 
@@ -44,7 +67,8 @@ clone_or_update_repo() {
     git -C "$target_dir" checkout "$repo_ref"
   fi
 
-  # Evita erros de "dubious ownership" em runtime (composer/git)
+  # Só em clones efémeros (build de imagem): evita "dubious ownership" no composer/git.
+  # Em bind mount / checkout local o .git nunca chega aqui.
   rm -rf "$target_dir/.git"
 }
 
