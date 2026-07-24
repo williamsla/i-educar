@@ -163,7 +163,10 @@ class ServidorController extends ApiCoreController
                         string_agg(distinct concat(serie_id,'|',tmp.componente_curricular_id, '|', tmp.tipo_nota)::varchar, ',') as disciplinas,
                         string_agg(distinct concat( tmp.serie_id, ' ',tmp.componente_curricular_id)::varchar, ',') as disciplinas_serie,
                         max(tmp.updated_at) as updated_at,
-                        max(tmp.deleted_at) as deleted_at
+                        max(tmp.deleted_at) as deleted_at,
+                        tmp.data_inicial,
+                        tmp.data_fim,
+                        tmp.data_saida
                     from (
                              select
                                  coalesce(ts.serie_id, t.ref_ref_cod_serie) as serie_id,
@@ -179,7 +182,20 @@ class ServidorController extends ApiCoreController
                                      WHEN s.ativo = 0 THEN coalesce(s.data_exclusao::timestamp(0),s.updated_at::timestamp(0))
                                      WHEN t.ativo = 0 THEN t.updated_at::timestamp(0)
                                      ELSE NULL
-                                 END AS deleted_at
+                                 END AS deleted_at,
+                                 pt.data_inicial,
+                                 pt.data_fim,
+                                 (
+                                     SELECT sa.data_saida
+                                     FROM pmieducar.servidor_alocacao sa
+                                     WHERE sa.ref_cod_servidor = pt.servidor_id
+                                       AND sa.ref_cod_escola = t.ref_ref_cod_escola
+                                       AND sa.ano = pt.ano
+                                       AND sa.ativo = 1
+                                       AND sa.data_saida IS NOT NULL
+                                     ORDER BY sa.data_saida DESC
+                                     LIMIT 1
+                                 ) AS data_saida
                              from modules.professor_turma pt
                                       left join modules.professor_turma_disciplina ptd
                                                 on ptd.professor_turma_id = pt.id
@@ -196,7 +212,8 @@ class ServidorController extends ApiCoreController
                              and t.ref_ref_cod_escola in ({$escola})
                             {$innerWhere}
                          ) as tmp
-                    group by tmp.id, tmp.servidor_id, tmp.turma_id, tmp.turno_id, tmp.permite_lancar_faltas_componente
+                    group by tmp.id, tmp.servidor_id, tmp.turma_id, tmp.turno_id, tmp.permite_lancar_faltas_componente,
+                             tmp.data_inicial, tmp.data_fim, tmp.data_saida
                     {$having}
                 )
                 union all
@@ -210,7 +227,10 @@ class ServidorController extends ApiCoreController
                         null as disciplinas,
                         null as disciplinas_serie,
                         pt.updated_at,
-                        pt.deleted_at
+                        pt.deleted_at,
+                        null as data_inicial,
+                        null as data_fim,
+                        null as data_saida
                     from modules.professor_turma_excluidos pt
                     inner join pmieducar.turma t
                     on t.cod_turma = pt.turma_id
@@ -227,7 +247,7 @@ class ServidorController extends ApiCoreController
 
             $vinculos = $this->fetchPreparedQuery($sql, $params);
 
-            $attrs = ['id', 'servidor_id', 'turma_id', 'turno_id', 'permite_lancar_faltas_componente', 'disciplinas', 'disciplinas_serie', 'updated_at', 'deleted_at'];
+            $attrs = ['id', 'servidor_id', 'turma_id', 'turno_id', 'permite_lancar_faltas_componente', 'disciplinas', 'disciplinas_serie', 'updated_at', 'deleted_at', 'data_inicial', 'data_fim', 'data_saida'];
 
             $vinculos = Portabilis_Array_Utils::filterSet($vinculos, $attrs);
 
