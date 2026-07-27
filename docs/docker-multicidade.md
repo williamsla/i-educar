@@ -268,9 +268,9 @@ docker-compose --env-file docker/.env.registry -f docker-compose.multicidade.reg
 
 Cada cidade sobe um worker de fila (`queue_cidadeN` → container `ieducar-queue-{slug}-prod`) com:
 
-`php artisan queue:work redis --sleep=1 --tries=1 --timeout=1800 --memory=512`
+`php artisan queue:work redis --queue=default,export --sleep=1 --tries=1 --timeout=1800 --memory=512`
 
-No `.env` da cidade use `QUEUE_CONNECTION=redis` (e `CACHE_STORE=redis`). Sem esse container, jobs longos (ex.: verificar CPF eSUS) ficam eternamente em "Na fila…".
+No `.env` da cidade use `QUEUE_CONNECTION=redis` (e `CACHE_STORE=redis`). Sem esse container, jobs longos (ex.: verificar CPF eSUS) ficam eternamente em "Na fila…". A fila `export` é usada por `/exportacoes` (`DatabaseToCsvExporter`); sem `--queue=...export` a tela fica em "Aguardando a exportação…".
 
 ### 8.5 Migrations por cidade
 

@@ -90,9 +90,17 @@ class ExportController extends Controller
             $this->filter($request)
         );
 
-        $this->dispatch(
-            new DatabaseToCsvExporter($export)
-        );
+        // Em local (ou QUEUE_CONNECTION=sync) o Horizon costuma não estar rodando —
+        // e a fila "export" só é consumida se o worker escutar essa fila.
+        $processarSincrono = app()->environment('local', 'testing')
+            || config('queue.default') === 'sync';
+
+        if ($processarSincrono) {
+            set_time_limit(0);
+            DatabaseToCsvExporter::dispatchSync($export);
+        } else {
+            DatabaseToCsvExporter::dispatch($export);
+        }
 
         return redirect()->route('export.index');
     }

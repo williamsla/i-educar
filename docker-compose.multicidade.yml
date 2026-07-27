@@ -22,6 +22,7 @@ x-queue-command: &queue-command
     "artisan",
     "queue:work",
     "redis",
+    "--queue=default,export",
     "--sleep=1",
     "--tries=1",
     "--timeout=1800",

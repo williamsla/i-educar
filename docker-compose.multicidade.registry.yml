@@ -9,12 +9,14 @@ x-nginx-image: &nginx-image
   restart: unless-stopped
 
 # Worker de fila (jobs longos: verificar CPF eSUS/cadastro cidadão, exports, etc.)
+# --queue=default,export: DatabaseToCsvExporter usa a fila "export".
 x-queue-command: &queue-command
   [
     "php",
     "artisan",
     "queue:work",
     "redis",
+    "--queue=default,export",
     "--sleep=1",
     "--tries=1",
     "--timeout=1800",
