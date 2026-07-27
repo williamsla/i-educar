@@ -2,6 +2,12 @@
 
 @inject('presigner', App\Services\UrlPresigner::class)
 
+@php
+  $hasPendingExport = $exports->contains(function ($export) {
+      return empty($export->url) && $export->created_at >= now()->subMinutes(30);
+  });
+@endphp
+
 @push('styles')
   <link rel="stylesheet" type="text/css" href="{{ Asset::get('css/ieducar.css') }}" />
 @endpush
@@ -26,7 +32,7 @@
             @elseif($export->url)
               <a href="{{ $presigner->getPresignedUrl($export->url) }}" style="font-size: 14px">Fazer download</a>
             @else
-              Aguardando a exportação do arquivo ser finalizada
+              Aguardando a exportação do arquivo ser finalizada. Esta página atualiza automaticamente…
             @endif
           </td>
           <td>{{$export->created_at->format('d/m/Y H:i')}}</td>
@@ -49,3 +55,13 @@
     <a href="{{ Asset::get('/exportacoes/novo') }}" class="btn-green">Nova Exportação</a>
   </div>
 @endsection
+
+@if($hasPendingExport)
+  @push('scripts')
+    <script>
+      setTimeout(function () {
+        window.location.reload();
+      }, 5000);
+    </script>
+  @endpush
+@endif
