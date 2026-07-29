@@ -1142,8 +1142,8 @@ function handleSearch($resultTable, dataResponse) {
                 .attr('colspan', componenteCurricularSelected ? 0 : 5)
                 .appendTo($linha);
 
-    if (value.componentes_curriculares){
-      if (componenteCurricularSelected && value.componentes_curriculares.length > 0)
+    if (value.componentes_curriculares && value.componentes_curriculares.length > 0){
+      if (componenteCurricularSelected)
         updateComponenteCurricular($linha, value.matricula_id, value.componentes_curriculares[0], value.regra);
     }else{
       if(value.situacao_deslocamento){
@@ -1176,7 +1176,7 @@ function handleSearch($resultTable, dataResponse) {
     $linha.fadeIn('slow').appendTo($resultTable);
     $linha.appendTo($resultTable);
 
-    if (! componenteCurricularSelected && value.componentes_curriculares)
+    if (! componenteCurricularSelected && value.componentes_curriculares && value.componentes_curriculares.length > 0)
       updateComponenteCurriculares($resultTable, value.matricula_id, value.componentes_curriculares, value.regra);
 
     // Exibe "Situação final" e "Bloquear troca de situação" na última etapa, para qualquer tipo de progressão
@@ -1184,7 +1184,7 @@ function handleSearch($resultTable, dataResponse) {
       situacaoFinalField(dataResponse.matricula_id, dataResponse.situacao,value).appendTo($resultTable);
     }
 
-    if ((!componenteCurricularSelected) && (showBotaoReplicarNotas))
+    if ((!componenteCurricularSelected) && (showBotaoReplicarNotas) && value.componentes_curriculares)
       criaBotaoReplicarNotasPorArea(value.componentes_curriculares);
     if(value.componentes_curriculares && value.componentes_curriculares.length > 0) {
       initSummernote('parecer-matricula-' + value.matricula_id + '-cc-' + value.componentes_curriculares[0].id);
@@ -1961,6 +1961,9 @@ function navegacaoTab(sentido){
 }
 
 function criaBotaoReplicarNotasPorArea(componentesCurriculares){
+  if (!componentesCurriculares || !componentesCurriculares.length) {
+    return;
+  }
 
   var uniqueAreaConhecimento = [];
 

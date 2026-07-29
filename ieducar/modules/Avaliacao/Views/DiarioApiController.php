@@ -381,7 +381,7 @@ class DiarioApiController extends ApiCoreController
     {
         $enrollment = $this->getEnrollmentDaMatriculaNaTurma();
 
-        if (!$enrollment || !$enrollment->transferido) {
+        if (!$enrollment || !($enrollment->transferido || $enrollment->remanejado)) {
             return true;
         }
 
@@ -389,8 +389,10 @@ class DiarioApiController extends ApiCoreController
             return true;
         }
 
+        $situacao = $enrollment->remanejado ? 'remanejado' : 'transferido';
+
         $this->messenger->append(
-            'Não é permitido lançar notas ou faltas em etapas em que o aluno transferido não frequentou.',
+            "Não é permitido lançar notas ou faltas em etapas em que o aluno {$situacao} não frequentou.",
             'error'
         );
 
@@ -1022,7 +1024,7 @@ class DiarioApiController extends ApiCoreController
                 // seta id da matricula a ser usado pelo metodo serviceBoletim
                 $this->setCurrentMatriculaId($matriculaId);
 
-                if (!($enrollment->remanejado || $enrollment->abandono || $enrollment->reclassificado || $enrollment->falecido)) {
+                if (!($enrollment->abandono || $enrollment->reclassificado || $enrollment->falecido)) {
                     $matricula['componentes_curriculares'] = $this->loadComponentesCurricularesForMatricula(
                         $matriculaId,
                         $turmaId,
@@ -1039,6 +1041,7 @@ class DiarioApiController extends ApiCoreController
 
                 if ($enrollment->remanejado) {
                     $matricula['situacao_deslocamento'] = 'Remanejado';
+                    $matricula['etapas_permitidas'] = $this->getEtapasPermitidasMatriculaTransferida($enrollment, $turmaId);
                 } elseif ($enrollment->transferido) {
                     $matricula['situacao_deslocamento'] = 'Transferido';
                     $matricula['etapas_permitidas'] = $this->getEtapasPermitidasMatriculaTransferida($enrollment, $turmaId);
@@ -1263,7 +1266,7 @@ class DiarioApiController extends ApiCoreController
     // outros metodos auxiliares
 
     /**
-     * Verifica se o aluno transferido esteve na turma por ao menos um dia da etapa.
+     * Verifica se o aluno transferido/remanejado esteve na turma por ao menos um dia da etapa.
      */
     protected function matriculaTransferidaCursouEtapa(LegacyEnrollment $enrollment, int $turmaId, $etapa): bool
     {
@@ -1305,7 +1308,7 @@ class DiarioApiController extends ApiCoreController
     }
 
     /**
-     * Etapas numéricas em que o aluno transferido frequentou ao menos um dia letivo.
+     * Etapas numéricas em que o aluno transferido/remanejado frequentou ao menos um dia letivo.
      *
      * @return int[]
      */
@@ -1360,7 +1363,9 @@ class DiarioApiController extends ApiCoreController
         $componenteCurricularId = $this->getRequest()->componente_curricular_id;
         $etapa = $this->getRequest()->etapa;
 
-        if ($enrollment?->transferido && !$this->matriculaTransferidaCursouEtapa($enrollment, $turmaId, $etapa)) {
+        if (($enrollment?->transferido || $enrollment?->remanejado)
+            && !$this->matriculaTransferidaCursouEtapa($enrollment, $turmaId, $etapa)
+        ) {
             return $componentesCurriculares;
         }
 
