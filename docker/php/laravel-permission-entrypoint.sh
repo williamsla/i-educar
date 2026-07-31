@@ -46,10 +46,20 @@ if [ "$(id -u)" = "0" ]; then
         }
 
         run_install_extra_packages() {
-            trap 'rm -rf "$LOCKDIR" 2>/dev/null || true' EXIT INT TERM
+            # Mantém mtime fresco para waiters não tratarem install longo (composer/yarn) como órfão.
+            (
+                while [ -d "$LOCKDIR" ]; do
+                    sleep 60
+                    touch "$LOCKDIR" 2>/dev/null || true
+                done
+            ) &
+            lock_heartbeat_pid=$!
+            trap 'kill "$lock_heartbeat_pid" 2>/dev/null || true; rm -rf "$LOCKDIR" 2>/dev/null || true' EXIT INT TERM
             echo ">> RUN_EXTRA_PACKAGES_INSTALL: executando docker/php/install-extra-packages.sh"
             sh /var/www/ieducar/docker/php/install-extra-packages.sh
             trap - EXIT INT TERM
+            kill "$lock_heartbeat_pid" 2>/dev/null || true
+            wait "$lock_heartbeat_pid" 2>/dev/null || true
             rm -rf "$LOCKDIR" 2>/dev/null || true
         }
 
