@@ -27,6 +27,10 @@ is_mountpoint() {
   awk -v p="$abs" '$5 == p { found=1; exit } END { exit !found }' /proc/self/mountinfo 2>/dev/null
 }
 
+use_local_packages() {
+  [ "${USE_LOCAL_PACKAGES:-false}" = "true" ]
+}
+
 reuse_existing_package_tree() {
   target_dir="$1"
   repo_ref="${2:-}"
@@ -36,6 +40,13 @@ reuse_existing_package_tree() {
     echo "ERRO: '$target_dir' sem composer.json; não será limpo o bind mount do host." >&2
     exit 1
   fi
+
+  # Ambiente local: nunca fetch/checkout remoto — usa o código já presente em ../.
+  if use_local_packages || is_mountpoint "$target_dir"; then
+    echo ">> USE_LOCAL_PACKAGES/mount: sem git fetch/checkout em '$target_dir'."
+    return 0
+  fi
+
   if [ -n "$repo_ref" ] && [ -d "$target_dir/.git" ]; then
     git -C "$target_dir" fetch origin 2>/dev/null || true
     git -C "$target_dir" checkout "$repo_ref" 2>/dev/null || true
@@ -59,6 +70,18 @@ clone_or_update_repo() {
     return 0
   fi
 
+  # Árvore local já presente (ex.: cópia anterior) — não clonar de novo.
+  if [ -f "$target_dir/composer.json" ]; then
+    reuse_existing_package_tree "$target_dir" "$repo_ref"
+    return 0
+  fi
+
+  if use_local_packages; then
+    echo "ERRO: USE_LOCAL_PACKAGES=true e '$target_dir' ausente." >&2
+    echo "      Monte o repositório local (ex.: ../ no docker-compose) ou desative USE_LOCAL_PACKAGES." >&2
+    exit 1
+  fi
+
   rm -rf "$target_dir"
   mkdir -p "$target_dir"
   git clone "$repo_url" "$target_dir"
@@ -70,6 +93,53 @@ clone_or_update_repo() {
   # Só em clones efémeros (build de imagem): evita "dubious ownership" no composer/git.
   # Em bind mount / checkout local o .git nunca chega aqui.
   rm -rf "$target_dir/.git"
+}
+
+# Token só é obrigatório quando vamos clonar (sem árvore/mount local).
+require_git_token_unless_local() {
+  target_dir="$1"
+  if [ -f "$target_dir/composer.json" ] || is_mountpoint "$target_dir" || use_local_packages; then
+    return 0
+  fi
+  require_git_token
+}
+
+apply_cdn_config_customizations() {
+  cdn_dir="${CDN_CONFIG_PATH:-cdn-config}"
+  cloned_ephemeral=0
+
+  if [ -d "$cdn_dir/i-educar-reports-package" ]; then
+    echo ">> cdn-config local em '$cdn_dir' (sem clone remoto)."
+  elif use_local_packages; then
+    echo "ERRO: USE_LOCAL_PACKAGES=true e cdn-config ausente em '$cdn_dir'." >&2
+    echo "      Monte ../cdn-config (CDN_CONFIG_PATH) ou desative USE_LOCAL_PACKAGES." >&2
+    exit 1
+  elif [ -n "${GIT_TOKEN:-}" ]; then
+    # Nunca rm -rf num bind mount (apagaria o host).
+    if is_mountpoint "$cdn_dir"; then
+      echo "ERRO: '$cdn_dir' é mountpoint sem conteúdo esperado de cdn-config." >&2
+      exit 1
+    fi
+    rm -rf "$cdn_dir"
+    git clone "https://${GIT_TOKEN}@github.com/semed-al/cdn-config.git" "$cdn_dir"
+    cloned_ephemeral=1
+  else
+    echo "AVISO: GIT_TOKEN ausente e cdn-config local não encontrado; pulando customizações SEMED-AL."
+    return 0
+  fi
+
+  cp -r "$cdn_dir/i-educar-reports-package/ieducar/"* \
+    packages/portabilis/i-educar-reports-package/ieducar/
+  cp -r "$cdn_dir/i-educar-reports-package/database/"* \
+    packages/portabilis/i-educar-reports-package/database/
+  cp -r "$cdn_dir/i-educar/ieducar/"* ./ieducar/
+
+  cp -r "$cdn_dir/images/brasao/"* packages/portabilis/i-educar-reports-package/ieducar/ReportLogos/
+  chmod -R 755 packages/portabilis/i-educar-reports-package/ieducar/ReportLogos/
+
+  if [ "$cloned_ephemeral" = "1" ] && ! is_mountpoint "$cdn_dir"; then
+    rm -rf "$cdn_dir"
+  fi
 }
 
 # Git 2.35+: Composer/plugins invocam git no bind mount com dono do host vs UID do contentor.
@@ -156,24 +226,8 @@ if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ]; then
     "packages/portabilis/i-educar-reports-package" \
     "${PACKAGE_REF_REPORTS:-}"
 
-  # Ajustes especificos para SEMED-AL (quando token existir).
-  if [ -n "${GIT_TOKEN:-}" ]; then
-    rm -rf cdn-config
-    git clone "https://${GIT_TOKEN}@github.com/semed-al/cdn-config.git"
-
-    cp -r cdn-config/i-educar-reports-package/ieducar/* \
-      packages/portabilis/i-educar-reports-package/ieducar/
-    cp -r cdn-config/i-educar-reports-package/database/* \
-      packages/portabilis/i-educar-reports-package/database/
-    cp -r cdn-config/i-educar/ieducar/* ./ieducar/
-
-    cp -r cdn-config/images/brasao/* packages/portabilis/i-educar-reports-package/ieducar/ReportLogos/
-    chmod -R 755 packages/portabilis/i-educar-reports-package/ieducar/ReportLogos/
-    
-    rm -rf cdn-config
-  else
-    echo "AVISO: GIT_TOKEN ausente; pulando customizacoes SEMED-AL para reports."
-  fi
+  # Ajustes especificos para SEMED-AL (cdn-config local ou clone com token).
+  apply_cdn_config_customizations
 
   # git clone no build fica como root; Jasper grava .jasper ao compilar em ReportSources.
   if [ -d "packages/portabilis/i-educar-reports-package/ieducar/modules/Reports" ]; then
@@ -223,7 +277,7 @@ if [ "${ENABLE_PACKAGE_PRE_MATRICULA:-false}" = "true" ]; then
 fi
 
 if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
-  require_git_token
+  require_git_token_unless_local "packages/despesas-escolar"
   clone_or_update_repo \
     "${PACKAGE_REPO_DESPESAS:-https://${GIT_TOKEN}@github.com/williamsla/despesas-escolar.git}" \
     "packages/despesas-escolar" \
@@ -239,7 +293,7 @@ fi
 if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
   mkdir -p packages/merenda
 
-  require_git_token
+  require_git_token_unless_local "packages/merenda/merenda-escolar"
   clone_or_update_repo \
     "${PACKAGE_REPO_MERENDA:-https://${GIT_TOKEN}@github.com/williamsla/merenda.git}" \
     "packages/merenda/merenda-escolar" \

@@ -27,7 +27,9 @@ if [ "$(id -u)" = "0" ]; then
         && cmd_includes_php_fpm "$@" \
         && [ -f /var/www/ieducar/docker/php/install-extra-packages.sh ]; then
         LOCKDIR=/var/www/ieducar/storage/framework/cache/.extra-packages-install-lock
-        stale_mins="${STALE_EXTRA_PACKAGES_LOCK_MINUTES:-45}"
+        # Default 10 min (antes 45): waiters têm 900s; se o dono morrer (SIGKILL/OOM),
+        # o órfão precisa ser limpo durante a espera. Sobrescreve no .env.
+        stale_mins="${STALE_EXTRA_PACKAGES_LOCK_MINUTES:-10}"
 
         remove_stale_extra_packages_lock() {
             [ -d "$LOCKDIR" ] || return 0
@@ -44,31 +46,46 @@ if [ "$(id -u)" = "0" ]; then
         }
 
         run_install_extra_packages() {
-            trap 'rmdir "$LOCKDIR" 2>/dev/null || true' EXIT INT TERM
+            trap 'rm -rf "$LOCKDIR" 2>/dev/null || true' EXIT INT TERM
             echo ">> RUN_EXTRA_PACKAGES_INSTALL: executando docker/php/install-extra-packages.sh"
             sh /var/www/ieducar/docker/php/install-extra-packages.sh
             trap - EXIT INT TERM
-            rmdir "$LOCKDIR" 2>/dev/null || true
+            rm -rf "$LOCKDIR" 2>/dev/null || true
         }
 
-        remove_stale_extra_packages_lock
-        if mkdir "$LOCKDIR" 2>/dev/null; then
-            run_install_extra_packages
-        else
+        try_acquire_and_run() {
             remove_stale_extra_packages_lock
             if mkdir "$LOCKDIR" 2>/dev/null; then
                 run_install_extra_packages
-            else
-                echo ">> Aguardando outro contentor concluir install-extra-packages..."
-                i=0
-                while [ -d "$LOCKDIR" ] && [ "$i" -lt 900 ]; do
-                    sleep 1
-                    i=$((i + 1))
-                done
-                if [ -d "$LOCKDIR" ]; then
-                    echo ">> Timeout (900s) aguardando install-extra-packages" >&2
-                    exit 1
+                return 0
+            fi
+            return 1
+        }
+
+        if ! try_acquire_and_run; then
+            echo ">> Aguardando outro contentor concluir install-extra-packages..."
+            i=0
+            while [ "$i" -lt 900 ]; do
+                sleep 1
+                i=$((i + 1))
+                # A cada 30s reavalia lock órfão (contentor morto a meio do install).
+                if [ $((i % 30)) -eq 0 ]; then
+                    remove_stale_extra_packages_lock
                 fi
+                if [ ! -d "$LOCKDIR" ]; then
+                    break
+                fi
+            done
+            if [ -d "$LOCKDIR" ]; then
+                echo ">> Timeout (900s) aguardando install-extra-packages" >&2
+                echo ">> Se não houver outro contentor a instalar, remova o lock órfão:" >&2
+                echo ">>   rm -rf storage/framework/cache/.extra-packages-install-lock" >&2
+                echo ">> e suba o fpm de novo (ou baixe STALE_EXTRA_PACKAGES_LOCK_MINUTES)." >&2
+                exit 1
+            fi
+            # Lock libertado (ou órfão removido): tenta instalar neste contentor.
+            if ! try_acquire_and_run; then
+                echo ">> Lock ainda presente após espera; outro contentor provavelmente a instalar — a continuar sem reexecutar." >&2
             fi
         fi
     fi

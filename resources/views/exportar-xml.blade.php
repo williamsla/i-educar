@@ -59,6 +59,11 @@
             <option value="siap">SIAP TCE-AL</option>
         </select>
 
+        <p id="siap-hint" style="display:none; margin-top:10px; font-size:13px; color:#555;">
+            SIAP TCE-AL gera um ZIP com os XMLs do layout oficial (Escola, Aluno, Turma, Cardápio, DespesaPorEscola, etc.).
+            Configure <code>SIAP_CODIGO</code> no .env com o código do município no TCE-AL.
+        </p>
+
         <label for="ano">Ano de Referência:</label>
         <input type="number" name="ano" id="ano" required value="{{ now()->year }}">
 
@@ -74,4 +79,12 @@
         <button type="submit">Exportar</button>
     </form>
 </div>
+<script>
+    function toggleSiapHint() {
+        document.getElementById('siap-hint').style.display =
+            document.getElementById('modelo').value === 'siap' ? 'block' : 'none';
+    }
+    document.getElementById('modelo').addEventListener('change', toggleSiapHint);
+    toggleSiapHint();
+</script>
 @endsection

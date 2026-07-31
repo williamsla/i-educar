@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 // namespace App\Http\Controllers\Api;
 
 use App_Model_MatriculaSituacao;
+use App\Services\Siap\SiapExportService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\LegacySchool;
@@ -307,19 +308,15 @@ class ExportacaoXmlController extends Controller
 
     private function exportarModeloSIAP($ano, $mes)
     {
-        // Exemplo: XML mais simples
-        $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><relatorio/>');
+        $service = new SiapExportService();
+        $result = $service->export((int) $ano, (int) $mes);
 
-        foreach (Escola::with('turmas')->get() as $escola) {
-            $xmlEscola = $xml->addChild('escola');
-            $xmlEscola->addChild('nome', $escola->nome);
-            foreach ($escola->turmas as $turma) {
-                $xmlTurma = $xmlEscola->addChild('turma');
-                $xmlTurma->addChild('nome', $turma->nome);
-            }
-        }
+        $this->alerts = array_merge($this->alerts, $service->getAlerts());
 
-        return $this->compactarEEnviar($xml, 'modeloB');
+        return view('exportar-xml-result', [
+            'zipUrl' => $result['zipUrl'],
+            'txtUrl' => $result['txtUrl'],
+        ]);
     }
 
     private function getCursoSigla($sigla_serie){
@@ -800,25 +797,35 @@ class ExportacaoXmlController extends Controller
         }
 
         if (($handle = fopen($path, 'r')) !== false) {
-            $header = fgetcsv($handle, 1000, ','); // Lê o cabeçalho
-            while (($data = fgetcsv($handle, 1000, ',')) !== false) {
-                $cardapios[] = array_combine($header, $data);
+            $header = fgetcsv($handle, 0, ';');
+            while (($data = fgetcsv($handle, 0, ';')) !== false) {
+                if (! is_array($header) || count($header) !== count($data)) {
+                    continue;
+                }
+
+                $row = array_combine($header, $data);
+                if ($row === false) {
+                    continue;
+                }
+
+                $cardapios[] = $row;
             }
             fclose($handle);
         }
 
-        $filter_escola = array_filter($cardapios, function($cardapio) use ($inep_escola) {
-            return $cardapio['inep'] == $inep_escola;
+        $filter_escola = array_filter($cardapios, function ($cardapio) use ($inep_escola) {
+            return ($cardapio['inep'] ?? '') == $inep_escola;
         });
 
-
-        if (!empty($filter_escola)) {
+        if (! empty($filter_escola)) {
             $cardapios = $filter_escola;
         }
-        $cardapios = array_filter($cardapios, function($cardapio) use ($curso_sigla, $turno) {
-            return $cardapio['curso'] == $curso_sigla && $cardapio['turno'] == $turno;
+
+        $cardapios = array_filter($cardapios, function ($cardapio) use ($curso_sigla, $turno) {
+            return ($cardapio['curso'] ?? '') == $curso_sigla
+                && (string) ($cardapio['turno'] ?? '') === (string) $turno;
         });
-        
+
         return $cardapios;
     }
 

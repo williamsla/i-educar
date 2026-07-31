@@ -10,9 +10,13 @@ x-php: &php
   working_dir: /var/www/ieducar
   volumes:
     - ./:/var/www/ieducar
-    # Repositório clone ao lado do i-educar (../i-educar-reports-package). O FPM/Horizon
-    # precisam do mesmo mount que o serviço `php` (composer só no `php` não basta).
+    # Repositórios ao lado do i-educar (../). Com USE_LOCAL_PACKAGES=true o install
+    # reutiliza estes mounts e não clona/fetch do remoto.
     - ../i-educar-reports-package:/var/www/ieducar/packages/portabilis/i-educar-reports-package
+    - ../i-educar-educacenso-package:/var/www/ieducar/packages/portabilis/i-educar-educacenso-package
+    - ../merenda:/var/www/ieducar/packages/merenda/merenda-escolar
+    - ../despesas-escolar:/var/www/ieducar/packages/despesas-escolar
+    - ../cdn-config:/var/www/cdn-config:ro
   links:
     - postgres
     - redis
@@ -29,6 +33,8 @@ x-php: &php
     # docker/php/install-extra-packages.sh (laravel-permission-entrypoint); ver .env.example
     RUN_EXTRA_PACKAGES_INSTALL: ${RUN_EXTRA_PACKAGES_INSTALL:-false}
     STALE_EXTRA_PACKAGES_LOCK_MINUTES: ${STALE_EXTRA_PACKAGES_LOCK_MINUTES:-45}
+    USE_LOCAL_PACKAGES: ${USE_LOCAL_PACKAGES:-false}
+    CDN_CONFIG_PATH: ${CDN_CONFIG_PATH:-/var/www/cdn-config}
     ENABLE_PACKAGE_REPORTS: ${ENABLE_PACKAGE_REPORTS:-false}
     ENABLE_PACKAGE_EDUCACENSO: ${ENABLE_PACKAGE_EDUCACENSO:-false}
     ENABLE_PACKAGE_TRANSPORTE: ${ENABLE_PACKAGE_TRANSPORTE:-false}
