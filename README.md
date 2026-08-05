@@ -81,6 +81,11 @@ Para realizar o _upgrade_ da versão do i-Educar, considere seguir os passos no 
 
 Algumas perguntas aparecem recorrentemente. Olhe primeiro por aqui: [FAQ](https://github.com/portabilis/i-educar-website/blob/master/docs/faq.md).
 
+## tasks
+- Ficha conceitual de professores já vinculados 
+`php artisan descriptors:backfill-teacher-links --dry-run --year=2026`
+
+
 ---
 
 Powered by [Portábilis](https://portabilis.com.br/).
