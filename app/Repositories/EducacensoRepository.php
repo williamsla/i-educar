@@ -374,7 +374,10 @@ SQL;
         $sql = "
             SELECT componente_curricular.nome
             from modules.componente_curricular
+            INNER JOIN modules.area_conhecimento
+                ON area_conhecimento.id = componente_curricular.area_conhecimento_id
             WHERE componente_curricular.id IN ({$disciplineIds})
+            AND coalesce(area_conhecimento.agrupar_descritores, false) = false
             AND not exists (
                 SELECT 1
                 FROM modules.professor_turma_disciplina

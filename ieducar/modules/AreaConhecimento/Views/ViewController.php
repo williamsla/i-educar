@@ -12,6 +12,7 @@ class ViewController extends Core_Controller_Page_ViewController
         'Nome' => 'nome',
         'Seção' => 'secao',
         'Agrupa descritores' => 'agrupar_descritores',
+        'Disciplina vinculada' => 'componente_vinculo',
     ];
 
     protected function _preRender()
@@ -26,7 +27,15 @@ class ViewController extends Core_Controller_Page_ViewController
     public function getEntry()
     {
         $area = $this->getDataMapper()->find($this->getRequest()->id);
+        $componenteVinculoId = $area->componente_vinculo;
         $area->agrupar_descritores = $area->agrupar_descritores ? 'Sim' : 'Não';
+        $area->componente_vinculo = '-';
+
+        if ($componenteVinculoId) {
+            $mapper = new ComponenteCurricular_Model_ComponenteDataMapper;
+            $componente = $mapper->find(['id' => $componenteVinculoId]);
+            $area->componente_vinculo = $componente->nome;
+        }
 
         return $area;
     }
