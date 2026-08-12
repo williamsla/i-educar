@@ -15,6 +15,7 @@ class AreaConhecimento_Model_AreaDataMapper extends CoreExt_DataMapper
         'secao' => 'secao',
         'ordenamento_ac' => 'ordenamento_ac',
         'agrupar_descritores' => 'agrupar_descritores',
+        'componente_vinculo' => 'componente_vinculo_id',
     ];
 
     protected $_primaryKey = [

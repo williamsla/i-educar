@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\LegacyDiscipline;
+
 class EditController extends Core_Controller_Page_EditController
 {
     protected $_dataMapper = 'AreaConhecimento_Model_AreaDataMapper';
@@ -38,6 +40,11 @@ class EditController extends Core_Controller_Page_EditController
             'label' => 'Esta área funciona como agrupador de descritores?',
             'help' => '',
             'entity' => 'agrupar_descritores',
+        ],
+        'componente_vinculo' => [
+            'label' => 'Disciplina vinculada (auto-vínculo do professor)',
+            'help' => 'Ao vincular o professor a esta disciplina na turma, os descritores desta área serão incluídos automaticamente. Aplica-se somente quando a área é agrupador de descritores.',
+            'entity' => 'componente_vinculo',
         ],
     ];
 
@@ -118,6 +125,57 @@ class EditController extends Core_Controller_Page_EditController
             false,
             $this->_getHelp('agrupar_descritores')
         );
+
+        $this->campoLista(
+            'componente_vinculo',
+            $this->_getLabel('componente_vinculo'),
+            $this->getComponentesVinculoOptions(),
+            $this->getEntity()->componente_vinculo,
+            '',
+            false,
+            $this->_getHelp('componente_vinculo'),
+            '',
+            false,
+            false
+        );
+    }
+
+    /**
+     * @return array<int|string, string>
+     */
+    private function getComponentesVinculoOptions(): array
+    {
+        $options = [null => 'Selecione'];
+        $instituicaoId = $this->getEntity()->instituicao;
+
+        if (!is_numeric($instituicaoId)) {
+            return $options;
+        }
+
+        $componentes = LegacyDiscipline::query()
+            ->select([
+                'componente_curricular.id',
+                'componente_curricular.nome',
+            ])
+            ->join(
+                'modules.area_conhecimento',
+                'area_conhecimento.id',
+                '=',
+                'componente_curricular.area_conhecimento_id'
+            )
+            ->where('componente_curricular.instituicao_id', $instituicaoId)
+            ->where(function ($query) {
+                $query->where('area_conhecimento.agrupar_descritores', false)
+                    ->orWhereNull('area_conhecimento.agrupar_descritores');
+            })
+            ->orderBy('componente_curricular.nome')
+            ->get();
+
+        foreach ($componentes as $componente) {
+            $options[$componente->id] = $componente->nome;
+        }
+
+        return $options;
     }
 
     protected function _save()
@@ -140,8 +198,12 @@ class EditController extends Core_Controller_Page_EditController
 
         if (!isset($data['agrupar_descritores'])) {
             $data['agrupar_descritores'] = false;
+            $data['componente_vinculo'] = null;
         } else {
             $data['agrupar_descritores'] = true;
+            if (empty($data['componente_vinculo'])) {
+                $data['componente_vinculo'] = null;
+            }
         }
 
         // Verifica pela existência do field identity

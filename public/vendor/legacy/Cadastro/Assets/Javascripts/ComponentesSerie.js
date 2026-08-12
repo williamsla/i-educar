@@ -8,6 +8,7 @@ var comboCurso     = $j('#ref_cod_curso');
 var comboSerie     = $j('#ref_cod_serie');
 var chosenOldArray = [];
 var guardaAreas    = [];
+var ignoreAreaConhecimentoChange = false;
 
 if(modoEdicao){
     $j('#ref_cod_instituicao').attr('disabled', 'true');
@@ -39,33 +40,66 @@ $j("#ref_cod_curso").change(function() {
 });
 
 $j("#ref_cod_area_conhecimento").change(function() {
-    var chosenArray = $j("#ref_cod_area_conhecimento").chosen().val();
-    if (!chosenOldArray) {
-        chosenOldArray = [];
+    if (ignoreAreaConhecimentoChange) {
+        return;
     }
-    if(chosenArray && chosenOldArray){
-        if (chosenArray.length > chosenOldArray.length) {
-            chosenArray.forEach(function(area) {
-              let nome_area = $j(this).find("option[value='" + area + "']").text();
-                if (!$j('#area_conhecimento_' + area).length && area != '') {
-                    $j('#componentes').append(htmlCabecalhoAreaConhecimento(area, nome_area));
-                }
-            }, this);
-        }else{
-            chosenOldArray.forEach(function(area) {
-                var areaExcluida = '';
-                if($j.inArray(area,chosenArray) == -1){
-                    areaExcluida = area;
-                }
-                $j('#area_conhecimento_'+areaExcluida).remove();
-                $j('.area_conhecimento_'+areaExcluida).remove();
-            }, this);
+
+    var chosenArray = normalizeChosenValues($j("#ref_cod_area_conhecimento").val());
+    var previousArray = normalizeChosenValues(chosenOldArray);
+
+    chosenArray.forEach(function(area) {
+        if (area && $j.inArray(area, previousArray) === -1 && !$j('#area_conhecimento_' + area).length) {
+            var nome_area = $j("#ref_cod_area_conhecimento").find("option[value='" + area + "']").text();
+            $j('#componentes').append(htmlCabecalhoAreaConhecimento(area, nome_area));
         }
-    }else{
-        $j('#componentes').empty();
-    }
+    });
+
+    previousArray.forEach(function(area) {
+        if (area && $j.inArray(area, chosenArray) === -1) {
+            $j('#area_conhecimento_' + area).remove();
+            $j('.area_conhecimento_' + area).remove();
+        }
+    });
+
     chosenOldArray = chosenArray;
-} );
+});
+
+function normalizeChosenValues(values) {
+    if (!values) {
+        return [];
+    }
+
+    if (!Array.isArray(values)) {
+        return [String(values)];
+    }
+
+    return values.map(String).filter(function(value) {
+        return value !== '';
+    });
+}
+
+function syncAreaConhecimentoSelection(ids) {
+    var field = $j('#ref_cod_area_conhecimento');
+    var selectedIds = normalizeChosenValues(ids);
+
+    ignoreAreaConhecimentoChange = true;
+
+    field.find('option').prop('selected', false);
+    selectedIds.forEach(function(id) {
+        field.children("option[value='" + id + "']").prop('selected', true);
+    });
+    field.val(selectedIds);
+    field.trigger('chosen:updated');
+    chosenOldArray = selectedIds;
+
+    // MultipleSearchCustom reaplica valores iniciais (vazios) nos timeouts de 100ms/500ms.
+    // Reaplica a seleção persistida depois disso para manter o Chosen alinhado com os componentes.
+    setTimeout(function() {
+        field.val(selectedIds).trigger('chosen:updated');
+        chosenOldArray = selectedIds;
+        ignoreAreaConhecimentoChange = false;
+    }, 600);
+}
 
 function verificaComponenteBloqueado(element) {
 
@@ -468,14 +502,18 @@ function updateAreaConhecimento(){
 }
 
 function handleGetAreaConhecimentoSerie(response) {
-    $j('#ref_cod_area_conhecimento').val('').trigger('liszt:updated');
-  $j.each(response['options'], function(index, item) {
-        $j("#ref_cod_area_conhecimento").children("[value=" + item.id + "]").attr('selected', '');
-        $j("#ref_cod_area_conhecimento").chosen().trigger("chosen:updated");
-        let anos_letivos = item.anos_letivos.replace('{', '').replace('}', '');
-        $j('#componentes').append(htmlCabecalhoAreaConhecimento(item.id, item.nome, anos_letivos));
+    var selectedIds = [];
+
+    $j('#componentes').empty();
+
+    $j.each(response['options'], function(index, item) {
+        selectedIds.push(String(item.id));
+        var anos_letivos = (item.anos_letivos || '').replace('{', '').replace('}', '');
+        var nome = item.nome_agrupador || item.nome;
+        $j('#componentes').append(htmlCabecalhoAreaConhecimento(item.id, nome, anos_letivos));
     });
-  chosenOldArray = $j("#ref_cod_area_conhecimento").chosen().val();
+
+    syncAreaConhecimentoSelection(selectedIds);
 }
 
 

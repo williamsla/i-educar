@@ -8,6 +8,7 @@ class AreaConhecimento_Model_Area extends CoreExt_Entity implements \Stringable
         'secao' => null,
         'ordenamento_ac' => null,
         'agrupar_descritores' => null,
+        'componente_vinculo' => null,
     ];
 
     public function getDefaultValidatorCollection()

@@ -2,6 +2,7 @@
 
 namespace App\Models\Educacenso;
 
+use App\Models\LegacyKnowledgeArea;
 use App\Models\LegacySchoolClass;
 use App_Model_LocalFuncionamentoDiferenciado;
 use App_Model_TipoMediacaoDidaticoPedagogico;
@@ -447,7 +448,16 @@ class Registro20 implements RegistroEducacenso
                 $idTurma = explode('-', $idTurma)[0];
             }
 
-            $this->componentes = LegacySchoolClass::find($idTurma)->getDisciplines();
+            $componentes = LegacySchoolClass::find($idTurma)->getDisciplines();
+            $grouperAreaIds = LegacyKnowledgeArea::query()
+                ->whereIn('id', $componentes->pluck('area_conhecimento_id')->unique()->filter())
+                ->where('agrupar_descritores', true)
+                ->pluck('id')
+                ->all();
+
+            $this->componentes = $componentes
+                ->filter(fn ($componente) => !in_array($componente->area_conhecimento_id, $grouperAreaIds, true))
+                ->values();
         }
 
         return $this->componentes;

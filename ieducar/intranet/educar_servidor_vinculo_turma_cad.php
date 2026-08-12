@@ -4,6 +4,7 @@ use App\Models\Employee;
 use App\Models\LegacyInstitution;
 use App\Models\LegacySchoolClass;
 use App\Models\LegacySchoolClassTeacher;
+use App\Services\DisciplineDescriptorAutoLinkService;
 use App\Services\iDiarioService;
 use Carbon\Carbon;
 use iEducar\Modules\Educacenso\Model\ModalidadeCurso;
@@ -342,7 +343,10 @@ return new class extends clsCadastro
         }
 
         $professorTurmaId = $professorTurma->cadastra();
-        $professorTurma->gravaComponentes(professor_turma_id: $professorTurmaId, componentes: $this->componentecurricular);
+        $professorTurma->gravaComponentes(
+            professor_turma_id: $professorTurmaId,
+            componentes: $this->componentesComDescritoresAutoVinculados()
+        );
 
         $this->mensagem = 'Cadastro efetuado com sucesso.<br>';
         $this->simpleRedirect(url: $backUrl);
@@ -488,7 +492,10 @@ return new class extends clsCadastro
         $editou = $professorTurma->edita();
 
         if ($editou) {
-            $professorTurma->gravaComponentes(professor_turma_id: $this->id, componentes: $this->componentecurricular);
+            $professorTurma->gravaComponentes(
+                professor_turma_id: $this->id,
+                componentes: $this->componentesComDescritoresAutoVinculados()
+            );
             $this->mensagem = 'Edição efetuada com sucesso.<br>';
             $this->simpleRedirect(url: $backUrl);
         }
@@ -699,6 +706,21 @@ return new class extends clsCadastro
     private function transformArrayInString($value): ?string
     {
         return is_array(value: $value) ? implode(separator: ',', array: $value) : null;
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function componentesComDescritoresAutoVinculados(): array
+    {
+        $componentes = $this->componentecurricular ?? [];
+
+        if (!is_array($componentes)) {
+            $componentes = [];
+        }
+
+        return app(DisciplineDescriptorAutoLinkService::class)
+            ->expandForSchoolClass($componentes, (int) $this->ref_cod_turma);
     }
 
     public function Formular()

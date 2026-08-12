@@ -66,7 +66,34 @@ class UpdateSchoolClassGrade extends Command
             ]);
         });
 
+        $this->updateScheduleGrade();
+
         DB::commit();
+    }
+
+    /**
+     * Atualiza a série dos horários do quadro da turma.
+     */
+    private function updateScheduleGrade(): void
+    {
+        $gradeId = $this->grade->getKey();
+        $schoolClassId = $this->schoolClass->getKey();
+
+        $scheduleIds = DB::table('pmieducar.quadro_horario')
+            ->where('ref_cod_turma', $schoolClassId)
+            ->pluck('cod_quadro_horario');
+
+        if ($scheduleIds->isEmpty()) {
+            return;
+        }
+
+        DB::table('pmieducar.quadro_horario_horarios')
+            ->whereIn('ref_cod_quadro_horario', $scheduleIds)
+            ->update(['ref_cod_serie' => $gradeId]);
+
+        DB::table('pmieducar.quadro_horario_horarios_aux')
+            ->whereIn('ref_cod_quadro_horario', $scheduleIds)
+            ->update(['ref_cod_serie' => $gradeId]);
     }
 
     /**

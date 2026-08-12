@@ -15,7 +15,14 @@ class LegacyKnowledgeArea extends Model
     public const UPDATED_AT = 'updated_at';
 
     protected $fillable = [
-        'instituicao_id', 'nome',
+        'instituicao_id',
+        'nome',
+        'agrupar_descritores',
+        'componente_vinculo_id',
+    ];
+
+    protected $casts = [
+        'agrupar_descritores' => 'boolean',
     ];
 
     /**
@@ -32,5 +39,15 @@ class LegacyKnowledgeArea extends Model
     public function disciplines(): HasMany
     {
         return $this->hasMany(LegacyDiscipline::class, 'area_conhecimento_id');
+    }
+
+    /**
+     * Disciplina âncora usada no auto-vínculo de descritores ao professor.
+     *
+     * @return BelongsTo<LegacyDiscipline, $this>
+     */
+    public function linkedDiscipline(): BelongsTo
+    {
+        return $this->belongsTo(LegacyDiscipline::class, 'componente_vinculo_id');
     }
 }
