@@ -296,28 +296,8 @@ $j(function () {
                 content += `Notas lançadas no primeiro <strong>${oldModuleInfo.label}</strong> vão aparecer no primeiro <strong>${moduleInfo.label}</strong>. `;
                 content += '<br><br>Tem certeza de que deseja prosseguir?';
 
-                this.makeDialog({
-                    content: content,
-                    title: 'Atenção!',
-                    maxWidth: 860,
-                    width: 860,
-                    close: function () {
-                        $select.val(oldModuleInfo.module);
-                        $j(this).dialog('destroy');
-                    },
-                    buttons: [{
-                        text: 'Sim',
-                        click: function () {
-                            that.addRows(diff);
-                            $j(this).dialog('destroy');
-                        }
-                    }, {
-                        text: 'Não',
-                        click: function () {
-                            $select.val(oldModuleInfo.module);
-                            $j(this).dialog('destroy');
-                        }
-                    }]
+                this.confirmModuleChange(content, $select, oldModuleInfo.module, function () {
+                    that.addRows(diff);
                 });
             }
 
@@ -332,51 +312,65 @@ $j(function () {
                 content += `Notas lançadas no primeiro <strong>${oldModuleInfo.label}</strong> vão aparecer no primeiro <strong>${moduleInfo.label}</strong>. `;
                 content += 'Se houver notas/faltas enviadas na etapa sendo removida esta alteração será bloqueada.<br><br>Tem certeza de que deseja prosseguir?';
 
-                this.makeDialog({
-                    content: content,
-                    title: 'Atenção!',
-                    maxWidth: 860,
-                    width: 860,
-                    close: function () {
-                        $select.val(oldModuleInfo.module);
-                        $j(this).dialog('destroy');
-                    },
-                    buttons: [{
-                        text: 'Sim',
-                        click: function () {
-                            that.removeRows(diff);
-                            $j(this).dialog('destroy');
-                        }
-                    }, {
-                        text: 'Não',
-                        click: function () {
-                            $select.val(oldModuleInfo.module);
-                            $j(this).dialog('destroy');
-                        }
-                    }]
+                this.confirmModuleChange(content, $select, oldModuleInfo.module, function () {
+                    that.removeRows(diff);
                 });
             }
         },
+        confirmModuleChange: function (content, $select, previousModule, onConfirm) {
+            var confirmed = false;
+
+            this.makeDialog({
+                content: content,
+                title: 'Atenção!',
+                maxWidth: 860,
+                width: 860,
+                close: function () {
+                    if (!confirmed) {
+                        $select.val(previousModule);
+                    }
+                    $j(this).dialog('destroy');
+                },
+                buttons: [{
+                    text: 'Sim',
+                    click: function () {
+                        confirmed = true;
+                        onConfirm();
+                        $j(this).dialog('destroy');
+                    }
+                }, {
+                    text: 'Não',
+                    click: function () {
+                        $select.val(previousModule);
+                        $j(this).dialog('destroy');
+                    }
+                }]
+            });
+        },
+        getTable: function () {
+            if (this.env === 'turma' && typeof tab_add_2 !== 'undefined') {
+                return tab_add_2;
+            }
+
+            return tab_add_1;
+        },
         addRows: function (qtt) {
+            var table = this.getTable();
+
             for (var i = 0; i < qtt; i++) {
-                if (this.env == 'turma') {
-                    tab_add_2.addRow();
-                } else {
-                    tab_add_1.addRow();
-                }
+                table.addRow();
                 this.removeTableCellsAndRows();
             }
         },
         removeRows: function (qtt) {
-            var rows = $j(this.getSelector('stepsRows')).get().reverse(),
-                count = 0;
+            var rows = $j(this.getSelector('stepsRows')).get().reverse();
+            var table = this.getTable();
+            var count = 0;
 
-            rows.each(function (elm) {
-                if (count < qtt) {
-                    tab_add_1.removeRow(elm);
-                    count++;
-                }
-            });
+            for (var i = 0; i < rows.length && count < qtt; i++) {
+                table.removeRow(rows[i]);
+                count++;
+            }
         },
         selectModule: function () {
             var that = this,

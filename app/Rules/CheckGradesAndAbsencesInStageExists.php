@@ -3,6 +3,7 @@
 namespace App\Rules;
 
 use App\Services\iDiarioService;
+use App\Services\SchoolClassStageService;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Support\Facades\DB;
@@ -24,12 +25,11 @@ class CheckGradesAndAbsencesInStageExists implements Rule
         $etapasCountAntigo = $value['schoolClass']->stages()->count();
 
         if ($etapasCount < $etapasCountAntigo) {
-            $etapasTmp = $etapasCount;
-            $etapas = [];
+            $etapas = app(SchoolClassStageService::class)
+                ->getStagesBlockedOnReduction($value['schoolClass'], $etapasCount);
 
-            while ($etapasTmp < $etapasCountAntigo) {
-                $etapasTmp += 1;
-                $etapas[] = $etapasTmp;
+            if ($etapas === []) {
+                return true;
             }
 
             $counts = [];

@@ -40,10 +40,18 @@ class EtapaController extends ApiCoreController
                 $etapas = $this->fetchPreparedQuery($sql, $this->getRequest()->turma_id);
             }
 
+            $etapas = is_array($etapas) ? $etapas : [];
+
             $options = [];
             foreach ($etapas as $etapa) {
                 $options['__' . $etapa['etapa']] = $etapa['etapa'] . 'º ' . mb_strtoupper($etapa['nome'], 'UTF-8');
             }
+
+            $options = $this->appendReleasedStagesToOptions(
+                $options,
+                (int) $this->getRequest()->turma_id,
+                ($etapas[0] ?? [])['nome'] ?? 'Etapa'
+            );
 
             return ['options' => $options];
         }
@@ -68,6 +76,26 @@ class EtapaController extends ApiCoreController
 
             return ['options' => $options];
         }
+    }
+
+    private function appendReleasedStagesToOptions(array $options, int $schoolClassId, string $stageTypeName): array
+    {
+        $releasedStages = app(\App\Services\SchoolClassStageService::class)
+            ->getReleasedStageNumbers($schoolClassId);
+
+        foreach ($releasedStages as $releasedStage) {
+            $key = '__' . $releasedStage;
+
+            if (!isset($options[$key])) {
+                $options[$key] = $releasedStage . 'º ' . mb_strtoupper($stageTypeName, 'UTF-8') . ' (lançamentos)';
+            }
+        }
+
+        uksort($options, static function ($left, $right) {
+            return (int) ltrim((string) $left, '_') <=> (int) ltrim((string) $right, '_');
+        });
+
+        return $options;
     }
 
     public function Gerar()
