@@ -116,6 +116,7 @@ class SchoolClassStageService
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->where('mt.ref_cod_turma', $schoolClassId)
             ->where('m.ativo', 1)
+            ->where('fcc.quantidade', '>', 0)
             ->distinct()
             ->pluck('fcc.etapa');
 
@@ -125,6 +126,7 @@ class SchoolClassStageService
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->where('mt.ref_cod_turma', $schoolClassId)
             ->where('m.ativo', 1)
+            ->where('fg.quantidade', '>', 0)
             ->distinct()
             ->pluck('fg.etapa');
 

@@ -41,6 +41,7 @@ class CheckGradesAndAbsencesInStageExists implements Rule
                 ->whereIn('fcc.etapa', $etapas)
                 ->where('mt.ref_cod_turma', $turmaId)
                 ->where('m.ativo', 1)
+                ->where('fcc.quantidade', '>', 0)
                 ->count();
 
             $counts[] = DB::table('modules.falta_geral as fg')
@@ -50,6 +51,7 @@ class CheckGradesAndAbsencesInStageExists implements Rule
                 ->whereIn('fg.etapa', $etapas)
                 ->where('mt.ref_cod_turma', $turmaId)
                 ->where('m.ativo', 1)
+                ->where('fg.quantidade', '>', 0)
                 ->count();
 
             $counts[] = DB::table('modules.nota_componente_curricular as ncc')
