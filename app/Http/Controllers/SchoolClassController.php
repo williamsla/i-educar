@@ -112,13 +112,13 @@ class SchoolClassController extends Controller
                 turnoId: $request->integer('turma_turno_id')
             );
 
-            if ($datasInicioModulos[0] && $datasFimModulos[0]) {
+            if ($this->hasFilledStageDates($datasInicioModulos, $datasFimModulos)) {
                 $schoolClassStageService->store(
                     $schoolClass,
                     $datasInicioModulos,
                     $datasFimModulos,
-                    $diasLetivos,
-                    $codModulo
+                    $diasLetivos ?? [],
+                    (int) $codModulo
                 );
             }
 
@@ -375,5 +375,11 @@ class SchoolClassController extends Controller
         }
 
         return null;
+    }
+
+    private function hasFilledStageDates(?array $startDates, ?array $endDates): bool
+    {
+        return collect($startDates ?? [])->filter()->isNotEmpty()
+            && collect($endDates ?? [])->filter()->isNotEmpty();
     }
 }

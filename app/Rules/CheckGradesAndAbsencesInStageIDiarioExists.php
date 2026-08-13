@@ -4,6 +4,7 @@ namespace App\Rules;
 
 use App\Models\LegacySchoolClass;
 use App\Services\iDiarioService;
+use App\Services\SchoolClassStageService;
 use Illuminate\Contracts\Validation\Rule;
 
 class CheckGradesAndAbsencesInStageIDiarioExists implements Rule
@@ -23,13 +24,8 @@ class CheckGradesAndAbsencesInStageIDiarioExists implements Rule
         $etapasCountAntigo = $value['schoolClass']->stages()->count();
 
         if ($etapasCount < $etapasCountAntigo) {
-            $etapasTmp = $etapasCount;
-            $etapas = [];
-
-            while ($etapasTmp < $etapasCountAntigo) {
-                $etapasTmp += 1;
-                $etapas[] = $etapasTmp;
-            }
+            $etapas = app(SchoolClassStageService::class)
+                ->getStagesBlockedOnReduction($value['schoolClass'], $etapasCount);
 
             $checkReleases = config('legacy.config.url_novo_educacao')
                 && config('legacy.config.token_novo_educacao');

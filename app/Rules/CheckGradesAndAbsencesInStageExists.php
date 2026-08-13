@@ -3,6 +3,7 @@
 namespace App\Rules;
 
 use App\Services\iDiarioService;
+use App\Services\SchoolClassStageService;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Support\Facades\DB;
@@ -24,12 +25,11 @@ class CheckGradesAndAbsencesInStageExists implements Rule
         $etapasCountAntigo = $value['schoolClass']->stages()->count();
 
         if ($etapasCount < $etapasCountAntigo) {
-            $etapasTmp = $etapasCount;
-            $etapas = [];
+            $etapas = app(SchoolClassStageService::class)
+                ->getStagesBlockedOnReduction($value['schoolClass'], $etapasCount);
 
-            while ($etapasTmp < $etapasCountAntigo) {
-                $etapasTmp += 1;
-                $etapas[] = $etapasTmp;
+            if ($etapas === []) {
+                return true;
             }
 
             $counts = [];
@@ -41,6 +41,7 @@ class CheckGradesAndAbsencesInStageExists implements Rule
                 ->whereIn('fcc.etapa', $etapas)
                 ->where('mt.ref_cod_turma', $turmaId)
                 ->where('m.ativo', 1)
+                ->where('fcc.quantidade', '>', 0)
                 ->count();
 
             $counts[] = DB::table('modules.falta_geral as fg')
@@ -50,6 +51,7 @@ class CheckGradesAndAbsencesInStageExists implements Rule
                 ->whereIn('fg.etapa', $etapas)
                 ->where('mt.ref_cod_turma', $turmaId)
                 ->where('m.ativo', 1)
+                ->where('fg.quantidade', '>', 0)
                 ->count();
 
             $counts[] = DB::table('modules.nota_componente_curricular as ncc')
