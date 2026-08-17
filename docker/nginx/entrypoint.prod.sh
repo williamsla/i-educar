@@ -3,16 +3,16 @@ set -e
 
 cd /var/www/ieducar
 
-# Garante links estaticos esperados pelo front legacy.
+# Links relativos: funcionam no host e no container (bind-mount).
 mkdir -p public/intranet
-ln -sfn /var/www/ieducar/storage/app/public /var/www/ieducar/public/storage
-ln -sfn /var/www/ieducar/ieducar/intranet/fonts /var/www/ieducar/public/intranet/fonts
-ln -sfn /var/www/ieducar/ieducar/intranet/imagens /var/www/ieducar/public/intranet/imagens
-ln -sfn /var/www/ieducar/ieducar/intranet/scripts /var/www/ieducar/public/intranet/scripts
-ln -sfn /var/www/ieducar/ieducar/intranet/static /var/www/ieducar/public/intranet/static
-ln -sfn /var/www/ieducar/ieducar/intranet/styles /var/www/ieducar/public/intranet/styles
-ln -sfn /var/www/ieducar/ieducar/intranet/tmp /var/www/ieducar/public/intranet/tmp
-ln -sfn /var/www/ieducar/ieducar/modules /var/www/ieducar/public/modules
+ln -sfn ../storage/app/public public/storage
+ln -sfn ../ieducar/modules public/modules
+ln -sfn ../../ieducar/intranet/fonts public/intranet/fonts
+ln -sfn ../../ieducar/intranet/imagens public/intranet/imagens
+ln -sfn ../../ieducar/intranet/scripts public/intranet/scripts
+ln -sfn ../../ieducar/intranet/static public/intranet/static
+ln -sfn ../../ieducar/intranet/styles public/intranet/styles
+ln -sfn ../../ieducar/intranet/tmp public/intranet/tmp
 
 : "${SERVER_NAME:=localhost}"
 : "${FPM_UPSTREAM:=fpm}"

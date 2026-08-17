@@ -118,7 +118,7 @@ if [ "${images_changed}" = "true" ]; then
 
   compose exec -T "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
 
-  compose exec -T "${php_service}" php artisan storage:link || true
+  compose exec -T "${php_service}" php artisan storage:link --relative --force || true
   compose exec -T "${php_service}" php artisan migrate --force
 
   # Imagem registry pode nao ter packages/portabilis/... (build sem ENABLE_PACKAGE_REPORTS).

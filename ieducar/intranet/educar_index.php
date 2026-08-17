@@ -7,6 +7,7 @@ use App\Models\LegacyUser;
 use App\Models\LegacyUserSchool;
 use App\Models\LegacySchool;
 use Illuminate\Support\Facades\DB;
+use App\Facades\Asset;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
  
@@ -47,7 +48,7 @@ return new class
         }
 
         return '
-                <link rel="stylesheet" href="styles/educar_index.css">
+                <link rel="stylesheet" href="' . Asset::get('/intranet/styles/educar_index.css') . '">
                 
                 <style>
                     .item-bullet { margin-right: 8px; color: #007bff; }

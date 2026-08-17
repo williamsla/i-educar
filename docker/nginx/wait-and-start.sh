@@ -1,5 +1,19 @@
 #!/bin/sh
 set -e
+
+# Links relativos dos assets legacy (host + container no mesmo bind-mount).
+if [ -d /var/www/ieducar/public ]; then
+    mkdir -p /var/www/ieducar/public/intranet
+    ln -sfn ../storage/app/public /var/www/ieducar/public/storage
+    ln -sfn ../ieducar/modules /var/www/ieducar/public/modules
+    ln -sfn ../../ieducar/intranet/fonts /var/www/ieducar/public/intranet/fonts
+    ln -sfn ../../ieducar/intranet/imagens /var/www/ieducar/public/intranet/imagens
+    ln -sfn ../../ieducar/intranet/scripts /var/www/ieducar/public/intranet/scripts
+    ln -sfn ../../ieducar/intranet/static /var/www/ieducar/public/intranet/static
+    ln -sfn ../../ieducar/intranet/styles /var/www/ieducar/public/intranet/styles
+    ln -sfn ../../ieducar/intranet/tmp /var/www/ieducar/public/intranet/tmp
+fi
+
 # Garante TCP em fpm:9000 antes do Nginx carregar upstream (resolve na inicialização).
 # O FPM pode demorar (ex.: RUN_EXTRA_PACKAGES_INSTALL + composer/git no entrypoint).
 WAIT_FPM_MAX_SEC="${WAIT_FPM_MAX_SEC:-900}"

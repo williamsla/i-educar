@@ -43,6 +43,7 @@
         "league/flysystem-ftp": "^3.0",
         "league/flysystem-sftp-v3": "^3.0",
         "maatwebsite/excel": "^3.1",
+        "merenda/merenda-escolar": "2.11.0",
         "phpoffice/phpspreadsheet": "^1.8",
         "predis/predis": "^2.3",
         "psr/simple-cache": "^3.0",
@@ -116,14 +117,14 @@
             "@composer plug-and-play",
             "@set-permissions",
             "@php artisan key:generate --ansi",
-            "@php artisan storage:link --ansi",
+            "@php artisan storage:link --relative --ansi",
             "@php artisan migrate --force --ansi"
         ],
         "update-install": [
             "@composer update",
             "@composer plug-and-play",
             "@set-permissions",
-            "@php artisan storage:link --ansi",
+            "@php artisan storage:link --relative --ansi",
             "@php artisan migrate --force --ansi"
         ],
         "post-install-cmd": [
