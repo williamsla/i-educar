@@ -156,7 +156,9 @@ function PadraoAnoEscolar(cursos) {
 
   if (document.getElementById('padrao_ano_escolar').value == 0) {
     setModuleAndPhasesVisibility(true);
-    buscaEtapasDaEscola();
+    if (!estaEditandoTurma()) {
+      buscaEtapasDaEscola();
+    }
   }
 }
 

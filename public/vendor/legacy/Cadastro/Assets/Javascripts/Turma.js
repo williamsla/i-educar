@@ -433,7 +433,15 @@ $j('#tipo_mediacao_didatico_pedagogico').on('change', function(){
   }
 }).trigger('change');
 
+function estaEditandoTurma() {
+  return parseInt($j('#cod_turma').val(), 10) > 0;
+}
+
 function buscaEtapasDaEscola() {
+  if (estaEditandoTurma()) {
+    return;
+  }
+
   var urlApi = getResourceUrlBuilder.buildUrl('/module/Api/Escola', 'etapas-da-escola-por-ano', {
     escola_id : $j('#ref_cod_escola').val(),
     ano : new Date().getFullYear()
