@@ -207,7 +207,8 @@ function valida_xml(xml) {
   var campoCurso = document.getElementById('ref_cod_curso').value;
 
   if (document.getElementById('ref_cod_escola').value) {
-    if (!document.getElementById('ref_cod_serie').value) {
+    var turmaMultisseriada = $j('#multiseriada').is(':checked');
+    if (!turmaMultisseriada && !document.getElementById('ref_cod_serie').value) {
       alert('Preencha o campo \'Serie\' corretamente!');
       document.getElementById('ref_cod_serie').focus();
       return false;
@@ -283,7 +284,10 @@ function getEscolaCursoSerie() {
   }
 
   var campoSerie = document.getElementById('ref_cod_serie');
+  var valorAtual = campoSerie.value || $j('#ref_cod_serie_').val() || '';
+  $j('#ref_cod_serie').data('preserve-value', valorAtual);
   campoSerie.length = 1;
+  $j('#ref_cod_serie_').val(valorAtual);
 
   if (campoEscola && campoCurso) {
     campoSerie.disabled = true;
@@ -297,6 +301,7 @@ function getEscolaCursoSerie() {
 
 function atualizaLstEscolaCursoSerie(series) {
   const campoSerie = document.getElementById('ref_cod_serie');
+  const valorPreservado = $j('#ref_cod_serie').data('preserve-value');
   setAttributes(campoSerie,'Selecione uma série',false);
 
   if (series.length) {
@@ -305,6 +310,11 @@ function atualizaLstEscolaCursoSerie(series) {
     });
   } else {
     campoSerie.options[0].text = 'A escola/curso não possui nenhuma série';
+  }
+
+  if (valorPreservado) {
+    $j('#ref_cod_serie').val(String(valorPreservado));
+    $j('#ref_cod_serie_').val(String(valorPreservado));
   }
 }
 

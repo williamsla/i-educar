@@ -42,6 +42,10 @@ $j(function () {
             var that = this;
 
             $j('#btn_enviar').click(function (e) {
+                if (that.env === 'turma' && $j('#multiseriada').is(':checked') && typeof defineSerieCursoPrincipal === 'function') {
+                    defineSerieCursoPrincipal();
+                }
+
                 if (validationUtils.validatesFields(true)) {
                     if (parseInt($j('#padrao_ano_escolar').val(), 10) === 1) {
                         if (typeof window.valida !== "undefined") {

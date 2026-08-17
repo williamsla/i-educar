@@ -52,7 +52,7 @@ function preencheTabelaSeriesDaTurma() {
         dataType : 'json',
         success  : function(response) {
             let linha = 0;
-            $j("[name^=tr_turma_serie]").remove();
+            $j('tr.tr_turma_serie').remove();
 
             $j.each(response.series_turma, function(key, serie_turma) {
                 tab_add_1.addRow();
@@ -77,22 +77,26 @@ function configuraCamposExibidos() {
     if (turmaMultisseriada) {
         $j('#tr_ref_cod_curso').hide();
         $j('#tr_ref_cod_serie').hide();
+        $j('#ref_cod_curso').makeUnrequired();
+        $j('#ref_cod_serie').makeUnrequired();
         $j('#tr_tipo_boletim').hide();
         $j('#tipo_boletim').makeUnrequired();
         $j('#tr_tipo_boletim_diferenciado').hide();
         $j('#tr_turma_serie').show();
-        if ($j("[name^=tr_turma_serie]").length == 0) {
+        if ($j('tr.tr_turma_serie').length == 0) {
             tab_add_1.addRow();
             atualizaOpcoesDeCurso();
         }
     } else {
         $j('#tr_ref_cod_curso').show();
         $j('#tr_ref_cod_serie').show();
+        $j('#ref_cod_curso').makeRequired();
+        $j('#ref_cod_serie').makeRequired();
         $j('#tr_tipo_boletim').show();
         $j('#tipo_boletim').makeRequired();
         $j('#tr_tipo_boletim_diferenciado').show();
         $j('#tr_turma_serie').hide();
-        $j("[name^=tr_turma_serie]").remove();
+        $j('tr.tr_turma_serie').remove();
         $j('#tr_disciplinas_ td:first').html('Componentes curriculares definidos em séries da escola');
     }
 }
@@ -177,6 +181,7 @@ function atualizaOpcoesDeSerie(input, value) {
 
             if (value > 0) {
                 $j('select[id="mult_serie_id['+ linha +']"]').val(value);
+                defineSerieCursoPrincipal();
             }
         }
     };
@@ -238,16 +243,15 @@ function defineSerieCursoPrincipal() {
         }
     });
 
-    $j('#ref_cod_curso').val(cursoPrincipal);
-    $j('#ref_cod_curso_').val(cursoPrincipal);
+    if (cursoPrincipal) {
+        $j('#ref_cod_curso').val(cursoPrincipal);
+        $j('#ref_cod_curso_').val(cursoPrincipal);
+    }
 
-    $j.ajax({
-        url:getEscolaCursoSerie(),
-        success:function(){
-            $j('#ref_cod_serie').val(seriePrincipal);
-            $j('#ref_cod_serie_').val(seriePrincipal);
-        }
-    })
+    if (seriePrincipal) {
+        $j('#ref_cod_serie').val(seriePrincipal);
+        $j('#ref_cod_serie_').val(seriePrincipal);
+    }
 }
 
 function adicionaEventoClickAoRemoverLinha(idLinkRemove) {
