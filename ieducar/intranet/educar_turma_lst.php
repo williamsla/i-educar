@@ -74,6 +74,8 @@ return new class extends clsListagem
             'Série',
             'Curso',
             'Escola',
+            'Alunos matriculados',
+            'Início e fim das etapas',
             'Situação',
         ];
 
@@ -165,15 +167,39 @@ return new class extends clsListagem
                 'school' => fn ($q) => $q->select('cod_escola', 'ref_idpes')->with([
                     'person',
                     'organization:idpes,fantasia',
+                    'stages' => fn ($q) => $q->orderBy('sequencial')->when(
+                        $this->ano,
+                        fn ($q) => $q->where('ref_ano', $this->ano)
+                    ),
                 ]),
-                'course:cod_curso,nm_curso',
+                'course:cod_curso,nm_curso,padrao_ano_escolar',
                 'grades' => fn ($q) => $q->select('cod_serie', 'nm_serie', 'ref_cod_curso')->with('course:cod_curso,nm_curso')->orderBy('nm_serie'),
                 'grade:cod_serie,nm_serie',
                 'period:id,nome',
+                'schoolClassStages' => fn ($q) => $q->orderBy('sequencial'),
+            ])
+            ->select(columns: [
+                'cod_turma',
+                'ano',
+                'nm_turma',
+                'ref_ref_cod_escola',
+                'turma_turno_id',
+                'ref_ref_cod_serie',
+                'ref_cod_curso',
+                'visivel',
+                'multiseriada',
+            ])
+            ->withCount(relations: [
+                'enrollments as alunos_matriculados' => function ($query) {
+                    $query->where('ativo', 1)
+                        ->whereHas('registration', function ($query) {
+                            $query->where('dependencia', false);
+                        });
+                },
             ])
             ->active()
             ->orderBy(column: 'nm_turma')
-            ->paginate(perPage: $this->limite, columns: ['cod_turma', 'ano', 'nm_turma', 'ref_ref_cod_escola', 'turma_turno_id', 'ref_ref_cod_serie', 'ref_cod_curso', 'visivel', 'multiseriada'], pageName: 'pagina_' . $this->nome);
+            ->paginate(perPage: $this->limite, pageName: 'pagina_' . $this->nome);
 
         // monta a lista
         if ($lista->isNotEmpty()) {
@@ -207,6 +233,9 @@ return new class extends clsListagem
                     $lista_busca[] = "<a href=\"educar_turma_det.php?cod_turma={$registro->id}\">-</a>";
                 }
 
+                $lista_busca[] = "<a href=\"educar_turma_det.php?cod_turma={$registro->id}\">{$registro->alunos_matriculados}</a>";
+                $lista_busca[] = "<a href=\"educar_turma_det.php?cod_turma={$registro->id}\">{$this->formatarDatasEtapas($registro)}</a>";
+
                 if ($registro->visible) {
                     $lista_busca[] = "<a href=\"educar_turma_det.php?cod_turma={$registro->id}\">Ativo</a>";
                 } else {
@@ -227,6 +256,24 @@ return new class extends clsListagem
         $this->breadcrumb(currentPage: 'Listagem de turmas', breadcrumbs: [
             url(path: 'intranet/educar_index.php') => 'Escola',
         ]);
+    }
+
+    private function formatarDatasEtapas(LegacySchoolClass $turma): string
+    {
+        $etapas = (!$turma->course?->is_standard_calendar && $turma->schoolClassStages->isNotEmpty())
+            ? $turma->schoolClassStages
+            : collect($turma->school?->stages)->where('ref_ano', $turma->ano);
+
+        if ($etapas->isEmpty()) {
+            return '-';
+        }
+
+        return $etapas->map(function ($etapa) {
+            $inicio = $etapa->data_inicio?->format('d/m/Y') ?? '-';
+            $fim = $etapa->data_fim?->format('d/m/Y') ?? '-';
+
+            return "{$inicio} a {$fim}";
+        })->implode('<br>');
     }
 
     public function makeExtra()
