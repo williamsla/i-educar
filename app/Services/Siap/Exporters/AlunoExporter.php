@@ -2,6 +2,7 @@
 
 namespace App\Services\Siap\Exporters;
 
+use App\Services\Siap\SiapAddressHelper;
 use App\Services\Siap\SiapCodeMappers;
 use Illuminate\Support\Facades\DB;
 
@@ -66,7 +67,7 @@ class AlunoExporter extends AbstractSiapExporter
             ->pluck('ref_idpes')
             ->flip();
 
-        $ceps = $this->carregarCeps($alunos->pluck('idpes')->unique()->filter()->all());
+        $ceps = SiapAddressHelper::carregarCeps($alunos->pluck('idpes')->unique()->filter()->all());
 
         foreach ($alunos as $aluno) {
             $identificacao = $aluno->aluno_inep ?: (string) $aluno->cod_aluno;
@@ -98,38 +99,5 @@ class AlunoExporter extends AbstractSiapExporter
         }
 
         return $builder->toFormattedXml();
-    }
-
-    private function carregarCeps(array $idpesList): array
-    {
-        if (empty($idpesList)) {
-            return [];
-        }
-
-        $resultado = [];
-
-        $places = DB::table('cadastro.pessoa_has_place as php')
-            ->join('addresses.places as pl', 'pl.id', '=', 'php.place_id')
-            ->whereIn('php.person_id', $idpesList)
-            ->select('php.person_id', 'pl.postal_code')
-            ->get();
-
-        foreach ($places as $row) {
-            $resultado[$row->person_id] = $row->postal_code;
-        }
-
-        $faltantes = array_diff($idpesList, array_keys($resultado));
-        if (!empty($faltantes)) {
-            $legado = DB::table('cadastro.endereco_pessoa')
-                ->whereIn('idpes', $faltantes)
-                ->select('idpes', 'cep')
-                ->get();
-
-            foreach ($legado as $row) {
-                $resultado[$row->idpes] = $row->cep;
-            }
-        }
-
-        return $resultado;
     }
 }

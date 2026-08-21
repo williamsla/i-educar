@@ -2,6 +2,7 @@
 
 namespace App\Services\Siap\Exporters;
 
+use App\Services\Siap\SiapAddressHelper;
 use App\Services\Siap\SiapCodeMappers;
 use Illuminate\Support\Facades\DB;
 
@@ -45,7 +46,7 @@ class ProfissionalEducacaoExporter extends AbstractSiapExporter
             ->distinct()
             ->get();
 
-        $ceps = $this->carregarCeps($profissionais->pluck('idpes')->unique()->filter()->all());
+        $ceps = SiapAddressHelper::carregarCeps($profissionais->pluck('idpes')->unique()->filter()->all());
         $jaExportados = [];
 
         foreach ($profissionais as $prof) {
@@ -72,25 +73,5 @@ class ProfissionalEducacaoExporter extends AbstractSiapExporter
         }
 
         return $builder->toFormattedXml();
-    }
-
-    private function carregarCeps(array $idpesList): array
-    {
-        if (empty($idpesList)) {
-            return [];
-        }
-
-        $resultado = [];
-        $places = DB::table('cadastro.pessoa_has_place as php')
-            ->join('addresses.places as pl', 'pl.id', '=', 'php.place_id')
-            ->whereIn('php.person_id', $idpesList)
-            ->select('php.person_id', 'pl.postal_code')
-            ->get();
-
-        foreach ($places as $row) {
-            $resultado[$row->person_id] = $row->postal_code;
-        }
-
-        return $resultado;
     }
 }
