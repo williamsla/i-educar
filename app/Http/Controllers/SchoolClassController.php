@@ -77,12 +77,16 @@ class SchoolClassController extends Controller
 
                 $schoolClassGrades = [];
                 foreach ($multSerieId as $key => $serieId) {
+                    if (empty($serieId)) {
+                        continue;
+                    }
+
                     $schoolClassGrades[] = [
                         'escola_id' => $codEscola,
                         'serie_id' => $serieId,
                         'turma_id' => $codTurma,
-                        'boletim_id' => $multBoletimId[$key],
-                        'boletim_diferenciado_id' => $multBoletimDiferenciadoId[$key],
+                        'boletim_id' => $multBoletimId[$key] ?? null,
+                        'boletim_diferenciado_id' => $multBoletimDiferenciadoId[$key] ?? null,
                     ];
                 }
                 $multiGradesService = new MultiGradesService;

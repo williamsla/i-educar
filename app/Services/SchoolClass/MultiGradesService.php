@@ -66,7 +66,12 @@ class MultiGradesService
 
     public function storeSchoolClassGrade(LegacySchoolClass $schoolClass, $schoolClassGrades)
     {
-        $this->validate($schoolClass, $schoolClassGrades);
+        $schoolClassGrades = $this->filterFilledGrades($schoolClassGrades);
+
+        if ($this->gradesHaveChanged($schoolClass, $schoolClassGrades)) {
+            $this->validate($schoolClass, $schoolClassGrades);
+        }
+
         $this->deleteGradesOfSchoolClass($schoolClass, $schoolClassGrades);
         $this->saveSchoolClassGrade($schoolClass, $schoolClassGrades);
     }
@@ -126,5 +131,33 @@ class MultiGradesService
             ->toArray();
 
         return array_diff($oldGrades, $newGrades);
+    }
+
+    private function filterFilledGrades(array $schoolClassGrades): array
+    {
+        return array_values(array_filter(
+            $schoolClassGrades,
+            fn ($grade) => !empty($grade['serie_id'])
+        ));
+    }
+
+    private function gradesHaveChanged(LegacySchoolClass $schoolClass, array $schoolClassGrades): bool
+    {
+        $newGrades = collect($schoolClassGrades)
+            ->pluck('serie_id')
+            ->map(fn ($id) => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
+        $oldGrades = LegacySchoolClassGrade::query()
+            ->where('turma_id', $schoolClass->getKey())
+            ->pluck('serie_id')
+            ->map(fn ($id) => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
+        return $newGrades !== $oldGrades;
     }
 }
