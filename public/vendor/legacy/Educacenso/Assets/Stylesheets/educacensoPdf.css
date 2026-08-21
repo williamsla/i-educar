@@ -57,3 +57,40 @@ ul p {
 .avisos-educacenso {
     color: #449023;
 }
+
+.export-anyway-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 10px 0 24px;
+    padding: 16px 20px;
+    background-color: #fff8e6;
+    border: 1px solid #e0c36a;
+    font-family: 'Open Sans', 'Tahoma';
+}
+
+.export-anyway-bar p {
+    margin: 0;
+    font-size: 14px;
+    color: #6b5300;
+}
+
+.export-anyway-bar button {
+    background: #188ad1;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-family: 'Open Sans', 'Tahoma';
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.export-anyway-bar button:disabled {
+    background: #8aabb8;
+    cursor: wait;
+}

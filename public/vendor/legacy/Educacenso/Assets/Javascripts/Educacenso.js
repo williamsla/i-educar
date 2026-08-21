@@ -54,16 +54,23 @@ $j(document).ready(function(){
 
 
     var headerPaginaResposta = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+'Análise exportação'+'</title>'+
-            '<link rel="stylesheet" href="../vendor/legacy/Educacenso/Assets/Stylesheets/educacensoPdf.css?v=5"></head><body>'+
+            '<link rel="stylesheet" href="../vendor/legacy/Educacenso/Assets/Stylesheets/educacensoPdf.css?v=6"></head><body>'+
             '<link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">'+
             `<p class="date-info">Data da geração: ${currentDateString()}</p>`+
 						'<div id="content">'+
 						'  <h1 class="title">'+"Análise de exportação"+'</h1>'+
 						'</div>'+
+						'<div id="export-anyway-placeholder"></div>'+
 						'<div id="editor"></div>';
 
     var paginaResposta = "";
     var falhaAnalise;
+    var exportContext = {
+      escola: null,
+      ano: null,
+      enableExport: false,
+      exportUrl: null
+    };
 
     $j("body").append(modalLoad);
     $j("body").append(modalExport);
@@ -76,6 +83,14 @@ $j(document).ready(function(){
     		alert("Preencha os dados obrigat\u00f3rios antes de continuar.");
     		return;
     	}
+
+      exportContext.escola = escola;
+      exportContext.ano = $j("#ano").val();
+      exportContext.enableExport = $j('#enable_export').val() == '1';
+      exportContext.exportUrl = getResourceUrlBuilder.buildUrl('/module/Api/EducacensoExport', 'educacenso-export', {
+        escola: exportContext.escola,
+        ano: exportContext.ano
+      });
 
       resetParameters();
 
@@ -139,14 +154,69 @@ $j(document).ready(function(){
       $j("#modal_mensagem_disabled").css("display", "none");
     }
 
-    var finishAnalysis = function() {
-      paginaResposta += '</body></html>';
+    var getExportAnywayBarHtml = function() {
+      var payload = JSON.stringify({
+        url: exportContext.exportUrl,
+        escola: String(exportContext.escola)
+      });
 
-      var specialElementHandlers = {
-          '#editor': function (element, renderer) {
-              return true;
-          }
-      };
+      return '<div class="export-anyway-bar">' +
+        '<p>Foram encontradas pendências na análise. Você pode gerar o arquivo mesmo assim, mas ele pode ser rejeitado pelo Educacenso.</p>' +
+        '<button type="button" id="btn-exportar-pendencias" onclick="exportarEducacensoComPendencias(this)">Exportar mesmo com pendências</button>' +
+      '</div>' +
+      '<script>(function(){' +
+        'var ctx = ' + payload + ';' +
+        'window.exportarEducacensoComPendencias = function(btn) {' +
+          'if (!confirm("O arquivo será gerado mesmo com pendências e pode ser rejeitado pelo Educacenso. Deseja continuar?")) { return; }' +
+          'btn.disabled = true;' +
+          'btn.textContent = "Exportando...";' +
+          'fetch(ctx.url, { credentials: "same-origin" })' +
+            '.then(function(response) { return response.json(); })' +
+            '.then(function(response) {' +
+              'if (response.error) { throw new Error(response.mensagem || "erro"); }' +
+              'var form = document.createElement("form");' +
+              'form.method = "POST";' +
+              'form.action = "educar_exportacao_educacenso.php";' +
+              'var campoExportacao = document.createElement("input");' +
+              'campoExportacao.type = "hidden";' +
+              'campoExportacao.name = "exportacao";' +
+              'campoExportacao.value = response.conteudo;' +
+              'var campoEscola = document.createElement("input");' +
+              'campoEscola.type = "hidden";' +
+              'campoEscola.name = "escola";' +
+              'campoEscola.value = ctx.escola;' +
+              'form.appendChild(campoExportacao);' +
+              'form.appendChild(campoEscola);' +
+              'document.body.appendChild(form);' +
+              'form.submit();' +
+              'btn.disabled = false;' +
+              'btn.textContent = "Exportar mesmo com pendências";' +
+            '})' +
+            '.catch(function() {' +
+              'alert("Ocorreu um erro ao realizar a exportação.");' +
+              'btn.disabled = false;' +
+              'btn.textContent = "Exportar mesmo com pendências";' +
+            '});' +
+        '};' +
+      '})();<\/script>';
+    };
+
+    var finishAnalysis = function() {
+      if (falhaAnalise) {
+        if (exportContext.enableExport) {
+          paginaResposta = paginaResposta.replace(
+            '<div id="export-anyway-placeholder"></div>',
+            getExportAnywayBarHtml()
+          );
+        }
+
+        paginaResposta += '</body></html>';
+        document.write(paginaResposta);
+        document.close();
+        return;
+      }
+
+      paginaResposta += '</body></html>';
 
       $j("#modal_export").modal({
         escapeClose: true,
@@ -154,11 +224,7 @@ $j(document).ready(function(){
         showClose: true
       });
 
-      if (falhaAnalise) {
-        document.write(paginaResposta);
-      } else {
-        educacensoExport();
-      }
+      educacensoExport();
     }
 
     var montaHtmlRegistro = function(response) {
@@ -200,7 +266,7 @@ $j(document).ready(function(){
     };
 
     var educacensoExport = function(){
-        var urlForEducacensoExport = getResourceUrlBuilder.buildUrl('/module/Api/EducacensoExport', 'educacenso-export', {
+        var urlForEducacensoExport = exportContext.exportUrl || getResourceUrlBuilder.buildUrl('/module/Api/EducacensoExport', 'educacenso-export', {
           escola   : $j("#ref_cod_escola").val(),
           ano      : $j("#ano").val()
         });
@@ -223,7 +289,7 @@ $j(document).ready(function(){
       //Realiza alterações na modal para mostrar resultado de sucesso
       $j("#modal_gif_load").css("display", "none");
 
-      if($j('#enable_export').val() == '1') {
+      if(exportContext.enableExport || $j('#enable_export').val() == '1') {
         $j("#modal_mensagem_exportacao").css("display", "none");
         $j("#modal_mensagem_sucesso").css("display", "block");
         $j("#modal_mensagem_desabilitado").css("display", "none");
@@ -257,7 +323,7 @@ $j(document).ready(function(){
       var escola = document.createElement("input");
       escola.setAttribute("type", "hidden");
       escola.setAttribute("name", "escola");
-      escola.setAttribute("value",  $j("#ref_cod_escola").val());
+      escola.setAttribute("value", exportContext.escola || $j("#ref_cod_escola").val());
       form.appendChild(escola);
 
       document.body.appendChild(form);
