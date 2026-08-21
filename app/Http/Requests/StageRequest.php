@@ -19,7 +19,7 @@ class StageRequest extends FormRequest
 
     public function rules()
     {
-        $year = $this->get('ano');
+        $year = (int) $this->get('ano');
 
         return [
             'ref_cod_instituicao' => ['required', 'integer'],
@@ -31,8 +31,8 @@ class StageRequest extends FormRequest
                 'nullable',
                 'date_format:d/m/Y',
                 function ($attribute, $value, $fail) use ($year) {
-                    if ($value && Carbon::createFromFormat('d/m/Y', $value)->year != $year) {
-                        $fail("O ano da data de início deve ser {$year}.");
+                    if ($this->dateYearIsNotAllowed($value, [$year - 1, $year, $year + 1])) {
+                        $fail("O ano da data de início deve ser {$year} ou um ano adjacente.");
                     }
                 },
             ],
@@ -41,13 +41,24 @@ class StageRequest extends FormRequest
                 'date_format:d/m/Y',
                 'after_or_equal:etapas.*.data_inicio',
                 function ($attribute, $value, $fail) use ($year) {
-                    if ($value && Carbon::createFromFormat('d/m/Y', $value)->year != $year) {
-                        $fail("O ano da data de término deve ser {$year}.");
+                    if ($this->dateYearIsNotAllowed($value, [$year, $year + 1])) {
+                        $fail("O ano da data de término deve ser {$year} ou " . ($year + 1) . '.');
                     }
                 },
             ],
             'etapas.*.dias_letivos' => ['nullable', 'integer', 'min:1', 'max:366'],
         ];
+    }
+
+    private function dateYearIsNotAllowed($value, array $allowedYears): bool
+    {
+        if (empty($value) || !is_string($value)) {
+            return false;
+        }
+
+        $dateYear = Carbon::createFromFormat('d/m/Y', $value)->year;
+
+        return !in_array($dateYear, $allowedYears, true);
     }
 
     public function attributes()
