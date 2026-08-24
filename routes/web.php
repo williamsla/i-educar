@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\EnrollmentInepController;
 use App\Http\Controllers\EnrollmentsPromotionController;
+use App\Http\Controllers\ExportacaoXmlController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\SchoolClassController;
 use App\Http\Controllers\SocialiteCallbackController;
@@ -13,7 +14,6 @@ use App\Http\Middleware\AnnouncementMiddleware;
 use App\Process;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ExportacaoXmlController;
 
 Auth::routes(['register' => false]);
 
@@ -136,6 +136,13 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
     Route::get('/exportacao-para-o-seb', 'SebExportController@index')->name('seb-export.index');
     Route::post('/exportacao-para-o-seb', 'SebExportController@export')->name('seb-export.export');
 
+    Route::get('/exportacao-sgp', 'SgpExportController@index')
+        ->middleware('can:view:' . Process::SGP_EXPORT)
+        ->name('sgp-export.index');
+    Route::post('/exportacao-sgp', 'SgpExportController@export')
+        ->middleware('can:modify:' . Process::SGP_EXPORT)
+        ->name('sgp-export.export');
+
     Route::get('/abre-url-privada', 'OpenPrivateUrlController@open')->name('open_private_url.open');
 
     Route::get('/notificacoes', 'NotificationController@index')->name('notifications.index');
@@ -220,7 +227,7 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
 Route::get('/auth/redirect', SocialiteRedirectController::class)->name('socialite.redirect');
 Route::get('/auth/callback', SocialiteCallbackController::class)->name('socialite.callback');
 
-//TODO: Remover. Funciona apenas em Delmiro Gouveia
+// TODO: Remover. Funciona apenas em Delmiro Gouveia
 Route::get('/pre-matricula', function () {
     return redirect('/pre-matricula-digital');
 });
