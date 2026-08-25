@@ -48,6 +48,10 @@ class Process
 
     public const SGP_EXPORT = 1028;
 
+    public const SAGRES_EXPORT = 1029;
+
+    public const SIAP_EXPORT = 1030;
+
     public const UNDO_STUDENT_UNIFICATION = 2001;
 
     public const EXEMPTION_LIST = 2002;

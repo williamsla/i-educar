@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 // namespace App\Http\Controllers\Api;
 
 use App_Model_MatriculaSituacao;
+use App\Process;
 use App\Services\Siap\SiapExportService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,9 +29,32 @@ class ExportacaoXmlController extends Controller
 
     private $alerts = [];
 
-    public function index()
+    public function index(Request $request)
     {
-        return view('exportar-xml');
+        $modelo = $request->route('modelo') ?: $request->input('modelo');
+        $modelo = in_array($modelo, ['sagres', 'siap'], true) ? $modelo : null;
+
+        $titulo = match ($modelo) {
+            'sagres' => 'SAGRES',
+            'siap' => 'SIAP',
+            default => 'Exportar Remessa para TCE',
+        };
+
+        $process = match ($modelo) {
+            'sagres' => Process::SAGRES_EXPORT,
+            'siap' => Process::SIAP_EXPORT,
+            default => Process::TCE_EXPORT,
+        };
+
+        $this->breadcrumb($titulo, [
+            url('intranet/educar_index.php') => 'Escola',
+        ]);
+        $this->menu($process);
+
+        return view('exportar-xml', [
+            'modelo' => $modelo,
+            'titulo' => $titulo,
+        ]);
     }
 
     
@@ -42,21 +66,15 @@ class ExportacaoXmlController extends Controller
 
         $this->alerts = [];
 
-        if (!in_array($modelo, ['sagres', 'siap']) || !$ano || !$mes) {
+        if (!in_array($modelo, ['sagres', 'siap'], true) || !$ano || !$mes) {
             return back()->withErrors('Preencha todos os campos corretamente.');
         }
 
         if ($modelo === 'sagres') {
-            $result = $this->exportarModeloSAGRES($ano, $mes);
-        } else {
-            $result = $this->exportarModeloSIAP($ano, $mes);
+            return $this->exportarModeloSAGRES($ano, $mes);
         }
 
-        // if (!empty($this->alerts)) {
-        //     $this->showAlert(implode('\n', $this->alerts));            
-        // }
-
-        return $result;
+        return $this->exportarModeloSIAP($ano, $mes);
     }
 
     private function exportarModeloSAGRES($ano, $mes)

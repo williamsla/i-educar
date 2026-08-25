@@ -218,6 +218,15 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
     Route::post('/enrollments-promotion', [EnrollmentsPromotionController::class, 'processEnrollmentsPromotionJobs'])
         ->name('enrollments.promotion');
 
+    Route::get('/exportacao-sagres', [ExportacaoXmlController::class, 'index'])
+        ->defaults('modelo', 'sagres')
+        ->middleware('can:view:' . Process::SAGRES_EXPORT)
+        ->name('sagres-export.index');
+    Route::get('/exportacao-siap', [ExportacaoXmlController::class, 'index'])
+        ->defaults('modelo', 'siap')
+        ->middleware('can:view:' . Process::SIAP_EXPORT)
+        ->name('siap-export.index');
+
     Route::get('/exportar-xml-view', [ExportacaoXmlController::class, 'index']);
     Route::get('/exportar-xml', [ExportacaoXmlController::class, 'exportar']);
 
