@@ -74,7 +74,8 @@ class AlunoExporter extends AbstractSiapExporter
             $cpf = SiapCodeMappers::cpf($aluno->cpf);
 
             if ($cpf === '') {
-                $this->alert("Aluno {$identificacao} sem CPF.");
+                $this->alert("Aluno {$identificacao} omitido: CPF ausente ou inválido (SIAP exige 11 dígitos).");
+                continue;
             }
 
             $temDeficiencia = isset($deficiencias[$aluno->idpes]);

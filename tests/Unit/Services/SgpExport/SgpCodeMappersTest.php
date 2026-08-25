@@ -52,6 +52,13 @@ class SgpCodeMappersTest extends TestCase
         $this->assertSame('3', SgpCodeMappers::areaConhecimento(5));
         $this->assertSame('4', SgpCodeMappers::areaConhecimento(12));
         $this->assertSame('99', SgpCodeMappers::areaConhecimento(99));
+        $this->assertSame('6', SgpCodeMappers::componenteCurricular(6));
+        $this->assertSame('99', SgpCodeMappers::componenteCurricular(0));
+        $this->assertSame('99', SgpCodeMappers::componenteCurricular(15));
+        $this->assertSame('Linguagens', SgpCodeMappers::nomeAreaConhecimento('1'));
+        $this->assertSame('Linguagens e Códigos', SgpCodeMappers::nomeAreaConhecimento('1', 'Linguagens e Códigos'));
+        $this->assertSame('Língua/Literatura Portuguesa', SgpCodeMappers::nomeComponenteCurricular('6'));
+        $this->assertSame('Português', SgpCodeMappers::nomeComponenteCurricular('6', 'Português'));
         $this->assertSame('1', SgpCodeMappers::sistemaAvaliacao(1));
         $this->assertSame('2', SgpCodeMappers::sistemaAvaliacao(2));
         $this->assertSame('10', SgpCodeMappers::sistemaAvaliacao(3));

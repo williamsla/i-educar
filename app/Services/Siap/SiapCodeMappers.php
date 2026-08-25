@@ -116,7 +116,20 @@ class SiapCodeMappers
 
     public static function cpf(?string $cpf): string
     {
-        return substr(self::apenasDigitos($cpf), 0, 11);
+        $digits = self::apenasDigitos($cpf);
+        // Vazio, só zeros ou inválido → não exportar
+        if ($digits === '' || preg_match('/^0+$/', $digits)) {
+            return '';
+        }
+
+        // CPF no banco costuma perder zeros à esquerda (armazenado como numérico).
+        // SIAP exige exatamente 11 dígitos.
+        return str_pad(substr($digits, -11), 11, '0', STR_PAD_LEFT);
+    }
+
+    public static function cpfValido(?string $cpf): bool
+    {
+        return strlen(self::cpf($cpf)) === 11;
     }
 
     public static function cep(?string $cep): string

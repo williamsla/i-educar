@@ -26,6 +26,51 @@ class SgpCodeMappers
         12 => 4, 13 => 4, 14 => 4, 28 => 4, 29 => 4,
     ];
 
+    private const NOMES_AREA = [
+        1 => 'Linguagens',
+        2 => 'Matemática',
+        3 => 'Ciências da Natureza',
+        4 => 'Ciências Humanas e Sociais',
+        99 => 'Outras Áreas',
+    ];
+
+    /**
+     * Códigos de componente previstos no domínio do SGP.
+     */
+    private const COMPONENTES_SGP = [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+    ];
+
+    private const NOMES_COMPONENTE = [
+        1 => 'Química',
+        2 => 'Física',
+        3 => 'Matemática',
+        4 => 'Biologia',
+        5 => 'Ciências',
+        6 => 'Língua/Literatura Portuguesa',
+        7 => 'Língua/Literatura Estrangeira - Inglês',
+        8 => 'Língua/Literatura Estrangeira - Espanhol',
+        9 => 'Língua/Literatura Estrangeira - outra',
+        10 => 'Arte (Educação Artística, Teatro, Dança, Música, Artes Plásticas e outras)',
+        11 => 'Educação Física',
+        12 => 'História',
+        13 => 'Geografia',
+        14 => 'Filosofia',
+        16 => 'Informática/Computação',
+        17 => 'Áreas do conhecimento profissionalizantes',
+        23 => 'Libras',
+        25 => 'Áreas do conhecimento pedagógicas',
+        26 => 'Ensino religioso',
+        27 => 'Língua Indígena',
+        28 => 'Estudos Sociais',
+        29 => 'Sociologia',
+        30 => 'Língua/Literatura Estrangeira - Francês',
+        31 => 'Língua Portuguesa como Segunda Língua',
+        32 => 'Estágio curricular supervisionado',
+        33 => 'Projeto de vida',
+        99 => 'Outros componentes curriculares',
+    ];
+
     public static function apenasDigitos(?string $valor): string
     {
         return preg_replace('/\D/', '', (string) $valor) ?? '';
@@ -196,7 +241,29 @@ class SgpCodeMappers
     {
         $codigo = (int) $codigoEducacenso;
 
-        return $codigo > 0 ? (string) $codigo : '99';
+        return in_array($codigo, self::COMPONENTES_SGP, true) ? (string) $codigo : '99';
+    }
+
+    public static function nomeAreaConhecimento(string $codigo, ?string $nomeInstituicao = null): string
+    {
+        $nome = trim((string) $nomeInstituicao);
+
+        if ($nome !== '') {
+            return mb_substr($nome, 0, 255);
+        }
+
+        return self::NOMES_AREA[(int) $codigo] ?? '';
+    }
+
+    public static function nomeComponenteCurricular(string $codigo, ?string $nomeInstituicao = null): string
+    {
+        $nome = trim((string) $nomeInstituicao);
+
+        if ($nome !== '') {
+            return mb_substr($nome, 0, 255);
+        }
+
+        return self::NOMES_COMPONENTE[(int) $codigo] ?? '';
     }
 
     /**

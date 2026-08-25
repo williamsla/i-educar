@@ -57,13 +57,14 @@ class ComponenteCurricularExporter extends AbstractSgpExporter
         foreach ($componentes as $componente) {
             $codigo = (int) $componente->codigo_educacenso;
             $area = SgpCodeMappers::areaConhecimento($codigo);
+            $componenteCodigo = SgpCodeMappers::componenteCurricular($codigo);
             $carga = $cargas[$componente->id] ?? null;
 
             $linhas[] = [
                 $area,
-                $area === '99' ? (string) ($componente->area_nome ?? '') : '',
-                SgpCodeMappers::componenteCurricular($codigo),
-                $codigo === 99 ? (string) $componente->nome : '',
+                SgpCodeMappers::nomeAreaConhecimento($area, $componente->area_nome),
+                $componenteCodigo,
+                SgpCodeMappers::nomeComponenteCurricular($componenteCodigo, $componente->nome),
                 (string) (int) ($carga?->carga_horaria ?? 0),
                 SgpCodeMappers::sistemaAvaliacao($carga?->tipo_nota !== null ? (int) $carga->tipo_nota : null),
             ];

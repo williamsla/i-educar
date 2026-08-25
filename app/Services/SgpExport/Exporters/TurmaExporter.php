@@ -3,6 +3,7 @@
 namespace App\Services\SgpExport\Exporters;
 
 use App\Services\SgpExport\SgpCodeMappers;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class TurmaExporter extends AbstractSgpExporter
@@ -61,13 +62,14 @@ class TurmaExporter extends AbstractSgpExporter
             't.etapa_educacenso',
             't.max_aluno',
             't.tipo_mediacao_didatico_pedagogico',
+            't.ref_ref_cod_escola',
             'c.modalidade_curso',
             'inep.cod_escola_inep as inep',
             DB::raw('COALESCE(p.nome, j.fantasia, e.sigla) as nome_escola')
         );
 
         $turmas = $query->orderBy('t.nm_turma')->get();
-        $periodos = $this->periodos($turmas->pluck('cod_turma')->all());
+        $periodos = $this->periodos($turmas);
 
         $linhas = [];
 
@@ -102,33 +104,75 @@ class TurmaExporter extends AbstractSgpExporter
     }
 
     /**
-     * @param  array<int>  $turmasIds
+     * @param  Collection<int, object>  $turmas
      * @return array<int, array{inicio: string, fim: string, quantidade: string}>
      */
-    private function periodos(array $turmasIds): array
+    private function periodos($turmas): array
     {
-        if ($turmasIds === []) {
+        if ($turmas->isEmpty()) {
             return [];
         }
 
-        $modulos = DB::table('pmieducar.turma_modulo')
-            ->whereIn('ref_cod_turma', $turmasIds)
+        $modulosTurma = DB::table('pmieducar.turma_modulo')
+            ->whereIn('ref_cod_turma', $turmas->pluck('cod_turma'))
             ->select('ref_cod_turma', DB::raw('MIN(data_inicio) as inicio'), DB::raw('MAX(data_fim) as fim'), DB::raw('COUNT(*) as quantidade'))
             ->groupBy('ref_cod_turma')
             ->get()
             ->keyBy('ref_cod_turma');
 
+        $calendariosEscola = $this->calendariosDaEscola(
+            $turmas->pluck('ref_ref_cod_escola')->unique()->filter()->all()
+        );
+
         $resultado = [];
 
-        foreach ($turmasIds as $turmaId) {
-            $modulo = $modulos[$turmaId] ?? null;
-            $resultado[(int) $turmaId] = [
-                'inicio' => SgpCodeMappers::data($modulo->inicio ?? null),
-                'fim' => SgpCodeMappers::data($modulo->fim ?? null),
-                'quantidade' => $modulo ? (string) $modulo->quantidade : '',
+        foreach ($turmas as $turma) {
+            $modulo = $modulosTurma[$turma->cod_turma] ?? null;
+            $calendario = $calendariosEscola[(int) $turma->ref_ref_cod_escola] ?? null;
+            $usarCalendarioEscola = empty($modulo?->inicio) || empty($modulo?->fim);
+
+            $inicio = $usarCalendarioEscola ? ($calendario['inicio'] ?? null) : $modulo->inicio;
+            $fim = $usarCalendarioEscola ? ($calendario['fim'] ?? null) : $modulo->fim;
+            $quantidade = $usarCalendarioEscola
+                ? ($calendario['quantidade'] ?? '')
+                : (string) $modulo->quantidade;
+
+            $resultado[(int) $turma->cod_turma] = [
+                'inicio' => SgpCodeMappers::data($inicio),
+                'fim' => SgpCodeMappers::data($fim),
+                'quantidade' => (string) $quantidade,
             ];
         }
 
         return $resultado;
+    }
+
+    /**
+     * @param  array<int>  $escolasIds
+     * @return array<int, array{inicio: mixed, fim: mixed, quantidade: string}>
+     */
+    private function calendariosDaEscola(array $escolasIds): array
+    {
+        if ($escolasIds === []) {
+            return [];
+        }
+
+        return DB::table('pmieducar.ano_letivo_modulo')
+            ->whereIn('ref_ref_cod_escola', $escolasIds)
+            ->where('ref_ano', $this->ano())
+            ->select(
+                'ref_ref_cod_escola',
+                DB::raw('MIN(data_inicio) as inicio'),
+                DB::raw('MAX(data_fim) as fim'),
+                DB::raw('COUNT(*) as quantidade')
+            )
+            ->groupBy('ref_ref_cod_escola')
+            ->get()
+            ->mapWithKeys(fn ($calendario) => [(int) $calendario->ref_ref_cod_escola => [
+                'inicio' => $calendario->inicio,
+                'fim' => $calendario->fim,
+                'quantidade' => (string) $calendario->quantidade,
+            ]])
+            ->all();
     }
 }

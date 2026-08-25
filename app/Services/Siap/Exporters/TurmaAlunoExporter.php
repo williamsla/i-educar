@@ -22,12 +22,15 @@ class TurmaAlunoExporter extends AbstractSiapExporter
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'mt.ref_cod_turma')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
+            ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
             ->leftJoin('modules.educacenso_cod_aluno as ain', 'ain.cod_aluno', '=', 'a.cod_aluno')
             ->where('m.ano', $this->ano)
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('t.ativo', 1)
             ->where('a.ativo', 1)
+            ->whereNotNull('f.cpf')
+            ->whereRaw("regexp_replace(COALESCE(f.cpf::text, ''), '[^0-9]', '', 'g') !~ '^0*$'")
             ->where(function ($q) use ($fim) {
                 $q->whereNull('mt.data_enturmacao')->orWhereDate('mt.data_enturmacao', '<=', $fim);
             })
