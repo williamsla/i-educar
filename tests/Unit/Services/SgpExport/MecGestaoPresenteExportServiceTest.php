@@ -89,5 +89,23 @@ class MecGestaoPresenteExportServiceTest extends TestCase
         $this->assertSame('40', SgpCodeMappers::cargaHorariaSemanal('40:00:00', 20));
         $this->assertSame('5', SgpCodeMappers::areaConhecimentoVinculo(99));
         $this->assertSame('1', SgpCodeMappers::areaConhecimentoVinculo(6));
+        $this->assertSame('10', SgpCodeMappers::funcaoMecDeCargoGestor(1));
+        $this->assertSame('11', SgpCodeMappers::funcaoMecDeCargoGestor(2));
+        $this->assertSame('11', SgpCodeMappers::funcaoMec(null, false, 'Coordenador Pedagógico'));
+        $this->assertSame('16', SgpCodeMappers::funcaoMec(null, false, 'Vice-diretor'));
+        $this->assertEqualsCanonicalizing(['1', '10'], SgpCodeMappers::codigosFuncaoVinculo(
+            ['Diretor Escolar'],
+            1,
+            1,
+            'Professor',
+            true
+        ));
+        $this->assertEqualsCanonicalizing(['11'], SgpCodeMappers::codigosFuncaoVinculo(
+            ['Coordenador Pedagógico'],
+            2,
+            null,
+            null,
+            false
+        ));
     }
 }

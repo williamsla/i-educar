@@ -555,6 +555,66 @@ class SgpCodeMappers
         return $ehProfessor ? '1' : '99';
     }
 
+    /**
+     * Cargo do gestor escolar (school_managers.role_id) → CO_FUNCAO.
+     * 1 Diretor, 2 Outro cargo (coordenador pedagógico por padrão).
+     */
+    public static function funcaoMecDeCargoGestor(?int $roleId): ?string
+    {
+        return match ((int) $roleId) {
+            1 => '10',
+            2 => '11',
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array<int, string>  $nomesFuncoes
+     * @return list<string>
+     */
+    public static function codigosFuncaoVinculo(
+        array $nomesFuncoes,
+        ?int $gestorRoleId,
+        ?int $funcaoTurma,
+        ?string $nomeFuncaoAlocacao,
+        bool $ehProfessor
+    ): array {
+        $codigos = [];
+        $gestao = ['10', '11', '12', '14', '15', '16', '17'];
+
+        foreach ($nomesFuncoes as $nome) {
+            $codigo = self::funcaoMec(null, false, $nome);
+            if (in_array($codigo, $gestao, true)) {
+                $codigos[$codigo] = $codigo;
+            }
+        }
+
+        $cargoGestor = self::funcaoMecDeCargoGestor($gestorRoleId);
+        if ($cargoGestor === '10') {
+            $codigos['10'] = '10';
+        } elseif ($cargoGestor === '11' && !isset($codigos['10']) && !isset($codigos['11']) && !isset($codigos['16'])) {
+            $codigos['11'] = '11';
+        }
+
+        if ($funcaoTurma !== null) {
+            $codigoTurma = self::funcaoMec($funcaoTurma, true);
+            $codigos[$codigoTurma] = $codigoTurma;
+        }
+
+        if ($nomeFuncaoAlocacao !== null && $nomeFuncaoAlocacao !== '') {
+            $codigoAlocacao = self::funcaoMec(null, $ehProfessor, $nomeFuncaoAlocacao);
+            $codigos[$codigoAlocacao] = $codigoAlocacao;
+        } elseif ($funcaoTurma === null && $codigos === []) {
+            $codigos[$ehProfessor ? '1' : '99'] = $ehProfessor ? '1' : '99';
+        }
+
+        if ($codigos === []) {
+            $codigos['99'] = '99';
+        }
+
+        return array_values($codigos);
+    }
+
     public static function perfilVinculoMec(string $coFuncao): string
     {
         return $coFuncao === '10' ? '1' : '0';

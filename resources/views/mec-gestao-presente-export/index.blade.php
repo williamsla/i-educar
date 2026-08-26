@@ -22,7 +22,8 @@
                 <td class="formlttd" colspan="2">
                     Gera a planilha oficial de profissionais da educação no layout do
                     <b>MEC Gestão Presente na Escola</b>, com dados do <b>ano letivo</b> selecionado
-                    (identificação, endereço, formação acadêmica e vínculo).
+                    (docentes, diretores, coordenadores e demais vínculos: identificação, endereço,
+                    formação acadêmica e lotação).
                 </td>
             </tr>
             <tr id="tr_nm_ano">

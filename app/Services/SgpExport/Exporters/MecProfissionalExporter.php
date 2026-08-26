@@ -4,6 +4,7 @@ namespace App\Services\SgpExport\Exporters;
 
 use App\Services\SgpExport\SgpAddressHelper;
 use App\Services\SgpExport\SgpCodeMappers;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class MecProfissionalExporter extends AbstractSgpExporter
@@ -69,11 +70,179 @@ class MecProfissionalExporter extends AbstractSgpExporter
 
     public function rows(): array
     {
+        $vinculos = $this->mesclarVinculos($this->carregarAlocacoes(), $this->carregarGestores());
+        $idpesList = $vinculos->pluck('idpes')->unique()->filter()->all();
+        $servidorIds = $vinculos->pluck('cod_servidor')->unique()->filter()->all();
+
+        $enderecos = SgpAddressHelper::carregar($idpesList);
+        $deficiencias = $this->deficiencias($idpesList);
+        $formacoes = $this->formacoes($servidorIds);
+        $turmas = $this->vinculosTurma($servidorIds);
+        $nomesFuncoes = $this->nomesFuncoes($servidorIds);
+
+        $linhas = [];
+        $exportados = [];
+
+        foreach ($vinculos as $vinculo) {
+            $cpf = SgpCodeMappers::cpfOnzeDigitos($vinculo->cpf);
+            $turma = $turmas[$vinculo->cod_servidor . '|' . $vinculo->ref_cod_escola] ?? null;
+            $codigosFuncao = SgpCodeMappers::codigosFuncaoVinculo(
+                $nomesFuncoes[(int) $vinculo->cod_servidor] ?? [],
+                isset($vinculo->gestor_role_id) ? (int) $vinculo->gestor_role_id : null,
+                isset($turma['funcao_exercida']) ? (int) $turma['funcao_exercida'] : null,
+                $vinculo->nm_funcao ?? null,
+                (bool) ($vinculo->professor ?? $turma)
+            );
+
+            foreach ($codigosFuncao as $coFuncao) {
+                $chave = ($cpf !== '' ? $cpf : 'id:' . $vinculo->cod_servidor)
+                    . '|' . $vinculo->ref_cod_escola
+                    . '|' . $coFuncao;
+
+                if (isset($exportados[$chave])) {
+                    continue;
+                }
+                $exportados[$chave] = true;
+
+                $linhas[] = $this->montarLinha(
+                    $vinculo,
+                    $coFuncao,
+                    $turma,
+                    $enderecos,
+                    $deficiencias,
+                    $formacoes[(int) $vinculo->cod_servidor] ?? $this->formacaoVazia()
+                );
+            }
+        }
+
+        usort($linhas, static function (array $a, array $b): int {
+            return [$a[2], $a[40]] <=> [$b[2], $b[40]];
+        });
+
+        return $linhas;
+    }
+
+    /**
+     * @return Collection<int, object>
+     */
+    private function carregarAlocacoes()
+    {
         $query = DB::table('pmieducar.servidor_alocacao as sa')
             ->join('pmieducar.servidor as s', 's.cod_servidor', '=', 'sa.ref_cod_servidor')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sa.ref_cod_escola')
+            ->leftJoin('pmieducar.servidor_funcao as sf', 'sf.cod_servidor_funcao', '=', 'sa.ref_cod_servidor_funcao')
+            ->leftJoin('pmieducar.funcao as fn', 'fn.cod_funcao', '=', 'sf.ref_cod_funcao')
+            ->where('s.ativo', 1)
+            ->where('sa.ativo', 1)
+            ->where('sa.ano', $this->ano())
+            ->where('e.ref_cod_instituicao', $this->institutionId());
+
+        $this->aplicarJoinsPessoais($query);
+        $this->applySchoolFilter($query, 'sa.ref_cod_escola');
+        $this->applySchoolAcademicYear($query, 'sa.ref_cod_escola');
+
+        return $query->select(array_merge($this->colunasPessoais(), [
+            'sa.ref_cod_escola',
+            'sa.data_admissao',
+            'sa.data_saida',
+            'sa.ref_cod_funcionario_vinculo',
+            'sa.carga_horaria as carga_horaria_horas',
+            'fn.professor',
+            'fn.nm_funcao',
+            DB::raw('NULL::integer as gestor_role_id'),
+        ]))->orderBy('p.nome')->get();
+    }
+
+    /**
+     * Diretores e coordenadores cadastrados em gestores da escola e no campo gestor.
+     *
+     * @return Collection<int, object>
+     */
+    private function carregarGestores()
+    {
+        $queryGestores = DB::table('school_managers as sm')
+            ->join('pmieducar.servidor as s', 's.cod_servidor', '=', 'sm.employee_id')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sm.school_id')
+            ->where('s.ativo', 1)
+            ->where('e.ativo', 1)
+            ->where('e.ref_cod_instituicao', $this->institutionId());
+
+        $this->aplicarJoinsPessoais($queryGestores);
+        $this->applySchoolFilter($queryGestores, 'sm.school_id');
+        $this->applySchoolAcademicYear($queryGestores, 'sm.school_id');
+
+        $gestores = $queryGestores->select(array_merge($this->colunasPessoais(), [
+            'sm.school_id as ref_cod_escola',
+            DB::raw('NULL::date as data_admissao'),
+            DB::raw('NULL::date as data_saida'),
+            DB::raw('NULL::integer as ref_cod_funcionario_vinculo'),
+            DB::raw('NULL as carga_horaria_horas'),
+            DB::raw('NULL::smallint as professor'),
+            DB::raw('NULL::varchar as nm_funcao'),
+            'sm.role_id as gestor_role_id',
+        ]))->get();
+
+        $queryDiretorEscola = DB::table('pmieducar.escola as e')
+            ->join('pmieducar.servidor as s', 's.cod_servidor', '=', 'e.ref_idpes_gestor')
+            ->where('s.ativo', 1)
+            ->where('e.ativo', 1)
+            ->whereNotNull('e.ref_idpes_gestor')
+            ->where('e.ref_cod_instituicao', $this->institutionId());
+
+        $this->aplicarJoinsPessoais($queryDiretorEscola);
+        $this->applySchoolFilter($queryDiretorEscola, 'e.cod_escola');
+        $this->applySchoolAcademicYear($queryDiretorEscola, 'e.cod_escola');
+
+        $diretores = $queryDiretorEscola->select(array_merge($this->colunasPessoais(), [
+            'e.cod_escola as ref_cod_escola',
+            DB::raw('NULL::date as data_admissao'),
+            DB::raw('NULL::date as data_saida'),
+            DB::raw('NULL::integer as ref_cod_funcionario_vinculo'),
+            DB::raw('NULL as carga_horaria_horas'),
+            DB::raw('NULL::smallint as professor'),
+            DB::raw('NULL::varchar as nm_funcao'),
+            DB::raw('COALESCE(e.cargo_gestor, 1) as gestor_role_id'),
+        ]))->get();
+
+        return $gestores->concat($diretores);
+    }
+
+    /**
+     * @param  Collection<int, object>  $alocacoes
+     * @param  Collection<int, object>  $gestores
+     * @return Collection<int, object>
+     */
+    private function mesclarVinculos($alocacoes, $gestores)
+    {
+        $porChave = [];
+
+        foreach ($alocacoes as $alocacao) {
+            $chave = $alocacao->cod_servidor . '|' . $alocacao->ref_cod_escola;
+            $porChave[$chave] = $alocacao;
+        }
+
+        foreach ($gestores as $gestor) {
+            $chave = $gestor->cod_servidor . '|' . $gestor->ref_cod_escola;
+
+            if (!isset($porChave[$chave])) {
+                $porChave[$chave] = $gestor;
+
+                continue;
+            }
+
+            if (empty($porChave[$chave]->gestor_role_id) && !empty($gestor->gestor_role_id)) {
+                $porChave[$chave]->gestor_role_id = $gestor->gestor_role_id;
+            }
+        }
+
+        return collect(array_values($porChave));
+    }
+
+    private function aplicarJoinsPessoais($query): void
+    {
+        $query
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 's.cod_servidor')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 's.cod_servidor')
-            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sa.ref_cod_escola')
             ->leftJoin('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 'e.cod_escola')
             ->leftJoin('cadastro.fisica_raca as fr', 'fr.ref_idpes', '=', 'f.idpes')
             ->leftJoin('cadastro.raca as r', 'r.cod_raca', '=', 'fr.ref_cod_raca')
@@ -86,159 +255,159 @@ class MecProfissionalExporter extends AbstractSgpExporter
             ->leftJoin('cities as cnasc', 'cnasc.id', '=', 'f.idmun_nascimento')
             ->leftJoin('states as snasc', 'snasc.id', '=', 'cnasc.state_id')
             ->leftJoin('countries as paisnasc', 'paisnasc.id', '=', 'f.idpais_estrangeiro')
-            ->leftJoin('portal.funcionario as func', 'func.ref_cod_pessoa_fj', '=', 's.cod_servidor')
-            ->leftJoin('pmieducar.servidor_funcao as sf', 'sf.cod_servidor_funcao', '=', 'sa.ref_cod_servidor_funcao')
-            ->leftJoin('pmieducar.funcao as fn', 'fn.cod_funcao', '=', 'sf.ref_cod_funcao')
-            ->where('s.ativo', 1)
-            ->where('sa.ativo', 1)
-            ->where('sa.ano', $this->ano())
-            ->where('e.ref_cod_instituicao', $this->institutionId())
-            ->select(
-                's.cod_servidor',
-                'sa.ref_cod_escola',
-                'sa.data_admissao',
-                'sa.data_saida',
-                'sa.ref_cod_funcionario_vinculo',
-                'sa.carga_horaria as carga_horaria_horas',
-                's.carga_horaria as carga_servidor',
-                'f.cpf',
-                'doc.rg',
-                'p.nome',
-                'f.nome_social',
-                'f.data_nasc',
-                'f.sexo',
-                'r.raca_educacenso',
-                'f.nacionalidade',
-                'paisnasc.ibge_code as pais_nascimento',
-                'snasc.ibge_code as uf_nascimento',
-                'cnasc.ibge_code as municipio_nascimento',
-                'p.email',
-                'tel.ddd',
-                'tel.fone',
-                'esc.escolaridade',
-                's.tipo_ensino_medio_cursado',
-                'f.zona_localizacao_censo',
-                'f.localizacao_diferenciada',
-                'f.idpes',
-                'inep.cod_escola_inep as inep',
-                'func.matricula',
-                'fn.professor',
-                'fn.nm_funcao'
-            );
+            ->leftJoin('portal.funcionario as func', 'func.ref_cod_pessoa_fj', '=', 's.cod_servidor');
+    }
 
-        $this->applySchoolFilter($query, 'sa.ref_cod_escola');
-        $this->applySchoolAcademicYear($query, 'sa.ref_cod_escola');
+    /**
+     * @return array<int, mixed>
+     */
+    private function colunasPessoais(): array
+    {
+        return [
+            's.cod_servidor',
+            's.carga_horaria as carga_servidor',
+            'f.cpf',
+            'doc.rg',
+            'p.nome',
+            'f.nome_social',
+            'f.data_nasc',
+            'f.sexo',
+            'r.raca_educacenso',
+            'f.nacionalidade',
+            'paisnasc.ibge_code as pais_nascimento',
+            'snasc.ibge_code as uf_nascimento',
+            'cnasc.ibge_code as municipio_nascimento',
+            'p.email',
+            'tel.ddd',
+            'tel.fone',
+            'esc.escolaridade',
+            's.tipo_ensino_medio_cursado',
+            'f.zona_localizacao_censo',
+            'f.localizacao_diferenciada',
+            'f.idpes',
+            'inep.cod_escola_inep as inep',
+            'func.matricula',
+        ];
+    }
 
-        $vinculos = $query->orderBy('p.nome')->get();
-        $idpesList = $vinculos->pluck('idpes')->unique()->filter()->all();
-        $servidorIds = $vinculos->pluck('cod_servidor')->unique()->filter()->all();
+    /**
+     * @param  array<string, mixed>|null  $turma
+     * @param  array<int|string, array<string, string>>  $enderecos
+     * @param  array<int, string>  $deficiencias
+     * @param  array<string, string>  $formacao
+     * @return array<int, string>
+     */
+    private function montarLinha(
+        object $vinculo,
+        string $coFuncao,
+        ?array $turma,
+        array $enderecos,
+        array $deficiencias,
+        array $formacao
+    ): array {
+        $endereco = $enderecos[$vinculo->idpes] ?? [
+            'logradouro' => '',
+            'numero' => '00',
+            'bairro' => '',
+            'cep' => '',
+            'municipio_ibge' => '',
+            'uf_ibge' => '',
+        ];
 
-        $enderecos = SgpAddressHelper::carregar($idpesList);
-        $deficiencias = $this->deficiencias($idpesList);
-        $formacoes = $this->formacoes($servidorIds);
-        $turmas = $this->vinculosTurma($servidorIds);
+        $dataInicio = SgpCodeMappers::data($vinculo->data_admissao)
+            ?: sprintf('01/01/%04d', $this->ano());
+        $dataIngresso = SgpCodeMappers::data($turma['data_inicial'] ?? null) ?: $dataInicio;
+        $dataFimVinculo = SgpCodeMappers::data($vinculo->data_saida);
+        $dataFimFuncao = SgpCodeMappers::data($turma['data_fim'] ?? null) ?: $dataFimVinculo;
 
-        $linhas = [];
-        $exportados = [];
-
-        foreach ($vinculos as $vinculo) {
-            $cpf = SgpCodeMappers::cpfOnzeDigitos($vinculo->cpf);
-            $chave = ($cpf !== '' ? $cpf : 'id:' . $vinculo->cod_servidor) . '|' . $vinculo->ref_cod_escola;
-
-            if (isset($exportados[$chave])) {
-                continue;
-            }
-            $exportados[$chave] = true;
-
-            $endereco = $enderecos[$vinculo->idpes] ?? [
-                'logradouro' => '',
-                'numero' => '00',
-                'bairro' => '',
-                'cep' => '',
-                'municipio_ibge' => '',
-                'uf_ibge' => '',
-            ];
-
-            $formacao = $formacoes[(int) $vinculo->cod_servidor] ?? $this->formacaoVazia();
-            $turma = $turmas[$vinculo->cod_servidor . '|' . $vinculo->ref_cod_escola] ?? null;
-
-            $coFuncao = SgpCodeMappers::funcaoMec(
-                $turma['funcao_exercida'] ?? null,
-                (bool) ($vinculo->professor ?? $turma),
-                $vinculo->nm_funcao ?? null
-            );
-
-            $dataInicio = SgpCodeMappers::data($vinculo->data_admissao)
-                ?: sprintf('01/01/%04d', $this->ano());
-            $dataIngresso = SgpCodeMappers::data($turma['data_inicial'] ?? null) ?: $dataInicio;
-            $dataFimVinculo = SgpCodeMappers::data($vinculo->data_saida);
-            $dataFimFuncao = SgpCodeMappers::data($turma['data_fim'] ?? null) ?: $dataFimVinculo;
-
-            $areaVinculo = '';
-            if (!empty($turma['areas'])) {
-                $areaVinculo = SgpCodeMappers::areaConhecimentoVinculo((int) $turma['areas'][0]);
-            }
-
-            $inep = SgpCodeMappers::inep($vinculo->inep);
-            $identificacao = trim((string) ($vinculo->matricula ?? ''));
-            if ($identificacao === '') {
-                $identificacao = (string) $vinculo->cod_servidor;
-            }
-
-            $linhas[] = [
-                $cpf,
-                SgpCodeMappers::rg($vinculo->rg),
-                mb_substr((string) $vinculo->nome, 0, 1000),
-                mb_substr((string) ($vinculo->nome_social ?? ''), 0, 1000),
-                SgpCodeMappers::data($vinculo->data_nasc),
-                SgpCodeMappers::sexo($vinculo->sexo),
-                '0',
-                SgpCodeMappers::racaCor($vinculo->raca_educacenso ? (int) $vinculo->raca_educacenso : null),
-                '0',
-                SgpCodeMappers::nacionalidadeMec($vinculo->nacionalidade ? (int) $vinculo->nacionalidade : null),
-                SgpCodeMappers::paisIso($vinculo->pais_nascimento, $vinculo->nacionalidade ? (int) $vinculo->nacionalidade : null),
-                $vinculo->uf_nascimento ? (string) $vinculo->uf_nascimento : '',
-                SgpCodeMappers::municipioIbge($vinculo->municipio_nascimento),
-                SgpCodeMappers::telefone($vinculo->ddd, $vinculo->fone),
-                (string) ($vinculo->email ?? ''),
-                SgpCodeMappers::nivelEscolaridadeMec(
-                    $vinculo->escolaridade ? (int) $vinculo->escolaridade : null,
-                    $formacao['tipo'] ?: null
-                ),
-                (string) ($vinculo->tipo_ensino_medio_cursado ?? ''),
-                '',
-                $endereco['uf_ibge'],
-                $endereco['municipio_ibge'],
-                mb_substr($endereco['logradouro'], 0, 1000),
-                $endereco['numero'],
-                mb_substr($endereco['bairro'], 0, 1000),
-                $endereco['cep'],
-                SgpCodeMappers::localizacaoGeografica($vinculo->zona_localizacao_censo ? (int) $vinculo->zona_localizacao_censo : null),
-                SgpCodeMappers::localizacaoDiferenciada($vinculo->localizacao_diferenciada ? (int) $vinculo->localizacao_diferenciada : null),
-                $deficiencias[(int) $vinculo->idpes] ?? '0',
-                $formacao['tipo'],
-                $formacao['area'],
-                $formacao['curso'],
-                $formacao['ies'],
-                $formacao['natureza'],
-                $formacao['ano_inicio'],
-                $formacao['ano_conclusao'],
-                $inep !== '' ? $inep : '99999999',
-                SgpCodeMappers::perfilVinculoMec($coFuncao),
-                SgpCodeMappers::tipoVinculoMec($turma['tipo_vinculo'] ?? null, $vinculo->ref_cod_funcionario_vinculo),
-                '1',
-                $dataInicio,
-                $dataFimVinculo,
-                $coFuncao,
-                $dataIngresso,
-                $dataFimFuncao,
-                SgpCodeMappers::cargaHorariaSemanal($vinculo->carga_horaria_horas, $vinculo->carga_servidor),
-                $identificacao,
-                $areaVinculo,
-            ];
+        $areaVinculo = '';
+        if ($coFuncao === '1' && !empty($turma['areas'])) {
+            $areaVinculo = SgpCodeMappers::areaConhecimentoVinculo((int) $turma['areas'][0]);
         }
 
-        return $linhas;
+        $inep = SgpCodeMappers::inep($vinculo->inep);
+        $identificacao = trim((string) ($vinculo->matricula ?? ''));
+        if ($identificacao === '') {
+            $identificacao = (string) $vinculo->cod_servidor;
+        }
+
+        return [
+            SgpCodeMappers::cpfOnzeDigitos($vinculo->cpf),
+            SgpCodeMappers::rg($vinculo->rg),
+            mb_substr((string) $vinculo->nome, 0, 1000),
+            mb_substr((string) ($vinculo->nome_social ?? ''), 0, 1000),
+            SgpCodeMappers::data($vinculo->data_nasc),
+            SgpCodeMappers::sexo($vinculo->sexo),
+            '0',
+            SgpCodeMappers::racaCor($vinculo->raca_educacenso ? (int) $vinculo->raca_educacenso : null),
+            '0',
+            SgpCodeMappers::nacionalidadeMec($vinculo->nacionalidade ? (int) $vinculo->nacionalidade : null),
+            SgpCodeMappers::paisIso($vinculo->pais_nascimento, $vinculo->nacionalidade ? (int) $vinculo->nacionalidade : null),
+            $vinculo->uf_nascimento ? (string) $vinculo->uf_nascimento : '',
+            SgpCodeMappers::municipioIbge($vinculo->municipio_nascimento),
+            SgpCodeMappers::telefone($vinculo->ddd, $vinculo->fone),
+            (string) ($vinculo->email ?? ''),
+            SgpCodeMappers::nivelEscolaridadeMec(
+                $vinculo->escolaridade ? (int) $vinculo->escolaridade : null,
+                $formacao['tipo'] ?: null
+            ),
+            (string) ($vinculo->tipo_ensino_medio_cursado ?? ''),
+            '',
+            $endereco['uf_ibge'],
+            $endereco['municipio_ibge'],
+            mb_substr($endereco['logradouro'], 0, 1000),
+            $endereco['numero'],
+            mb_substr($endereco['bairro'], 0, 1000),
+            $endereco['cep'],
+            SgpCodeMappers::localizacaoGeografica($vinculo->zona_localizacao_censo ? (int) $vinculo->zona_localizacao_censo : null),
+            SgpCodeMappers::localizacaoDiferenciada($vinculo->localizacao_diferenciada ? (int) $vinculo->localizacao_diferenciada : null),
+            $deficiencias[(int) $vinculo->idpes] ?? '0',
+            $formacao['tipo'],
+            $formacao['area'],
+            $formacao['curso'],
+            $formacao['ies'],
+            $formacao['natureza'],
+            $formacao['ano_inicio'],
+            $formacao['ano_conclusao'],
+            $inep !== '' ? $inep : '99999999',
+            SgpCodeMappers::perfilVinculoMec($coFuncao),
+            SgpCodeMappers::tipoVinculoMec($turma['tipo_vinculo'] ?? null, $vinculo->ref_cod_funcionario_vinculo),
+            '1',
+            $dataInicio,
+            $dataFimVinculo,
+            $coFuncao,
+            $dataIngresso,
+            $dataFimFuncao,
+            SgpCodeMappers::cargaHorariaSemanal($vinculo->carga_horaria_horas, $vinculo->carga_servidor),
+            $identificacao,
+            $areaVinculo,
+        ];
+    }
+
+    /**
+     * @param  array<int>  $servidorIds
+     * @return array<int, array<int, string>>
+     */
+    private function nomesFuncoes(array $servidorIds): array
+    {
+        if ($servidorIds === []) {
+            return [];
+        }
+
+        $registros = DB::table('pmieducar.servidor_funcao as sf')
+            ->join('pmieducar.funcao as fn', 'fn.cod_funcao', '=', 'sf.ref_cod_funcao')
+            ->whereIn('sf.ref_cod_servidor', $servidorIds)
+            ->where('fn.ativo', 1)
+            ->select('sf.ref_cod_servidor', 'fn.nm_funcao')
+            ->get();
+
+        $resultado = [];
+
+        foreach ($registros as $registro) {
+            $resultado[(int) $registro->ref_cod_servidor][] = (string) $registro->nm_funcao;
+        }
+
+        return $resultado;
     }
 
     /**
