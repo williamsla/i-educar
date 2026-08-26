@@ -143,6 +143,13 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
         ->middleware('can:modify:' . Process::SGP_EXPORT)
         ->name('sgp-export.export');
 
+    Route::get('/exportacao-mec-gestao-presente', 'MecGestaoPresenteExportController@index')
+        ->middleware('can:view:' . Process::MEC_GESTAO_PRESENTE_EXPORT)
+        ->name('mec-gestao-presente-export.index');
+    Route::post('/exportacao-mec-gestao-presente', 'MecGestaoPresenteExportController@export')
+        ->middleware('can:modify:' . Process::MEC_GESTAO_PRESENTE_EXPORT)
+        ->name('mec-gestao-presente-export.export');
+
     Route::get('/abre-url-privada', 'OpenPrivateUrlController@open')->name('open_private_url.open');
 
     Route::get('/notificacoes', 'NotificationController@index')->name('notifications.index');

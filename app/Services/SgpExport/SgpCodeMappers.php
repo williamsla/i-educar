@@ -374,4 +374,245 @@ class SgpCodeMappers
 
         return implode(';', $codigos);
     }
+
+    public static function cpfOnzeDigitos($cpf): string
+    {
+        $digitos = self::cpf($cpf);
+
+        return $digitos === '' ? '' : str_pad($digitos, 11, '0', STR_PAD_LEFT);
+    }
+
+    public static function rg($rg): string
+    {
+        return substr(self::apenasDigitos((string) $rg), 0, 9);
+    }
+
+    /**
+     * Planilha MEC: 0 não informado, 1 brasileira, 2 brasileira nascida no exterior/naturalizada, 3 estrangeira.
+     */
+    public static function nacionalidadeMec(?int $nacionalidade): string
+    {
+        $nacionalidade = (int) $nacionalidade;
+
+        return in_array($nacionalidade, [1, 2, 3], true) ? (string) $nacionalidade : '0';
+    }
+
+    /**
+     * ISO 3166-1 numérico com 3 dígitos (076 = Brasil).
+     */
+    public static function paisIso($codigo, ?int $nacionalidade = null): string
+    {
+        $codigo = self::apenasDigitos((string) $codigo);
+
+        if ($codigo === '' && (int) $nacionalidade !== 3) {
+            $codigo = '76';
+        }
+
+        if ($codigo === '') {
+            return '0';
+        }
+
+        return str_pad(substr($codigo, 0, 3), 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Educacenso/cadastro.escolaridade → nível da planilha MEC (0-11).
+     */
+    public static function nivelEscolaridadeMec(?int $escolaridade, ?string $tipoPos = null): string
+    {
+        if (in_array($tipoPos, ['7', '6', '5'], true)) {
+            return match ($tipoPos) {
+                '7' => '10',
+                '6' => '9',
+                default => '8',
+            };
+        }
+
+        return match ((int) $escolaridade) {
+            1 => '1',
+            2 => '2',
+            3, 4, 5, 7 => '4',
+            6 => '7',
+            default => '0',
+        };
+    }
+
+    /**
+     * Educacenso → códigos da planilha MEC de deficiência.
+     */
+    public static function deficienciaMec(iterable $codigosEducacenso): string
+    {
+        $mapa = [
+            1 => '3',
+            2 => '1',
+            3 => '5',
+            4 => '4',
+            5 => '6',
+            6 => '7',
+            7 => '8',
+            8 => '2',
+            13 => '10',
+            25 => '9',
+        ];
+
+        $convertidos = [];
+
+        foreach ($codigosEducacenso as $codigo) {
+            $mec = $mapa[(int) $codigo] ?? null;
+            if ($mec !== null) {
+                $convertidos[$mec] = $mec;
+            }
+        }
+
+        if ($convertidos === []) {
+            return '0';
+        }
+
+        ksort($convertidos);
+
+        return implode(';', $convertidos);
+    }
+
+    public static function tipoFormacaoAcademicaGrau($grau): string
+    {
+        return match ((int) $grau) {
+            1 => '1',
+            2 => '2',
+            3 => '3',
+            default => '',
+        };
+    }
+
+    public static function tipoFormacaoAcademicaPos($tipo): string
+    {
+        return match ((int) $tipo) {
+            1 => '5',
+            2 => '6',
+            3 => '7',
+            default => '',
+        };
+    }
+
+    public static function naturezaInstituicao($dependenciaAdministrativa): string
+    {
+        $dependencia = (int) $dependenciaAdministrativa;
+
+        if (in_array($dependencia, [1, 2, 3], true)) {
+            return '1';
+        }
+
+        if ($dependencia === 4) {
+            return '2';
+        }
+
+        return '';
+    }
+
+    /**
+     * Função exercida i-Educar/Educacenso → CO_FUNCAO da planilha MEC.
+     */
+    public static function funcaoMec(?int $funcaoExercida, bool $ehProfessor = false, ?string $nomeFuncao = null): string
+    {
+        $mapa = [
+            1 => '1',
+            2 => '4',
+            3 => '7',
+            4 => '2',
+            5 => '5',
+            6 => '8',
+            7 => '3',
+            8 => '6',
+            9 => '9',
+        ];
+
+        if (isset($mapa[(int) $funcaoExercida])) {
+            return $mapa[(int) $funcaoExercida];
+        }
+
+        $nome = mb_strtolower(trim((string) $nomeFuncao));
+
+        if ($nome !== '') {
+            if (str_contains($nome, 'vice') && str_contains($nome, 'diretor')) {
+                return '16';
+            }
+            if (str_contains($nome, 'diretor')) {
+                return '10';
+            }
+            if (str_contains($nome, 'coordenador')) {
+                return '11';
+            }
+            if (str_contains($nome, 'secretár') || str_contains($nome, 'secretario')) {
+                return '12';
+            }
+            if (str_contains($nome, 'merende')) {
+                return '15';
+            }
+            if (str_contains($nome, 'gestor')) {
+                return '14';
+            }
+        }
+
+        return $ehProfessor ? '1' : '99';
+    }
+
+    public static function perfilVinculoMec(string $coFuncao): string
+    {
+        return $coFuncao === '10' ? '1' : '0';
+    }
+
+    /**
+     * Tipo de vínculo: professor_turma (1-4) ou portal.funcionario_vinculo.
+     */
+    public static function tipoVinculoMec($tipoProfessorTurma, $codFuncionarioVinculo = null): string
+    {
+        $tipo = (int) $tipoProfessorTurma;
+
+        if ($tipo >= 1 && $tipo <= 4) {
+            return (string) $tipo;
+        }
+
+        return match ((int) $codFuncionarioVinculo) {
+            3 => '1',
+            4 => '2',
+            5 => '5',
+            default => '0',
+        };
+    }
+
+    public static function cargaHorariaSemanal($cargaAlocacao, $cargaServidor = null): string
+    {
+        $horas = self::horasDeCarga($cargaAlocacao);
+
+        if ($horas === '') {
+            $horas = self::horasDeCarga($cargaServidor);
+        }
+
+        return $horas;
+    }
+
+    public static function areaConhecimentoVinculo(?int $codigoEducacenso): string
+    {
+        $area = (int) self::areaConhecimento($codigoEducacenso);
+
+        return $area === 99 ? '5' : (string) $area;
+    }
+
+    private static function horasDeCarga($valor): string
+    {
+        if ($valor === null || $valor === '') {
+            return '';
+        }
+
+        if (is_numeric($valor)) {
+            return (string) (int) round((float) $valor);
+        }
+
+        $texto = trim((string) $valor);
+
+        if (preg_match('/^(\d+)/', $texto, $matches) === 1) {
+            return $matches[1];
+        }
+
+        return '';
+    }
 }

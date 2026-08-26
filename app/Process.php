@@ -52,6 +52,8 @@ class Process
 
     public const SIAP_EXPORT = 1030;
 
+    public const MEC_GESTAO_PRESENTE_EXPORT = 1031;
+
     public const UNDO_STUDENT_UNIFICATION = 2001;
 
     public const EXEMPTION_LIST = 2002;
