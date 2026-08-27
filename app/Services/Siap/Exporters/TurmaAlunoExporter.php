@@ -23,12 +23,14 @@ class TurmaAlunoExporter extends AbstractSiapExporter
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
-            ->leftJoin('modules.educacenso_cod_aluno as ain', 'ain.cod_aluno', '=', 'a.cod_aluno')
+            ->join('modules.educacenso_cod_aluno as ain', 'ain.cod_aluno', '=', 'a.cod_aluno')
             ->where('m.ano', $this->ano)
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('t.ativo', 1)
             ->where('a.ativo', 1)
+            ->whereNotNull('ain.cod_aluno_inep')
+            ->where('ain.cod_aluno_inep', '<>', '')
             ->whereNotNull('f.cpf')
             ->whereRaw("regexp_replace(COALESCE(f.cpf::text, ''), '[^0-9]', '', 'g') !~ '^0*$'")
             ->where(function ($q) use ($fim) {
@@ -40,13 +42,12 @@ class TurmaAlunoExporter extends AbstractSiapExporter
             ->select(
                 't.cod_turma',
                 'inep.cod_escola_inep as inep',
-                DB::raw('COALESCE(ain.cod_aluno_inep::text, a.cod_aluno::text) as identificacao')
+                'ain.cod_aluno_inep as identificacao'
             )
             ->distinct()
             ->get();
 
         foreach ($vinculos as $vinculo) {
-            // Exemplo real usa Identificacao (não IdentificacaoAluno do XSD)
             $builder->addRecord('TurmaAluno', [
                 'CodigoTurma' => (string) $vinculo->cod_turma,
                 'INEP' => (string) $vinculo->inep,

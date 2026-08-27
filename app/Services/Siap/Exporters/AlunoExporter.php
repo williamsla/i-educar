@@ -24,7 +24,7 @@ class AlunoExporter extends AbstractSiapExporter
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 'a.ref_idpes')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
-            ->leftJoin('modules.educacenso_cod_aluno as inep', 'inep.cod_aluno', '=', 'a.cod_aluno')
+            ->join('modules.educacenso_cod_aluno as inep', 'inep.cod_aluno', '=', 'a.cod_aluno')
             ->leftJoin('cadastro.fisica_raca as fr', 'fr.ref_idpes', '=', 'f.idpes')
             ->leftJoin('cadastro.pessoa as mae', 'mae.idpes', '=', 'f.idpes_mae')
             ->leftJoin('cadastro.pessoa as pai', 'pai.idpes', '=', 'f.idpes_pai')
@@ -33,6 +33,8 @@ class AlunoExporter extends AbstractSiapExporter
             ->where('mt.ativo', 1)
             ->where('a.ativo', 1)
             ->where('f.ativo', 1)
+            ->whereNotNull('inep.cod_aluno_inep')
+            ->where('inep.cod_aluno_inep', '<>', '')
             ->where(function ($q) use ($inicio, $fim) {
                 $q->whereNull('mt.data_enturmacao')
                     ->orWhereDate('mt.data_enturmacao', '<=', $fim);
@@ -70,11 +72,11 @@ class AlunoExporter extends AbstractSiapExporter
         $ceps = SiapAddressHelper::carregarCeps($alunos->pluck('idpes')->unique()->filter()->all());
 
         foreach ($alunos as $aluno) {
-            $identificacao = $aluno->aluno_inep ?: (string) $aluno->cod_aluno;
+            $identificacao = (string) $aluno->aluno_inep;
             $cpf = SiapCodeMappers::cpf($aluno->cpf);
 
             if ($cpf === '') {
-                $this->alert("Aluno {$identificacao} omitido: CPF ausente ou inválido (SIAP exige 11 dígitos).");
+                $this->alert("Aluno INEP {$identificacao} omitido: CPF ausente ou inválido (SIAP exige 11 dígitos).");
                 continue;
             }
 
