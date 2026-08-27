@@ -105,12 +105,13 @@ class TcGestaoExportService
             'LocalizacaoDiferenciada', 'TransporteEscolarPublico',
         ];
 
+        // Todos com matrícula/enturmação ativa no ano (mês não restringe o cadastro de alunos).
         $alunos = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 'a.ref_idpes')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
-            ->join('modules.educacenso_cod_aluno as inep', 'inep.cod_aluno', '=', 'a.cod_aluno')
+            ->leftJoin('modules.educacenso_cod_aluno as inep', 'inep.cod_aluno', '=', 'a.cod_aluno')
             ->leftJoin('cadastro.fisica_raca as fr', 'fr.ref_idpes', '=', 'f.idpes')
             ->leftJoin('cadastro.pessoa as mae', 'mae.idpes', '=', 'f.idpes_mae')
             ->leftJoin('cadastro.pessoa as pai', 'pai.idpes', '=', 'f.idpes_pai')
@@ -118,14 +119,6 @@ class TcGestaoExportService
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('a.ativo', 1)
-            ->where('f.ativo', 1)
-            ->whereNotNull('inep.cod_aluno_inep')
-            ->where(function ($q) use ($fim) {
-                $q->whereNull('mt.data_enturmacao')->orWhereDate('mt.data_enturmacao', '<=', $fim);
-            })
-            ->where(function ($q) use ($inicio) {
-                $q->whereNull('mt.data_exclusao')->orWhereDate('mt.data_exclusao', '>=', $inicio);
-            })
             ->select(
                 'a.cod_aluno',
                 'inep.cod_aluno_inep as aluno_inep',
@@ -144,7 +137,9 @@ class TcGestaoExportService
             )
             ->distinct()
             ->orderBy('a.cod_aluno')
-            ->get();
+            ->get()
+            ->unique('cod_aluno')
+            ->values();
 
         $deficiencias = DB::table('cadastro.fisica_deficiencia')
             ->select('ref_idpes')
@@ -155,11 +150,20 @@ class TcGestaoExportService
         $ceps = SiapAddressHelper::carregarCeps($alunos->pluck('idpes')->unique()->filter()->all());
 
         $rows = [];
+        $omitidosCpf = 0;
+        $semInep = 0;
+
         foreach ($alunos as $aluno) {
+            $temInep = !empty($aluno->aluno_inep);
+            $identificacao = $temInep ? (string) $aluno->aluno_inep : '';
+            if (!$temInep) {
+                $semInep++;
+            }
+
             $cpf = SiapCodeMappers::cpf($aluno->cpf);
+            // TC Gestão: exporta mesmo sem CPF (campo vazio), para não perder o aluno.
             if ($cpf === '') {
-                $this->alerts[] = "[Aluno] Cod {$aluno->cod_aluno} omitido: CPF inválido.";
-                continue;
+                $omitidosCpf++;
             }
 
             $temDeficiencia = isset($deficiencias[$aluno->idpes]);
@@ -168,7 +172,7 @@ class TcGestaoExportService
 
             $rows[] = [
                 (string) $aluno->cod_aluno,
-                (string) $aluno->aluno_inep,
+                $identificacao,
                 $cpf,
                 mb_substr((string) $aluno->nome, 0, 255),
                 $aluno->data_nasc ? date('Y-m-d', strtotime($aluno->data_nasc)) : '1900-01-01',
@@ -182,6 +186,15 @@ class TcGestaoExportService
                 SiapCodeMappers::localizacaoDiferenciada($aluno->localizacao_diferenciada),
                 SiapCodeMappers::simNao($transporte),
             ];
+        }
+
+        $this->alerts[] = "[Aluno] Candidatos (matrícula ativa no ano): {$alunos->count()}.";
+        $this->alerts[] = '[Aluno] Exportados: ' . count($rows) . '.';
+        if ($omitidosCpf > 0) {
+            $this->alerts[] = "[Aluno] Exportados sem CPF válido (campo vazio): {$omitidosCpf}.";
+        }
+        if ($semInep > 0) {
+            $this->alerts[] = "[Aluno] Exportados sem INEP (Identificacao em branco): {$semInep}.";
         }
 
         return TcGestaoCsvWriter::toString($headers, $rows);
@@ -238,44 +251,54 @@ class TcGestaoExportService
     {
         $headers = ['AlunoId', 'CodigoTurma', 'INEP', 'Identificacao'];
 
+        // Enturmações do ano; Identificacao preferencialmente INEP do aluno.
         $vinculos = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'mt.ref_cod_turma')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
-            ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
-            ->join('modules.educacenso_cod_aluno as ain', 'ain.cod_aluno', '=', 'a.cod_aluno')
+            ->leftJoin('modules.educacenso_cod_aluno as ain', 'ain.cod_aluno', '=', 'a.cod_aluno')
             ->where('m.ano', $ano)
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('t.ativo', 1)
             ->where('a.ativo', 1)
-            ->whereNotNull('ain.cod_aluno_inep')
-            ->whereNotNull('f.cpf')
-            ->whereRaw("regexp_replace(COALESCE(f.cpf::text, ''), '[^0-9]', '', 'g') !~ '^0*$'")
-            ->where(function ($q) use ($fim) {
-                $q->whereNull('mt.data_enturmacao')->orWhereDate('mt.data_enturmacao', '<=', $fim);
-            })
-            ->where(function ($q) use ($inicio) {
-                $q->whereNull('mt.data_exclusao')->orWhereDate('mt.data_exclusao', '>=', $inicio);
-            })
             ->select(
                 'a.cod_aluno',
                 't.cod_turma',
                 'inep.cod_escola_inep as inep',
-                'ain.cod_aluno_inep as identificacao'
+                'ain.cod_aluno_inep as aluno_inep'
             )
             ->distinct()
             ->get();
 
         $rows = [];
+        $ja = [];
+        $semInep = 0;
+
         foreach ($vinculos as $v) {
+            $identificacao = !empty($v->aluno_inep) ? (string) $v->aluno_inep : '';
+            if ($identificacao === '') {
+                $semInep++;
+            }
+
+            $chave = $v->cod_turma . '|' . $v->cod_aluno . '|' . $identificacao;
+            if (isset($ja[$chave])) {
+                continue;
+            }
+            $ja[$chave] = true;
+
             $rows[] = [
                 (string) $v->cod_aluno,
                 (string) $v->cod_turma,
                 (string) $v->inep,
-                (string) $v->identificacao,
+                $identificacao,
             ];
+        }
+
+        $this->alerts[] = '[TurmaAluno] Exportados: ' . count($rows) . '.';
+        if ($semInep > 0) {
+            $this->alerts[] = "[TurmaAluno] Sem INEP (Identificacao em branco): {$semInep}.";
         }
 
         return TcGestaoCsvWriter::toString($headers, $rows);

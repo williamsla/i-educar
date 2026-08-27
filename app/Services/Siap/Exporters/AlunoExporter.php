@@ -16,15 +16,15 @@ class AlunoExporter extends AbstractSiapExporter
     public function export(): string
     {
         $builder = $this->builder();
-        $inicio = $this->inicioMes();
-        $fim = $this->fimMes();
 
+        // Cadastro de alunos: todos com matrícula/enturmação ativa no ano
+        // (não restringe ao mês de referência — o mês vale para remessa/faltas).
         $alunos = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 'a.ref_idpes')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
-            ->join('modules.educacenso_cod_aluno as inep', 'inep.cod_aluno', '=', 'a.cod_aluno')
+            ->leftJoin('modules.educacenso_cod_aluno as inep', 'inep.cod_aluno', '=', 'a.cod_aluno')
             ->leftJoin('cadastro.fisica_raca as fr', 'fr.ref_idpes', '=', 'f.idpes')
             ->leftJoin('cadastro.pessoa as mae', 'mae.idpes', '=', 'f.idpes_mae')
             ->leftJoin('cadastro.pessoa as pai', 'pai.idpes', '=', 'f.idpes_pai')
@@ -32,16 +32,6 @@ class AlunoExporter extends AbstractSiapExporter
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('a.ativo', 1)
-            ->where('f.ativo', 1)
-            ->whereNotNull('inep.cod_aluno_inep')
-            ->where(function ($q) use ($inicio, $fim) {
-                $q->whereNull('mt.data_enturmacao')
-                    ->orWhereDate('mt.data_enturmacao', '<=', $fim);
-            })
-            ->where(function ($q) use ($inicio) {
-                $q->whereNull('mt.data_exclusao')
-                    ->orWhereDate('mt.data_exclusao', '>=', $inicio);
-            })
             ->select(
                 'a.cod_aluno',
                 'inep.cod_aluno_inep as aluno_inep',
@@ -62,6 +52,9 @@ class AlunoExporter extends AbstractSiapExporter
             ->orderBy('a.cod_aluno')
             ->get();
 
+        // Um registro por aluno (pode haver várias enturmações no ano)
+        $alunos = $alunos->unique('cod_aluno')->values();
+
         $deficiencias = DB::table('cadastro.fisica_deficiencia')
             ->select('ref_idpes')
             ->distinct()
@@ -70,12 +63,20 @@ class AlunoExporter extends AbstractSiapExporter
 
         $ceps = SiapAddressHelper::carregarCeps($alunos->pluck('idpes')->unique()->filter()->all());
 
-        foreach ($alunos as $aluno) {
-            $identificacao = (string) $aluno->aluno_inep;
-            $cpf = SiapCodeMappers::cpf($aluno->cpf);
+        $exportados = 0;
+        $omitidosCpf = 0;
+        $semInep = 0;
 
+        foreach ($alunos as $aluno) {
+            $temInep = !empty($aluno->aluno_inep);
+            $identificacao = $temInep ? (string) $aluno->aluno_inep : '';
+            if (!$temInep) {
+                $semInep++;
+            }
+
+            $cpf = SiapCodeMappers::cpf($aluno->cpf);
             if ($cpf === '') {
-                $this->alert("Aluno INEP {$identificacao} omitido: CPF ausente ou inválido (SIAP exige 11 dígitos).");
+                $omitidosCpf++;
                 continue;
             }
 
@@ -84,7 +85,7 @@ class AlunoExporter extends AbstractSiapExporter
                 || !empty($aluno->veiculo_transporte_escolar);
 
             $builder->addRecord('Aluno', [
-                'Identificacao' => (string) $identificacao,
+                'Identificacao' => $identificacao,
                 'CPF' => $cpf,
                 'Nome' => mb_substr((string) $aluno->nome, 0, 255),
                 'DataNascimento' => $aluno->data_nasc ? date('Y-m-d', strtotime($aluno->data_nasc)) : '1900-01-01',
@@ -98,6 +99,16 @@ class AlunoExporter extends AbstractSiapExporter
                 'LocalizacaoDiferenciada' => SiapCodeMappers::localizacaoDiferenciada($aluno->localizacao_diferenciada),
                 'TransporteEscolarPublico' => SiapCodeMappers::simNao($transporte),
             ]);
+            $exportados++;
+        }
+
+        $this->alert("Alunos candidatos (matrícula ativa no ano): {$alunos->count()}.");
+        $this->alert("Alunos exportados: {$exportados}.");
+        if ($omitidosCpf > 0) {
+            $this->alert("Alunos omitidos por CPF ausente/inválido: {$omitidosCpf}.");
+        }
+        if ($semInep > 0) {
+            $this->alert("Alunos exportados sem INEP (Identificacao em branco): {$semInep}.");
         }
 
         return $builder->toFormattedXml();

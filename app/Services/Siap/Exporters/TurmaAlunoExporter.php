@@ -2,6 +2,7 @@
 
 namespace App\Services\Siap\Exporters;
 
+use App\Services\Siap\SiapCodeMappers;
 use Illuminate\Support\Facades\DB;
 
 class TurmaAlunoExporter extends AbstractSiapExporter
@@ -14,9 +15,8 @@ class TurmaAlunoExporter extends AbstractSiapExporter
     public function export(): string
     {
         $builder = $this->builder();
-        $inicio = $this->inicioMes();
-        $fim = $this->fimMes();
 
+        // Enturmações do ano; Identificacao = INEP do aluno (quando existir).
         $vinculos = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'mt.ref_cod_turma')
@@ -30,28 +30,44 @@ class TurmaAlunoExporter extends AbstractSiapExporter
             ->where('t.ativo', 1)
             ->where('a.ativo', 1)
             ->whereNotNull('ain.cod_aluno_inep')
-            ->whereNotNull('f.cpf')
-            ->whereRaw("regexp_replace(COALESCE(f.cpf::text, ''), '[^0-9]', '', 'g') !~ '^0*$'")
-            ->where(function ($q) use ($fim) {
-                $q->whereNull('mt.data_enturmacao')->orWhereDate('mt.data_enturmacao', '<=', $fim);
-            })
-            ->where(function ($q) use ($inicio) {
-                $q->whereNull('mt.data_exclusao')->orWhereDate('mt.data_exclusao', '>=', $inicio);
-            })
             ->select(
+                'a.cod_aluno',
                 't.cod_turma',
                 'inep.cod_escola_inep as inep',
-                'ain.cod_aluno_inep as identificacao'
+                'ain.cod_aluno_inep as identificacao',
+                'f.cpf'
             )
             ->distinct()
             ->get();
 
+        $exportados = 0;
+        $omitidosCpf = 0;
+        $ja = [];
+
         foreach ($vinculos as $vinculo) {
+            $cpf = SiapCodeMappers::cpf($vinculo->cpf);
+            if ($cpf === '') {
+                $omitidosCpf++;
+                continue;
+            }
+
+            $chave = $vinculo->cod_turma . '|' . $vinculo->identificacao;
+            if (isset($ja[$chave])) {
+                continue;
+            }
+            $ja[$chave] = true;
+
             $builder->addRecord('TurmaAluno', [
                 'CodigoTurma' => (string) $vinculo->cod_turma,
                 'INEP' => (string) $vinculo->inep,
                 'Identificacao' => (string) $vinculo->identificacao,
             ]);
+            $exportados++;
+        }
+
+        $this->alert("TurmaAluno exportados: {$exportados}.");
+        if ($omitidosCpf > 0) {
+            $this->alert("TurmaAluno omitidos por CPF inválido do aluno: {$omitidosCpf}.");
         }
 
         return $builder->toFormattedXml();
