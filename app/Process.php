@@ -54,6 +54,8 @@ class Process
 
     public const MEC_GESTAO_PRESENTE_EXPORT = 1031;
 
+    public const TC_GESTAO_PUBLICA_EXPORT = 1032;
+
     public const UNDO_STUDENT_UNIFICATION = 2001;
 
     public const EXEMPTION_LIST = 2002;

@@ -7,6 +7,7 @@ use App\Http\Controllers\ExportController;
 use App\Http\Controllers\SchoolClassController;
 use App\Http\Controllers\SocialiteCallbackController;
 use App\Http\Controllers\SocialiteRedirectController;
+use App\Http\Controllers\TcGestaoExportController;
 use App\Http\Controllers\VerificarCpfEsusExportController;
 use App\Http\Controllers\VerificarCpfEsusProcessController;
 use App\Http\Controllers\WebController;
@@ -233,6 +234,13 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
         ->defaults('modelo', 'siap')
         ->middleware('can:view:' . Process::SIAP_EXPORT)
         ->name('siap-export.index');
+
+    Route::get('/exportacao-tc-gestao-publica', [TcGestaoExportController::class, 'index'])
+        ->middleware('can:view:' . Process::TC_GESTAO_PUBLICA_EXPORT)
+        ->name('tc-gestao-export.index');
+    Route::post('/exportacao-tc-gestao-publica', [TcGestaoExportController::class, 'export'])
+        ->middleware('can:modify:' . Process::TC_GESTAO_PUBLICA_EXPORT)
+        ->name('tc-gestao-export.export');
 
     Route::get('/exportar-xml-view', [ExportacaoXmlController::class, 'index']);
     Route::get('/exportar-xml', [ExportacaoXmlController::class, 'exportar']);
