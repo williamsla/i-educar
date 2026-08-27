@@ -19,7 +19,7 @@ class AlunoExporter extends AbstractSiapExporter
 
         // Cadastro de alunos: todos com matrícula/enturmação ativa no ano
         // (não restringe ao mês de referência — o mês vale para remessa/faltas).
-        $alunos = DB::table('pmieducar.matricula as m')
+        $query = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 'a.ref_idpes')
@@ -31,7 +31,13 @@ class AlunoExporter extends AbstractSiapExporter
             ->where('m.ano', $this->ano)
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
-            ->where('a.ativo', 1)
+            ->where('a.ativo', 1);
+
+        if ($this->somenteAlunosComInep) {
+            $query->whereNotNull('inep.cod_aluno_inep');
+        }
+
+        $alunos = $query
             ->select(
                 'a.cod_aluno',
                 'inep.cod_aluno_inep as aluno_inep',
@@ -107,7 +113,9 @@ class AlunoExporter extends AbstractSiapExporter
         if ($omitidosCpf > 0) {
             $this->alert("Alunos omitidos por CPF ausente/inválido: {$omitidosCpf}.");
         }
-        if ($semInep > 0) {
+        if ($this->somenteAlunosComInep) {
+            $this->alert('Filtro ativo: somente alunos com código INEP.');
+        } elseif ($semInep > 0) {
             $this->alert("Alunos exportados sem INEP (Identificacao em branco): {$semInep}.");
         }
 

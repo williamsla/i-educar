@@ -63,6 +63,7 @@ class ExportacaoXmlController extends Controller
         $modelo = $request->input('modelo');
         $ano = $request->input('ano');
         $mes = $request->input('mes');
+        $somenteAlunosComInep = $request->boolean('somente_alunos_com_inep');
 
         $this->alerts = [];
 
@@ -74,7 +75,7 @@ class ExportacaoXmlController extends Controller
             return $this->exportarModeloSAGRES($ano, $mes);
         }
 
-        return $this->exportarModeloSIAP($ano, $mes);
+        return $this->exportarModeloSIAP($ano, $mes, $somenteAlunosComInep);
     }
 
     private function exportarModeloSAGRES($ano, $mes)
@@ -324,10 +325,10 @@ class ExportacaoXmlController extends Controller
         return $this->compactarEEnviar($xml, 'Educacao');
     }
 
-    private function exportarModeloSIAP($ano, $mes)
+    private function exportarModeloSIAP($ano, $mes, bool $somenteAlunosComInep = false)
     {
         $service = new SiapExportService();
-        $result = $service->export((int) $ano, (int) $mes);
+        $result = $service->export((int) $ano, (int) $mes, $somenteAlunosComInep);
 
         $this->alerts = array_merge($this->alerts, $service->getAlerts());
 

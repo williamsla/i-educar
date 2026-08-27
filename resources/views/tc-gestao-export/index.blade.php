@@ -53,6 +53,22 @@
                 </td>
             </tr>
             <tr>
+                <td class="formmdtd" valign="top">
+                    <span class="form">Alunos com código INEP</span>
+                    <span class="campo_obrigatorio">*</span>
+                </td>
+                <td class="formmdtd" valign="top">
+                    <select class="geral obrigatorio" name="somente_alunos_com_inep" id="somente_alunos_com_inep" required style="width: 308px;">
+                        <option value="0" @selected(old('somente_alunos_com_inep', '0') === '0')>
+                            Exportar todos (sem INEP, Identificação fica em branco)
+                        </option>
+                        <option value="1" @selected(old('somente_alunos_com_inep') === '1')>
+                            Somente alunos que possuem código INEP
+                        </option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
                 <td class="formdktd" colspan="2"></td>
             </tr>
             <tr>

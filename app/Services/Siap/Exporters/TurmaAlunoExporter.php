@@ -17,24 +17,29 @@ class TurmaAlunoExporter extends AbstractSiapExporter
         $builder = $this->builder();
 
         // Enturmações do ano; Identificacao = INEP do aluno (quando existir).
-        $vinculos = DB::table('pmieducar.matricula as m')
+        $query = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'mt.ref_cod_turma')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
-            ->join('modules.educacenso_cod_aluno as ain', 'ain.cod_aluno', '=', 'a.cod_aluno')
+            ->leftJoin('modules.educacenso_cod_aluno as ain', 'ain.cod_aluno', '=', 'a.cod_aluno')
             ->where('m.ano', $this->ano)
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('t.ativo', 1)
-            ->where('a.ativo', 1)
-            ->whereNotNull('ain.cod_aluno_inep')
+            ->where('a.ativo', 1);
+
+        if ($this->somenteAlunosComInep) {
+            $query->whereNotNull('ain.cod_aluno_inep');
+        }
+
+        $vinculos = $query
             ->select(
                 'a.cod_aluno',
                 't.cod_turma',
                 'inep.cod_escola_inep as inep',
-                'ain.cod_aluno_inep as identificacao',
+                'ain.cod_aluno_inep as aluno_inep',
                 'f.cpf'
             )
             ->distinct()
@@ -42,6 +47,7 @@ class TurmaAlunoExporter extends AbstractSiapExporter
 
         $exportados = 0;
         $omitidosCpf = 0;
+        $semInep = 0;
         $ja = [];
 
         foreach ($vinculos as $vinculo) {
@@ -51,7 +57,12 @@ class TurmaAlunoExporter extends AbstractSiapExporter
                 continue;
             }
 
-            $chave = $vinculo->cod_turma . '|' . $vinculo->identificacao;
+            $identificacao = !empty($vinculo->aluno_inep) ? (string) $vinculo->aluno_inep : '';
+            if ($identificacao === '') {
+                $semInep++;
+            }
+
+            $chave = $vinculo->cod_turma . '|' . $vinculo->cod_aluno;
             if (isset($ja[$chave])) {
                 continue;
             }
@@ -60,7 +71,7 @@ class TurmaAlunoExporter extends AbstractSiapExporter
             $builder->addRecord('TurmaAluno', [
                 'CodigoTurma' => (string) $vinculo->cod_turma,
                 'INEP' => (string) $vinculo->inep,
-                'Identificacao' => (string) $vinculo->identificacao,
+                'Identificacao' => $identificacao,
             ]);
             $exportados++;
         }
@@ -68,6 +79,11 @@ class TurmaAlunoExporter extends AbstractSiapExporter
         $this->alert("TurmaAluno exportados: {$exportados}.");
         if ($omitidosCpf > 0) {
             $this->alert("TurmaAluno omitidos por CPF inválido do aluno: {$omitidosCpf}.");
+        }
+        if ($this->somenteAlunosComInep) {
+            $this->alert('Filtro ativo: somente alunos com código INEP.');
+        } elseif ($semInep > 0) {
+            $this->alert("TurmaAluno sem INEP (Identificacao em branco): {$semInep}.");
         }
 
         return $builder->toFormattedXml();

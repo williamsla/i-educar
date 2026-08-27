@@ -26,7 +26,7 @@ class SiapExportService
 {
     private array $alerts = [];
 
-    public function export(int $ano, int $mes): array
+    public function export(int $ano, int $mes, bool $somenteAlunosComInep = false): array
     {
         $this->alerts = [];
         $codigo = (string) config('siap.codigo', '000');
@@ -37,7 +37,7 @@ class SiapExportService
 
         $arquivos = [];
 
-        foreach ($this->exporters($codigo, $ano, $mes) as $exporter) {
+        foreach ($this->exporters($codigo, $ano, $mes, $somenteAlunosComInep) as $exporter) {
             try {
                 $conteudo = $exporter->export();
                 $arquivos[$exporter->fileName() . '.xml'] = $conteudo;
@@ -62,16 +62,16 @@ class SiapExportService
     /**
      * @return AbstractSiapExporter[]
      */
-    private function exporters(string $codigo, int $ano, int $mes): array
+    private function exporters(string $codigo, int $ano, int $mes, bool $somenteAlunosComInep = false): array
     {
         return [
             new EscolaExporter($codigo, $ano, $mes),
             new EstruturaEscolarExporter($codigo, $ano, $mes),
             new EquipamentoEscolaExporter($codigo, $ano, $mes),
-            new AlunoExporter($codigo, $ano, $mes),
+            new AlunoExporter($codigo, $ano, $mes, $somenteAlunosComInep),
             new MatriculaExporter($codigo, $ano, $mes),
             new TurmaExporter($codigo, $ano, $mes),
-            new TurmaAlunoExporter($codigo, $ano, $mes),
+            new TurmaAlunoExporter($codigo, $ano, $mes, $somenteAlunosComInep),
             new ProfissionalEducacaoExporter($codigo, $ano, $mes),
             new VinculoProfissionalEducacaoExporter($codigo, $ano, $mes),
             new TurmaProfissionalExporter($codigo, $ano, $mes),

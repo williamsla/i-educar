@@ -12,6 +12,7 @@ abstract class AbstractSiapExporter
         protected readonly string $codigo,
         protected readonly int $ano,
         protected readonly int $mes,
+        protected readonly bool $somenteAlunosComInep = false,
     ) {
     }
 
