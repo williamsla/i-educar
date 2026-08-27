@@ -18,7 +18,7 @@ class TcGestaoExportService
         9 => 'Setembro', 10 => 'Outubro', 11 => 'Novembro', 12 => 'Dezembro',
     ];
 
-    public function export(int $ano, int $mes): array
+    public function export(int $ano, int $mes, bool $somenteAlunosComInep = false): array
     {
         $this->alerts = [];
         $inicio = sprintf('%04d-%02d-01', $ano, $mes);
@@ -26,9 +26,9 @@ class TcGestaoExportService
 
         $arquivos = [
             'Escola.csv' => $this->csvEscola($ano),
-            'Aluno.csv' => $this->csvAluno($ano, $inicio, $fim),
+            'Aluno.csv' => $this->csvAluno($ano, $inicio, $fim, $somenteAlunosComInep),
             'Turma.csv' => $this->csvTurma($ano),
-            'TurmaAluno.csv' => $this->csvTurmaAluno($ano, $inicio, $fim),
+            'TurmaAluno.csv' => $this->csvTurmaAluno($ano, $inicio, $fim, $somenteAlunosComInep),
             'ProfissionalEducacao.csv' => $this->csvProfissional($ano),
             'VinculoProfissionalEducacao.csv' => $this->csvVinculo($ano),
             'TurmaProfissional.csv' => $this->csvTurmaProfissional($ano),
@@ -97,7 +97,7 @@ class TcGestaoExportService
         return TcGestaoCsvWriter::toString($headers, $rows);
     }
 
-    private function csvAluno(int $ano, string $inicio, string $fim): string
+    private function csvAluno(int $ano, string $inicio, string $fim, bool $somenteAlunosComInep = false): string
     {
         $headers = [
             'AlunoId', 'Identificacao', 'CPF', 'Nome', 'DataNascimento', 'NomeMae', 'NomePai',
@@ -106,7 +106,7 @@ class TcGestaoExportService
         ];
 
         // Todos com matrícula/enturmação ativa no ano (mês não restringe o cadastro de alunos).
-        $alunos = DB::table('pmieducar.matricula as m')
+        $query = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 'a.ref_idpes')
@@ -118,7 +118,13 @@ class TcGestaoExportService
             ->where('m.ano', $ano)
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
-            ->where('a.ativo', 1)
+            ->where('a.ativo', 1);
+
+        if ($somenteAlunosComInep) {
+            $query->whereNotNull('inep.cod_aluno_inep');
+        }
+
+        $alunos = $query
             ->select(
                 'a.cod_aluno',
                 'inep.cod_aluno_inep as aluno_inep',
@@ -193,7 +199,9 @@ class TcGestaoExportService
         if ($omitidosCpf > 0) {
             $this->alerts[] = "[Aluno] Exportados sem CPF válido (campo vazio): {$omitidosCpf}.";
         }
-        if ($semInep > 0) {
+        if ($somenteAlunosComInep) {
+            $this->alerts[] = '[Aluno] Filtro ativo: somente alunos com código INEP.';
+        } elseif ($semInep > 0) {
             $this->alerts[] = "[Aluno] Exportados sem INEP (Identificacao em branco): {$semInep}.";
         }
 
@@ -247,12 +255,12 @@ class TcGestaoExportService
         return TcGestaoCsvWriter::toString($headers, $rows);
     }
 
-    private function csvTurmaAluno(int $ano, string $inicio, string $fim): string
+    private function csvTurmaAluno(int $ano, string $inicio, string $fim, bool $somenteAlunosComInep = false): string
     {
         $headers = ['AlunoId', 'CodigoTurma', 'INEP', 'Identificacao'];
 
         // Enturmações do ano; Identificacao preferencialmente INEP do aluno.
-        $vinculos = DB::table('pmieducar.matricula as m')
+        $query = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'mt.ref_cod_turma')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
@@ -262,7 +270,13 @@ class TcGestaoExportService
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('t.ativo', 1)
-            ->where('a.ativo', 1)
+            ->where('a.ativo', 1);
+
+        if ($somenteAlunosComInep) {
+            $query->whereNotNull('ain.cod_aluno_inep');
+        }
+
+        $vinculos = $query
             ->select(
                 'a.cod_aluno',
                 't.cod_turma',
@@ -297,7 +311,9 @@ class TcGestaoExportService
         }
 
         $this->alerts[] = '[TurmaAluno] Exportados: ' . count($rows) . '.';
-        if ($semInep > 0) {
+        if ($somenteAlunosComInep) {
+            $this->alerts[] = '[TurmaAluno] Filtro ativo: somente alunos com código INEP.';
+        } elseif ($semInep > 0) {
             $this->alerts[] = "[TurmaAluno] Sem INEP (Identificacao em branco): {$semInep}.";
         }
 
