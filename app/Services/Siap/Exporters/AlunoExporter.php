@@ -34,7 +34,6 @@ class AlunoExporter extends AbstractSiapExporter
             ->where('a.ativo', 1)
             ->where('f.ativo', 1)
             ->whereNotNull('inep.cod_aluno_inep')
-            ->where('inep.cod_aluno_inep', '<>', '')
             ->where(function ($q) use ($inicio, $fim) {
                 $q->whereNull('mt.data_enturmacao')
                     ->orWhereDate('mt.data_enturmacao', '<=', $fim);

@@ -30,7 +30,6 @@ class TurmaAlunoExporter extends AbstractSiapExporter
             ->where('t.ativo', 1)
             ->where('a.ativo', 1)
             ->whereNotNull('ain.cod_aluno_inep')
-            ->where('ain.cod_aluno_inep', '<>', '')
             ->whereNotNull('f.cpf')
             ->whereRaw("regexp_replace(COALESCE(f.cpf::text, ''), '[^0-9]', '', 'g') !~ '^0*$'")
             ->where(function ($q) use ($fim) {
