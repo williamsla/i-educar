@@ -74,7 +74,7 @@ class TurmaAlunoExporter extends AbstractSiapExporter
             $builder->addRecord('TurmaAluno', [
                 'CodigoTurma' => (string) $vinculo->cod_turma,
                 'INEP' => (string) $vinculo->inep,
-                'Identificacao' => $identificacao,
+                'IdentificacaoAluno' => $identificacao,
             ]);
             $exportados++;
         }
