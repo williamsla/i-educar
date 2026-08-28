@@ -146,6 +146,26 @@ class Menu extends Model
     }
 
     /**
+     * URL para o <a> do menu. Nós de grupo (sem link próprio) usam o
+     * primeiro descendente clicável — senão href="" recarrega a página atual.
+     */
+    public function href(): string
+    {
+        if ($this->isLink()) {
+            return (string) $this->link;
+        }
+
+        foreach ($this->children as $child) {
+            $href = $child->href();
+            if ($href !== '') {
+                return $href;
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * Indica se o menu tem links em seus submenus.
      *
      * @return bool

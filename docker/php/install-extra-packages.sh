@@ -35,7 +35,13 @@ reuse_existing_package_tree() {
   target_dir="$1"
   repo_ref="${2:-}"
 
-  echo ">> '$target_dir' é bind mount / checkout local; a reutilizar árvore (preserva .git)."
+  if is_mountpoint "$target_dir"; then
+    echo ">> '$target_dir' é bind mount; a reutilizar árvore (preserva .git)."
+  elif [ -d "$target_dir/.git" ]; then
+    echo ">> '$target_dir' já tem checkout git; a reutilizar árvore."
+  else
+    echo ">> '$target_dir' já presente (clone anterior / COPY); a reutilizar árvore."
+  fi
   if [ ! -f "$target_dir/composer.json" ]; then
     echo "ERRO: '$target_dir' sem composer.json; não será limpo o bind mount do host." >&2
     exit 1
@@ -209,11 +215,13 @@ run_readme_artisan_after_composer() {
   apply_artisan_build_env
 
   if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ] && [ -d packages/portabilis/i-educar-reports-package ]; then
-    echo ">> README relatórios: community:reports:link, community:reports:install, publish de assets"
+    echo ">> README relatórios: community:reports:link, publish de assets"
     if artisan_cmd_exists community:reports:link; then
       php artisan community:reports:link --no-interaction || true
     fi
-    if artisan_cmd_exists community:reports:install; then
+    if skip_db_steps; then
+      echo ">> Build: a omitir community:reports:install (chama migrate; corre no entrypoint/deploy)."
+    elif artisan_cmd_exists community:reports:install; then
       php artisan community:reports:install --no-interaction || \
         echo ">> AVISO: community:reports:install falhou (BD/migrate pendente?). Execute após migrate: php artisan community:reports:install" >&2
     fi

@@ -18,7 +18,7 @@ class TurmaExporter extends AbstractSiapExporter
         $builder = $this->builder();
         $cargaDefault = (string) config('siap.defaults.carga_horaria_turma', '20');
         $cardapioDefault = (string) config('siap.defaults.codigo_cardapio', '1');
-        $cardapiosPorEscola = $this->resolverCardapiosPorEscola();
+        $cardapios = $this->carregarCardapios();
 
         $query = DB::table('pmieducar.turma as t')
             ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
@@ -29,6 +29,8 @@ class TurmaExporter extends AbstractSiapExporter
             ->select(
                 't.cod_turma',
                 't.ref_ref_cod_escola as cod_escola',
+                't.ref_ref_cod_serie',
+                't.ref_ref_cod_serie_mult',
                 'inep.cod_escola_inep as inep',
                 't.etapa_educacenso',
                 'c.modalidade_curso',
@@ -45,9 +47,7 @@ class TurmaExporter extends AbstractSiapExporter
         foreach ($turmas as $turma) {
             $periodo = $this->periodoLetivo((int) $turma->cod_turma, (int) $turma->cod_escola);
             $carga = $this->calcularCargaHoraria($turma->hora_inicial, $turma->hora_final, $cargaDefault);
-            $codigoCardapio = $cardapiosPorEscola[(int) $turma->cod_escola]
-                ?? $cardapiosPorEscola[0]
-                ?? $cardapioDefault;
+            $codigoCardapio = $this->resolverCodigoCardapio($turma, $cardapios, $cardapioDefault);
 
             $builder->addRecord('Turma', [
                 'Codigo' => (string) $turma->cod_turma,
@@ -118,24 +118,25 @@ class TurmaExporter extends AbstractSiapExporter
     }
 
     /**
-     * @return array<int, string> cod_escola => codigo_cardapio (0 = município)
+     * Cardápios ativos do período para cruzar com a série da turma.
+     *
+     * @return \Illuminate\Support\Collection<int, object>
      */
-    private function resolverCardapiosPorEscola(): array
+    private function carregarCardapios()
     {
-        $mapa = [];
-
         if (!Schema::hasTable('merenda_cardapios')) {
-            return $mapa;
+            return collect();
         }
 
         $escolasIds = $this->idsEscolasInstituicao();
-
-        $colunas = ['id', 'ref_cod_escola'];
-        if (Schema::hasColumn('merenda_cardapios', 'codigo')) {
-            $colunas[] = 'codigo';
+        $colunas = ['id', 'ref_cod_escola', 'ref_cod_serie'];
+        foreach (['codigo', 'series_ids', 'turnos', 'turno'] as $coluna) {
+            if (Schema::hasColumn('merenda_cardapios', $coluna)) {
+                $colunas[] = $coluna;
+            }
         }
 
-        $cardapios = DB::table('merenda_cardapios')
+        return DB::table('merenda_cardapios')
             ->whereNull('deleted_at')
             ->where(function ($q) use ($escolasIds) {
                 $q->whereNull('ref_cod_escola')
@@ -158,17 +159,117 @@ class TurmaExporter extends AbstractSiapExporter
             })
             ->orderBy('id')
             ->get($colunas);
+    }
+
+    /**
+     * CodigoCardapio da turma: cardápio cuja série (series_ids / ref_cod_serie)
+     * inclui a série da turma. Prefere o da mesma escola e, em empate, o do mesmo turno.
+     */
+    private function resolverCodigoCardapio(object $turma, $cardapios, string $default): string
+    {
+        if ($cardapios->isEmpty()) {
+            return $default;
+        }
+
+        $seriesTurma = array_values(array_unique(array_filter([
+            (int) ($turma->ref_ref_cod_serie ?? 0),
+            (int) ($turma->ref_ref_cod_serie_mult ?? 0),
+        ])));
+        $escolaId = (int) $turma->cod_escola;
+        $turnoTurma = $this->turnoMerenda((int) ($turma->turma_turno_id ?? 0));
+
+        $melhor = null;
+        $melhorScore = -1;
 
         foreach ($cardapios as $cardapio) {
-            $escolaId = (int) ($cardapio->ref_cod_escola ?? 0);
-            $codigo = (string) ($cardapio->codigo ?: $cardapio->id);
-            if ($escolaId > 0 && !isset($mapa[$escolaId])) {
-                $mapa[$escolaId] = $codigo;
-            } elseif ($escolaId === 0 && !isset($mapa[0])) {
-                $mapa[0] = $codigo;
+            $escolaCardapio = (int) ($cardapio->ref_cod_escola ?? 0);
+            if ($escolaCardapio > 0 && $escolaCardapio !== $escolaId) {
+                continue;
+            }
+
+            $seriesCardapio = $this->seriesDoCardapio($cardapio);
+            $serieEspecifica = $seriesCardapio !== [] && $seriesTurma !== []
+                && count(array_intersect($seriesCardapio, $seriesTurma)) > 0;
+
+            if ($seriesCardapio !== [] && ! $serieEspecifica) {
+                continue;
+            }
+
+            $score = 0;
+            if ($serieEspecifica) {
+                $score += 100;
+            }
+            if ($escolaCardapio === $escolaId) {
+                $score += 20;
+            } else {
+                $score += 5;
+            }
+            if ($turnoTurma !== null && $this->cardapioTemTurno($cardapio, $turnoTurma)) {
+                $score += 10;
+            }
+
+            if ($score > $melhorScore) {
+                $melhorScore = $score;
+                $melhor = $cardapio;
             }
         }
 
-        return $mapa;
+        if ($melhor === null) {
+            return $default;
+        }
+
+        return (string) (($melhor->codigo ?? null) ?: $melhor->id);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function seriesDoCardapio(object $cardapio): array
+    {
+        $ids = $cardapio->series_ids ?? null;
+        if (is_string($ids) && $ids !== '') {
+            $decoded = json_decode($ids, true);
+            $ids = is_array($decoded) ? $decoded : null;
+        }
+
+        if (is_array($ids) && $ids !== []) {
+            return array_values(array_unique(array_filter(array_map('intval', $ids))));
+        }
+
+        if (! empty($cardapio->ref_cod_serie)) {
+            return [(int) $cardapio->ref_cod_serie];
+        }
+
+        return [];
+    }
+
+    private function turnoMerenda(int $turmaTurnoId): ?string
+    {
+        return match ($turmaTurnoId) {
+            1 => 'matutino',
+            2 => 'vespertino',
+            3 => 'noturno',
+            4 => 'integral',
+            default => null,
+        };
+    }
+
+    private function cardapioTemTurno(object $cardapio, string $turno): bool
+    {
+        $turnos = $cardapio->turnos ?? null;
+        if (is_string($turnos) && $turnos !== '') {
+            $decoded = json_decode($turnos, true);
+            $turnos = is_array($decoded) ? $decoded : null;
+        }
+
+        if (is_array($turnos) && $turnos !== []) {
+            $turnos = array_map(fn ($t) => strtolower((string) $t), $turnos);
+
+            return in_array($turno, $turnos, true);
+        }
+
+        $turnoSingular = strtolower((string) ($cardapio->turno ?? ''));
+
+        return $turnoSingular !== '' && $turnoSingular === $turno;
     }
 }

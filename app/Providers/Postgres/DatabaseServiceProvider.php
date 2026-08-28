@@ -25,7 +25,11 @@ class DatabaseServiceProvider extends ServiceProvider
         });
 
         Event::listen('Illuminate\Database\Events\QueryExecuted', function ($query) {
-            $query->connection->setFetchMode(PDO::FETCH_OBJ);
+            // Laravel 11+ removeu Connection::setFetchMode; só a conexão pgsql
+            // customizada (PostgresConnection) ainda expõe o método.
+            if (method_exists($query->connection, 'setFetchMode')) {
+                $query->connection->setFetchMode(PDO::FETCH_OBJ);
+            }
         });
     }
 }
