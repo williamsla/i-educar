@@ -139,7 +139,10 @@ COPY docker/php/install-extra-packages.sh /usr/local/bin/install-extra-packages.
 RUN --mount=type=secret,id=git_token,required=false \
     chmod +x /usr/local/bin/entrypoint.prod.sh /usr/local/bin/install-extra-packages.sh \
     && export GIT_TOKEN="$(cat /run/secrets/git_token 2>/dev/null | tr -d '\n' || true)" \
-    && ENABLE_PACKAGE_REPORTS=${ENABLE_PACKAGE_REPORTS} \
+    && IEDUCAR_SKIP_DB=1 \
+    CACHE_STORE=array \
+    CACHE_DRIVER=array \
+    ENABLE_PACKAGE_REPORTS=${ENABLE_PACKAGE_REPORTS} \
     ENABLE_PACKAGE_EDUCACENSO=${ENABLE_PACKAGE_EDUCACENSO} \
     ENABLE_PACKAGE_TRANSPORTE=${ENABLE_PACKAGE_TRANSPORTE} \
     ENABLE_PACKAGE_PRE_MATRICULA=${ENABLE_PACKAGE_PRE_MATRICULA} \
