@@ -234,7 +234,12 @@ run_readme_artisan_after_composer() {
   fi
 
   if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
-    echo ">> Merenda: vendor:publish --tag=merenda-assets (migrate/cache no entrypoint/deploy)"
+    echo ">> Merenda: a copiar CSS/JS para public/vendor/merenda"
+    merenda_public="packages/merenda/merenda-escolar/public"
+    if [ -d "$merenda_public" ]; then
+      mkdir -p public/vendor/merenda
+      cp -a "$merenda_public"/. public/vendor/merenda/
+    fi
     php artisan vendor:publish --tag=merenda-assets --force --no-interaction 2>/dev/null || true
   fi
 }
@@ -315,6 +320,14 @@ if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
 
   strip_sudo_from_script "packages/despesas-escolar/install.sh"
   ensure_laravel_runtime_dirs
+  if [ -f packages/despesas-escolar/composer.json ]; then
+    composer config --json repositories.despesas \
+      '{"type":"path","url":"packages/despesas-escolar","options":{"symlink":true}}' \
+      --no-interaction 2>/dev/null || true
+    if ! composer show ieducar/despesa-escolar >/dev/null 2>&1; then
+      composer require "ieducar/despesa-escolar:*" --no-update --no-interaction || true
+    fi
+  fi
   if skip_db_steps; then
     echo ">> Build: a omitir install.sh (cache:clear/migrate no entrypoint/deploy)."
   else

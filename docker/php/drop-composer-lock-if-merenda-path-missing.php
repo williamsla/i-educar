@@ -46,7 +46,7 @@ $optionalPathRepos = [
     'despesas' => [
         'enabled' => $despesasEnabled,
         'path_ok' => $despesasPathOk,
-        'require' => null,
+        'require' => 'ieducar/despesa-escolar',
         'match' => static function (array $r): bool {
             if (($r['type'] ?? '') !== 'path') {
                 return false;
@@ -132,6 +132,9 @@ if (is_file('composer.lock')) {
         $stalePackages = [];
         if (!$merendaEnabled || !$merendaPathOk) {
             $stalePackages[] = 'merenda/merenda-escolar';
+        }
+        if (!$despesasEnabled || !$despesasPathOk) {
+            $stalePackages[] = 'ieducar/despesa-escolar';
         }
         $removeLock = false;
         foreach (array_merge($lock['packages'] ?? [], $lock['packages-dev'] ?? []) as $p) {

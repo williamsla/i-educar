@@ -130,5 +130,10 @@ class AppServiceProvider extends ServiceProvider
 
         Cache::swap(new CacheManager(app()));
         $this->app->register(DatabaseServiceProvider::class);
+
+        $despesasProvider = \iEducar\Packages\DespesaEscolar\Providers\DespesaEscolarServiceProvider::class;
+        if (class_exists($despesasProvider) && $this->app->getProvider($despesasProvider) === null) {
+            $this->app->register($despesasProvider);
+        }
     }
 }
