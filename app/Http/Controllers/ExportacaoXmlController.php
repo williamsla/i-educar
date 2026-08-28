@@ -63,6 +63,7 @@ class ExportacaoXmlController extends Controller
         $modelo = $request->input('modelo');
         $ano = $request->input('ano');
         $mes = $request->input('mes');
+        $instituicaoId = (int) $request->input('ref_cod_instituicao');
         $somenteAlunosComInep = $request->boolean('somente_alunos_com_inep');
 
         $this->alerts = [];
@@ -71,14 +72,18 @@ class ExportacaoXmlController extends Controller
             return back()->withErrors('Preencha todos os campos corretamente.');
         }
 
-        if ($modelo === 'sagres') {
-            return $this->exportarModeloSAGRES($ano, $mes);
+        if ($instituicaoId <= 0) {
+            return back()->withErrors('Selecione a instituição.');
         }
 
-        return $this->exportarModeloSIAP($ano, $mes, $somenteAlunosComInep);
+        if ($modelo === 'sagres') {
+            return $this->exportarModeloSAGRES($ano, $mes, $instituicaoId);
+        }
+
+        return $this->exportarModeloSIAP($ano, $mes, $instituicaoId, $somenteAlunosComInep);
     }
 
-    private function exportarModeloSAGRES($ano, $mes)
+    private function exportarModeloSAGRES($ano, $mes, int $instituicaoId)
     {
         $data = new DateTime("$ano-$mes-01");
         $ultimo_dia_mes = $data->format('t');
@@ -96,7 +101,7 @@ class ExportacaoXmlController extends Controller
         $prestacao->addChild('edu:diaInicPresContas', '1', $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:diaFinaPresContas', $ultimo_dia_mes, $xml->getNamespaces()['edu']);
 
-        $escolas = $this->getEscolas($ano);
+        $escolas = $this->getEscolas($ano, $instituicaoId);
         if ($escolas->isEmpty()) {
             return response()->json(['erro' => 'Nenhuma escola encontrada.'], 404);
         } 
@@ -325,10 +330,10 @@ class ExportacaoXmlController extends Controller
         return $this->compactarEEnviar($xml, 'Educacao');
     }
 
-    private function exportarModeloSIAP($ano, $mes, bool $somenteAlunosComInep = false)
+    private function exportarModeloSIAP($ano, $mes, int $instituicaoId, bool $somenteAlunosComInep = false)
     {
         $service = new SiapExportService();
-        $result = $service->export((int) $ano, (int) $mes, $somenteAlunosComInep);
+        $result = $service->export((int) $ano, (int) $mes, $instituicaoId, $somenteAlunosComInep);
 
         $this->alerts = array_merge($this->alerts, $service->getAlerts());
 
@@ -361,7 +366,7 @@ class ExportacaoXmlController extends Controller
     }
 
 
-    private function getEscolas($ano)
+    private function getEscolas($ano, int $instituicaoId)
     {
         $query = DB::table('escola')
                 ->join('pmieducar.escola_ano_letivo', 'escola.cod_escola', '=', 'pmieducar.escola_ano_letivo.ref_cod_escola')
@@ -372,6 +377,7 @@ class ExportacaoXmlController extends Controller
                     'modules.educacenso_cod_escola.cod_escola_inep as inep_escola'
                 )
                 ->where('escola.ativo', '=', '1')
+                ->where('escola.ref_cod_instituicao', '=', $instituicaoId)
                 ->where('pmieducar.escola_ano_letivo.ativo', '=', '1')
                 ->where('pmieducar.escola_ano_letivo.ano', '=', $ano);
                 

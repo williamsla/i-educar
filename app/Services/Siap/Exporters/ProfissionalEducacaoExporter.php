@@ -19,6 +19,7 @@ class ProfissionalEducacaoExporter extends AbstractSiapExporter
 
         $profissionais = DB::table('pmieducar.servidor as s')
             ->join('pmieducar.servidor_alocacao as sa', 'sa.ref_cod_servidor', '=', 's.cod_servidor')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sa.ref_cod_escola')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 's.cod_servidor')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 's.cod_servidor')
             ->leftJoin('cadastro.fisica_raca as fr', 'fr.ref_idpes', '=', 'f.idpes')
@@ -27,6 +28,7 @@ class ProfissionalEducacaoExporter extends AbstractSiapExporter
             ->where('s.ativo', 1)
             ->where('sa.ativo', 1)
             ->where('sa.ano', $this->ano)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('f.cpf')
             ->select(
                 's.cod_servidor',

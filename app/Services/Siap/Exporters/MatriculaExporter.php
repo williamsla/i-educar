@@ -22,11 +22,13 @@ class MatriculaExporter extends AbstractSiapExporter
         $fim = $this->fimMes();
 
         $turmas = DB::table('pmieducar.turma as t')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->leftJoin('pmieducar.curso as c', 'c.cod_curso', '=', 't.ref_cod_curso')
             ->leftJoin('pmieducar.turma_turno as tt', 'tt.id', '=', 't.turma_turno_id')
             ->where('t.ano', $this->ano)
             ->where('t.ativo', 1)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->select(
                 't.cod_turma',
                 'inep.cod_escola_inep as inep',

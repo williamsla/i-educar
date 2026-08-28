@@ -54,6 +54,16 @@
             @endif
 
             <tr>
+                <td class="formmdtd" valign="top">
+                    <span class="form">Instituição</span>
+                    <span class="campo_obrigatorio">*</span>
+                </td>
+                <td class="formmdtd" valign="top">
+                    @include('form.select-institution', ['obrigatorio' => true])
+                </td>
+            </tr>
+
+            <tr>
                 <td class="formlttd" valign="top">
                     <span class="form">Ano de referência</span>
                     <span class="campo_obrigatorio">*</span>

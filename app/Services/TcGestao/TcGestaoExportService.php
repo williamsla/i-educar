@@ -12,15 +12,18 @@ class TcGestaoExportService
 {
     private array $alerts = [];
 
+    private int $instituicaoId = 0;
+
     private const MESES = [
         1 => 'Janeiro', 2 => 'Fevereiro', 3 => 'Março', 4 => 'Abril',
         5 => 'Maio', 6 => 'Junho', 7 => 'Julho', 8 => 'Agosto',
         9 => 'Setembro', 10 => 'Outubro', 11 => 'Novembro', 12 => 'Dezembro',
     ];
 
-    public function export(int $ano, int $mes, bool $somenteAlunosComInep = false): array
+    public function export(int $ano, int $mes, int $instituicaoId, bool $somenteAlunosComInep = false): array
     {
         $this->alerts = [];
+        $this->instituicaoId = $instituicaoId;
         $inicio = sprintf('%04d-%02d-01', $ano, $mes);
         $fim = date('Y-m-t', strtotime($inicio));
 
@@ -58,6 +61,7 @@ class TcGestaoExportService
             ->where('e.ativo', 1)
             ->where('eal.ativo', 1)
             ->where('eal.ano', $ano)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('inep.cod_escola_inep')
             ->select(
                 'e.cod_escola',
@@ -108,6 +112,7 @@ class TcGestaoExportService
         // Todos com matrícula/enturmação ativa no ano (mês não restringe o cadastro de alunos).
         $query = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
+            ->join('pmieducar.escola as esc', 'esc.cod_escola', '=', 'm.ref_ref_cod_escola')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 'a.ref_idpes')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
@@ -118,7 +123,8 @@ class TcGestaoExportService
             ->where('m.ano', $ano)
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
-            ->where('a.ativo', 1);
+            ->where('a.ativo', 1)
+            ->where('esc.ref_cod_instituicao', $this->instituicaoId);
 
         if ($somenteAlunosComInep) {
             $query->whereNotNull('inep.cod_aluno_inep');
@@ -217,10 +223,12 @@ class TcGestaoExportService
         $cargaDefault = (string) config('siap.defaults.carga_horaria_turma', '20');
 
         $turmas = DB::table('pmieducar.turma as t')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->leftJoin('pmieducar.curso as c', 'c.cod_curso', '=', 't.ref_cod_curso')
             ->where('t.ano', $ano)
             ->where('t.ativo', 1)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->select(
                 't.cod_turma',
                 't.ref_ref_cod_escola as cod_escola',
@@ -263,6 +271,7 @@ class TcGestaoExportService
         $query = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'mt.ref_cod_turma')
+            ->join('pmieducar.escola as esc', 'esc.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->leftJoin('modules.educacenso_cod_aluno as ain', 'ain.cod_aluno', '=', 'a.cod_aluno')
@@ -270,7 +279,8 @@ class TcGestaoExportService
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('t.ativo', 1)
-            ->where('a.ativo', 1);
+            ->where('a.ativo', 1)
+            ->where('esc.ref_cod_instituicao', $this->instituicaoId);
 
         if ($somenteAlunosComInep) {
             $query->whereNotNull('ain.cod_aluno_inep');
@@ -329,6 +339,7 @@ class TcGestaoExportService
 
         $profissionais = DB::table('pmieducar.servidor as s')
             ->join('pmieducar.servidor_alocacao as sa', 'sa.ref_cod_servidor', '=', 's.cod_servidor')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sa.ref_cod_escola')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 's.cod_servidor')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 's.cod_servidor')
             ->leftJoin('cadastro.fisica_raca as fr', 'fr.ref_idpes', '=', 'f.idpes')
@@ -337,6 +348,7 @@ class TcGestaoExportService
             ->where('s.ativo', 1)
             ->where('sa.ativo', 1)
             ->where('sa.ano', $ano)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('f.cpf')
             ->select(
                 's.cod_servidor',
@@ -391,6 +403,7 @@ class TcGestaoExportService
 
         $vinculos = DB::table('pmieducar.servidor_alocacao as sa')
             ->join('pmieducar.servidor as s', 's.cod_servidor', '=', 'sa.ref_cod_servidor')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sa.ref_cod_escola')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 's.cod_servidor')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 'sa.ref_cod_escola')
             ->leftJoin('pmieducar.servidor_funcao as sf', 'sf.cod_servidor_funcao', '=', 'sa.ref_cod_servidor_funcao')
@@ -399,6 +412,7 @@ class TcGestaoExportService
             ->where('sa.ativo', 1)
             ->where('s.ativo', 1)
             ->where('sa.ano', $ano)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('f.cpf')
             ->select(
                 'inep.cod_escola_inep as inep',
@@ -462,11 +476,13 @@ class TcGestaoExportService
 
         $vinculos = DB::table('modules.professor_turma as pt')
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'pt.turma_id')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'pt.servidor_id')
             ->leftJoin('portal.funcionario as func', 'func.ref_cod_pessoa_fj', '=', 'pt.servidor_id')
             ->where('pt.ano', $ano)
             ->where('t.ativo', 1)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('f.cpf')
             ->select(
                 'pt.servidor_id as cod_servidor',
@@ -482,12 +498,14 @@ class TcGestaoExportService
             $vinculos = DB::table('pmieducar.quadro_horario as qh')
                 ->join('pmieducar.quadro_horario_horarios as qhh', 'qhh.ref_cod_quadro_horario', '=', 'qh.cod_quadro_horario')
                 ->join('pmieducar.turma as t', 't.cod_turma', '=', 'qh.ref_cod_turma')
+                ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
                 ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
                 ->join('cadastro.fisica as f', 'f.idpes', '=', 'qhh.ref_cod_servidor')
                 ->leftJoin('portal.funcionario as func', 'func.ref_cod_pessoa_fj', '=', 'qhh.ref_cod_servidor')
                 ->where('t.ano', $ano)
                 ->where('t.ativo', 1)
                 ->where('qh.ativo', 1)
+                ->where('e.ref_cod_instituicao', $this->instituicaoId)
                 ->whereNotNull('f.cpf')
                 ->select(
                     'qhh.ref_cod_servidor as cod_servidor',
@@ -554,6 +572,7 @@ class TcGestaoExportService
 
         $alocacoes = DB::table('pmieducar.servidor_alocacao as sa')
             ->join('pmieducar.servidor as s', 's.cod_servidor', '=', 'sa.ref_cod_servidor')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sa.ref_cod_escola')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 's.cod_servidor')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 's.cod_servidor')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 'sa.ref_cod_escola')
@@ -561,6 +580,7 @@ class TcGestaoExportService
             ->where('sa.ativo', 1)
             ->where('s.ativo', 1)
             ->where('sa.ano', $ano)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('f.cpf')
             ->select(
                 's.cod_servidor',

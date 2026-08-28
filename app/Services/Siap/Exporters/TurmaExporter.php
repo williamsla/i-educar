@@ -20,7 +20,8 @@ class TurmaExporter extends AbstractSiapExporter
         $cardapioDefault = (string) config('siap.defaults.codigo_cardapio', '1');
         $cardapiosPorEscola = $this->resolverCardapiosPorEscola();
 
-        $turmas = DB::table('pmieducar.turma as t')
+        $query = DB::table('pmieducar.turma as t')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->leftJoin('pmieducar.curso as c', 'c.cod_curso', '=', 't.ref_cod_curso')
             ->where('t.ano', $this->ano)
@@ -35,8 +36,11 @@ class TurmaExporter extends AbstractSiapExporter
                 't.hora_inicial',
                 't.hora_final',
                 't.ano'
-            )
-            ->get();
+            );
+
+        $this->aplicarFiltroInstituicao($query);
+
+        $turmas = $query->get();
 
         foreach ($turmas as $turma) {
             $periodo = $this->periodoLetivo((int) $turma->cod_turma, (int) $turma->cod_escola);
@@ -124,8 +128,15 @@ class TurmaExporter extends AbstractSiapExporter
             return $mapa;
         }
 
+        $escolasIds = $this->idsEscolasInstituicao();
+
         $cardapios = DB::table('merenda_cardapios')
             ->whereNull('deleted_at')
+            ->where(function ($q) use ($escolasIds) {
+                $q->whereNull('ref_cod_escola')
+                    ->orWhere('ref_cod_escola', 0)
+                    ->orWhereIn('ref_cod_escola', $escolasIds);
+            })
             ->where(function ($q) {
                 $q->where(function ($q2) {
                     $q2->where('ano_referencia', $this->ano)

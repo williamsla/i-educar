@@ -28,14 +28,19 @@ class TcGestaoExportController extends Controller
 
         $ano = (int) $request->input('ano');
         $mes = (int) $request->input('mes');
+        $instituicaoId = (int) $request->input('ref_cod_instituicao');
         $somenteAlunosComInep = $request->boolean('somente_alunos_com_inep');
+
+        if ($instituicaoId <= 0) {
+            return back()->withErrors('Selecione a instituição.');
+        }
 
         if ($ano < 2000 || $mes < 1 || $mes > 12) {
             return back()->withErrors('Informe ano e mês de referência válidos.');
         }
 
         try {
-            $result = $service->export($ano, $mes, $somenteAlunosComInep);
+            $result = $service->export($ano, $mes, $instituicaoId, $somenteAlunosComInep);
         } catch (\Throwable $e) {
             report($e);
 

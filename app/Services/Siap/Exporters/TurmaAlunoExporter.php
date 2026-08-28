@@ -20,6 +20,7 @@ class TurmaAlunoExporter extends AbstractSiapExporter
         $query = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'mt.ref_cod_turma')
+            ->join('pmieducar.escola as esc', 'esc.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
@@ -29,6 +30,8 @@ class TurmaAlunoExporter extends AbstractSiapExporter
             ->where('mt.ativo', 1)
             ->where('t.ativo', 1)
             ->where('a.ativo', 1);
+
+        $this->aplicarFiltroInstituicao($query, 'esc');
 
         if ($this->somenteAlunosComInep) {
             $query->whereNotNull('ain.cod_aluno_inep');

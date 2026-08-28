@@ -21,6 +21,7 @@ class AlunoExporter extends AbstractSiapExporter
         // (não restringe ao mês de referência — o mês vale para remessa/faltas).
         $query = DB::table('pmieducar.matricula as m')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
+            ->join('pmieducar.escola as esc', 'esc.cod_escola', '=', 'm.ref_ref_cod_escola')
             ->join('pmieducar.aluno as a', 'a.cod_aluno', '=', 'm.ref_cod_aluno')
             ->join('cadastro.pessoa as p', 'p.idpes', '=', 'a.ref_idpes')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'a.ref_idpes')
@@ -32,6 +33,8 @@ class AlunoExporter extends AbstractSiapExporter
             ->where('m.ativo', 1)
             ->where('mt.ativo', 1)
             ->where('a.ativo', 1);
+
+        $this->aplicarFiltroInstituicao($query, 'esc');
 
         if ($this->somenteAlunosComInep) {
             $query->whereNotNull('inep.cod_aluno_inep');

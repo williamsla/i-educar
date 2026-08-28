@@ -18,11 +18,13 @@ class TurmaProfissionalExporter extends AbstractSiapExporter
 
         $vinculos = DB::table('modules.professor_turma as pt')
             ->join('pmieducar.turma as t', 't.cod_turma', '=', 'pt.turma_id')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 'pt.servidor_id')
             ->leftJoin('portal.funcionario as func', 'func.ref_cod_pessoa_fj', '=', 'pt.servidor_id')
             ->where('pt.ano', $this->ano)
             ->where('t.ativo', 1)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('f.cpf')
             ->select(
                 't.cod_turma',
@@ -38,12 +40,14 @@ class TurmaProfissionalExporter extends AbstractSiapExporter
             $vinculos = DB::table('pmieducar.quadro_horario as qh')
                 ->join('pmieducar.quadro_horario_horarios as qhh', 'qhh.ref_cod_quadro_horario', '=', 'qh.cod_quadro_horario')
                 ->join('pmieducar.turma as t', 't.cod_turma', '=', 'qh.ref_cod_turma')
+                ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
                 ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
                 ->join('cadastro.fisica as f', 'f.idpes', '=', 'qhh.ref_cod_servidor')
                 ->leftJoin('portal.funcionario as func', 'func.ref_cod_pessoa_fj', '=', 'qhh.ref_cod_servidor')
                 ->where('t.ano', $this->ano)
                 ->where('t.ativo', 1)
                 ->where('qh.ativo', 1)
+                ->where('e.ref_cod_instituicao', $this->instituicaoId)
                 ->whereNotNull('f.cpf')
                 ->select(
                     't.cod_turma',

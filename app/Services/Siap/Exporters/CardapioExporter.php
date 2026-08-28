@@ -32,9 +32,15 @@ class CardapioExporter extends AbstractSiapExporter
 
         $inicio = $this->inicioMes();
         $fim = $this->fimMes();
+        $escolasIds = $this->idsEscolasInstituicao();
 
         $cardapios = DB::table('merenda_cardapios')
             ->whereNull('deleted_at')
+            ->where(function ($q) use ($escolasIds) {
+                $q->whereNull('ref_cod_escola')
+                    ->orWhere('ref_cod_escola', 0)
+                    ->orWhereIn('ref_cod_escola', $escolasIds);
+            })
             ->where(function ($q) use ($inicio, $fim) {
                 $q->where(function ($q2) {
                     $q2->where('ano_referencia', $this->ano)

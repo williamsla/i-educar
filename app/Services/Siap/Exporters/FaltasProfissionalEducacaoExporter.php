@@ -28,12 +28,14 @@ class FaltasProfissionalEducacaoExporter extends AbstractSiapExporter
 
         $alocacoes = DB::table('pmieducar.servidor_alocacao as sa')
             ->join('pmieducar.servidor as s', 's.cod_servidor', '=', 'sa.ref_cod_servidor')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sa.ref_cod_escola')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 's.cod_servidor')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 'sa.ref_cod_escola')
             ->leftJoin('portal.funcionario as func', 'func.ref_cod_pessoa_fj', '=', 's.cod_servidor')
             ->where('sa.ativo', 1)
             ->where('s.ativo', 1)
             ->where('sa.ano', $this->ano)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('f.cpf')
             ->select(
                 's.cod_servidor',

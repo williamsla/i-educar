@@ -43,6 +43,8 @@ class EscolaExporter extends AbstractSiapExporter
             $query->addSelect('e.kit_escolar', 'e.data_entrega_kit_escolar');
         }
 
+        $this->aplicarFiltroInstituicao($query);
+
         $escolas = $query->distinct()->get();
 
         foreach ($escolas as $escola) {

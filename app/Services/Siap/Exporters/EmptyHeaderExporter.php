@@ -12,10 +12,11 @@ class EmptyHeaderExporter extends AbstractSiapExporter
         string $codigo,
         int $ano,
         int $mes,
+        int $instituicaoId,
         private readonly string $arquivo,
         private readonly string $motivo = 'Sem cadastro no sistema — arquivo exportado apenas com cabeçalho.',
     ) {
-        parent::__construct($codigo, $ano, $mes);
+        parent::__construct($codigo, $ano, $mes, $instituicaoId);
     }
 
     public function fileName(): string
