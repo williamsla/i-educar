@@ -130,6 +130,11 @@ class TurmaExporter extends AbstractSiapExporter
 
         $escolasIds = $this->idsEscolasInstituicao();
 
+        $colunas = ['id', 'ref_cod_escola'];
+        if (Schema::hasColumn('merenda_cardapios', 'codigo')) {
+            $colunas[] = 'codigo';
+        }
+
         $cardapios = DB::table('merenda_cardapios')
             ->whereNull('deleted_at')
             ->where(function ($q) use ($escolasIds) {
@@ -152,14 +157,15 @@ class TurmaExporter extends AbstractSiapExporter
                 $q->where('status', 'ativo')->orWhereNull('status');
             })
             ->orderBy('id')
-            ->get(['id', 'ref_cod_escola']);
+            ->get($colunas);
 
         foreach ($cardapios as $cardapio) {
             $escolaId = (int) ($cardapio->ref_cod_escola ?? 0);
+            $codigo = (string) ($cardapio->codigo ?: $cardapio->id);
             if ($escolaId > 0 && !isset($mapa[$escolaId])) {
-                $mapa[$escolaId] = (string) $cardapio->id;
+                $mapa[$escolaId] = $codigo;
             } elseif ($escolaId === 0 && !isset($mapa[0])) {
-                $mapa[0] = (string) $cardapio->id;
+                $mapa[0] = $codigo;
             }
         }
 

@@ -58,21 +58,30 @@ class CardapioExporter extends AbstractSiapExporter
 
         foreach ($cardapios as $cardapio) {
             $metricas = $this->calcularMetricas((int) $cardapio->id, $inicio, $fim);
-            $tipoCardapio = (stripos((string) ($cardapio->modalidade ?? ''), 'integral') !== false) ? '1' : '1';
-            if (stripos((string) ($cardapio->modalidade ?? ''), 'integral') !== false) {
-                $tipoCardapio = '2';
+            $tipoCardapio = class_exists(\Merenda\Models\MerendaCardapio::class)
+                ? \Merenda\Models\MerendaCardapio::inferirTipoCardapioSiap(
+                    $cardapio->turnos ?? null,
+                    $cardapio->turno ?? null
+                )
+                : ((stripos((string) ($cardapio->turno ?? $cardapio->modalidade ?? ''), 'integral') !== false) ? '2' : '1');
+            $especial = (string) ($cardapio->cardapio_para_necessidades_especiais ?? '');
+            if (! in_array($especial, ['1', '2'], true)) {
+                $especial = ((string) ($cardapio->tipo_refeicao ?? '') === 'merenda_especial') ? '1' : '2';
             }
-            $especial = ((string) ($cardapio->tipo_refeicao ?? '') === 'merenda_especial') ? '1' : '2';
+            $teste = (string) ($cardapio->realizado_teste_aceitabilidade ?? '2');
+            if (! in_array($teste, ['1', '2'], true)) {
+                $teste = '2';
+            }
 
             $builder->addRecord('Cardapio', [
-                'Codigo' => (string) $cardapio->id,
-                'RealizadoTesteAceitabilidade' => '2',
-                'QuantidadeEscolasTestadas' => '0',
-                'QuantidadePreparacoes' => (string) $metricas['preparacoes'],
-                'PercentualAceitacao' => '100',
-                'QuantidadeDiasOferta' => (string) max(1, $metricas['dias_oferta']),
-                'QuantidadeDiasFruta' => (string) $metricas['dias_fruta'],
-                'QuantidadeDiasLegumesVerduras' => (string) $metricas['dias_legumes'],
+                'Codigo' => (string) ($cardapio->codigo ?: $cardapio->id),
+                'RealizadoTesteAceitabilidade' => $teste,
+                'QuantidadeEscolasTestadas' => (string) ($cardapio->quantidade_escolas_testadas ?? '0'),
+                'QuantidadePreparacoes' => (string) ($cardapio->quantidade_preparacoes ?? $metricas['preparacoes']),
+                'PercentualAceitacao' => (string) ($cardapio->percentual_aceitacao ?? '100'),
+                'QuantidadeDiasOferta' => (string) ($cardapio->quantidade_dias_oferta ?? max(1, $metricas['dias_oferta'])),
+                'QuantidadeDiasFruta' => (string) ($cardapio->quantidade_dias_fruta ?? $metricas['dias_fruta']),
+                'QuantidadeDiasLegumesVerduras' => (string) ($cardapio->quantidade_dias_legumes_verduras ?? $metricas['dias_legumes']),
                 'TipoCardapio' => $tipoCardapio,
                 'CardapioParaNecessidadesEspeciais' => $especial,
             ]);

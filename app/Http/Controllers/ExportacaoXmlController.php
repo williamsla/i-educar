@@ -130,8 +130,8 @@ class ExportacaoXmlController extends Controller
                 }
 
                 $isProsic = false;
-                if ($turma->multiseriada == 1 
-                    && str_contains($turma->nm_turma, 'PROSIC') === true 
+                if (($turma->multiseriada == 1 
+                    && str_contains($turma->nm_turma, 'PROSIC') === true) 
                     && str_contains($turma->nm_turma, 'FASE') === true) {
                     $isProsic = true;
                 }
@@ -271,6 +271,7 @@ class ExportacaoXmlController extends Controller
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 && count($series_adicionadas) > 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
                 if ($isProsic === true) {
+                    $xmlTurma->addChild('edu:multiseriada', 'true', $xml->getNamespaces()['edu']);
                     $xmlTurma->addChild('edu:prosic', 'true', $xml->getNamespaces()['edu']);
                 }
                 
