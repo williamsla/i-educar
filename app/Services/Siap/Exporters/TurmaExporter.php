@@ -162,8 +162,9 @@ class TurmaExporter extends AbstractSiapExporter
     }
 
     /**
-     * CodigoCardapio da turma: cardápio cuja série (series_ids / ref_cod_serie)
-     * inclui a série da turma. Prefere o da mesma escola e, em empate, o do mesmo turno.
+     * CodigoCardapio da turma:
+     * 1) filtra cardápios pelo grupo de turno (integral vs parcial);
+     * 2) nesse conjunto, escolhe o que contém a série da turma.
      */
     private function resolverCodigoCardapio(object $turma, $cardapios, string $default): string
     {
@@ -176,7 +177,7 @@ class TurmaExporter extends AbstractSiapExporter
             (int) ($turma->ref_ref_cod_serie_mult ?? 0),
         ])));
         $escolaId = (int) $turma->cod_escola;
-        $turnoTurma = $this->turnoMerenda((int) ($turma->turma_turno_id ?? 0));
+        $turnosAceitos = $this->turnosAceitosDaTurma((int) ($turma->turma_turno_id ?? 0));
 
         $melhor = null;
         $melhorScore = -1;
@@ -184,6 +185,10 @@ class TurmaExporter extends AbstractSiapExporter
         foreach ($cardapios as $cardapio) {
             $escolaCardapio = (int) ($cardapio->ref_cod_escola ?? 0);
             if ($escolaCardapio > 0 && $escolaCardapio !== $escolaId) {
+                continue;
+            }
+
+            if ($turnosAceitos !== [] && ! $this->cardapioTemAlgumTurno($cardapio, $turnosAceitos)) {
                 continue;
             }
 
@@ -203,9 +208,6 @@ class TurmaExporter extends AbstractSiapExporter
                 $score += 20;
             } else {
                 $score += 5;
-            }
-            if ($turnoTurma !== null && $this->cardapioTemTurno($cardapio, $turnoTurma)) {
-                $score += 10;
             }
 
             if ($score > $melhorScore) {
@@ -243,18 +245,38 @@ class TurmaExporter extends AbstractSiapExporter
         return [];
     }
 
-    private function turnoMerenda(int $turmaTurnoId): ?string
+    /**
+     * Turma integral → só cardápios integral.
+     * Turma parcial (matutino/vespertino/noturno) → cardápios desses turnos.
+     *
+     * @return array<int, string>
+     */
+    private function turnosAceitosDaTurma(int $turmaTurnoId): array
     {
         return match ($turmaTurnoId) {
-            1 => 'matutino',
-            2 => 'vespertino',
-            3 => 'noturno',
-            4 => 'integral',
-            default => null,
+            4 => ['integral'],
+            1, 2, 3 => ['matutino', 'vespertino', 'noturno'],
+            default => [],
         };
     }
 
-    private function cardapioTemTurno(object $cardapio, string $turno): bool
+    /**
+     * @param  array<int, string>  $turnosAceitos
+     */
+    private function cardapioTemAlgumTurno(object $cardapio, array $turnosAceitos): bool
+    {
+        $turnos = $this->turnosDoCardapio($cardapio);
+        if ($turnos === []) {
+            return false;
+        }
+
+        return count(array_intersect($turnos, $turnosAceitos)) > 0;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function turnosDoCardapio(object $cardapio): array
     {
         $turnos = $cardapio->turnos ?? null;
         if (is_string($turnos) && $turnos !== '') {
@@ -263,13 +285,14 @@ class TurmaExporter extends AbstractSiapExporter
         }
 
         if (is_array($turnos) && $turnos !== []) {
-            $turnos = array_map(fn ($t) => strtolower((string) $t), $turnos);
-
-            return in_array($turno, $turnos, true);
+            return array_values(array_unique(array_map(
+                fn ($t) => strtolower(trim((string) $t)),
+                $turnos
+            )));
         }
 
-        $turnoSingular = strtolower((string) ($cardapio->turno ?? ''));
+        $turnoSingular = strtolower(trim((string) ($cardapio->turno ?? '')));
 
-        return $turnoSingular !== '' && $turnoSingular === $turno;
+        return $turnoSingular !== '' ? [$turnoSingular] : [];
     }
 }

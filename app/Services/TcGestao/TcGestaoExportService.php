@@ -421,6 +421,7 @@ class TcGestaoExportService
                 'sa.carga_horaria',
                 's.carga_horaria as carga_servidor',
                 'fn.professor',
+                'fn.siap_funcao',
                 'sa.data_admissao',
                 's.cod_servidor'
             )
@@ -459,7 +460,8 @@ class TcGestaoExportService
                 (string) ($vinculo->matricula ?? ''),
                 (string) min(99, max(1, $carga)),
                 SiapCodeMappers::funcao(
-                    $profTurma->funcao_exercida ?? null,
+                    $vinculo->siap_funcao !== null ? (int) $vinculo->siap_funcao : null,
+                    isset($profTurma->funcao_exercida) ? (int) $profTurma->funcao_exercida : null,
                     (bool) ($vinculo->professor ?? $profTurma)
                 ),
                 SiapCodeMappers::tipoVinculo($profTurma->tipo_vinculo ?? 1),

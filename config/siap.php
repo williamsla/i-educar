@@ -46,6 +46,42 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Funções do leiaute VinculoProfissionalEducacao (Manual SIAP 2026)
+    |--------------------------------------------------------------------------
+    */
+    'funcoes' => [
+        1 => 'Dirigente/Diretor da Escola',
+        2 => 'Docente',
+        3 => 'Tradutor e Intérprete de Libras',
+        4 => 'Guia-Intérprete',
+        5 => 'Auxiliar / Assistente Educacional',
+        6 => 'Docente Titular - coordenador(a) de tutoria (EaD)',
+        7 => 'Profissional de apoio escolar para alunos com deficiência',
+        8 => 'Profissional/Monitor de Atividade Complementar',
+        9 => 'Docente tutor - auxiliar (EaD)',
+        10 => 'Instrutor de educação profissional',
+        11 => 'Serviços Administrativos',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Educacenso funcao_exercida → código SIAP Funcao
+    |--------------------------------------------------------------------------
+    */
+    'funcao_exercida_para_siap' => [
+        1 => 2,  // Docente
+        2 => 5,  // Auxiliar/Assistente educacional
+        3 => 8,  // Monitor de atividade complementar
+        4 => 3,  // Tradutor Intérprete de LIBRAS
+        5 => 6,  // Docente titular EAD
+        6 => 9,  // Docente tutor EAD
+        7 => 4,  // Guia-Intérprete
+        8 => 7,  // Apoio escolar (deficiência)
+        9 => 10, // Instrutor da Educação Profissional
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Arquivos gerados na remessa
     |--------------------------------------------------------------------------
     */

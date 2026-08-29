@@ -36,6 +36,7 @@ class VinculoProfissionalEducacaoExporter extends AbstractSiapExporter
                 'sa.carga_horaria',
                 's.carga_horaria as carga_servidor',
                 'fn.professor',
+                'fn.siap_funcao',
                 'sa.data_admissao',
                 's.cod_servidor',
                 'sa.ref_cod_escola'
@@ -65,7 +66,8 @@ class VinculoProfissionalEducacaoExporter extends AbstractSiapExporter
 
             $profTurma = $funcoesProfessor->get($vinculo->cod_servidor)?->first();
             $funcao = SiapCodeMappers::funcao(
-                $profTurma->funcao_exercida ?? null,
+                $vinculo->siap_funcao !== null ? (int) $vinculo->siap_funcao : null,
+                isset($profTurma->funcao_exercida) ? (int) $profTurma->funcao_exercida : null,
                 (bool) ($vinculo->professor ?? $profTurma)
             );
             $tipoVinculo = SiapCodeMappers::tipoVinculo($profTurma->tipo_vinculo ?? 1);

@@ -252,13 +252,48 @@ class SiapCodeMappers
         return ($valor >= 1 && $valor <= 4) ? (string) $valor : '';
     }
 
-    public static function funcao(?int $funcaoExercida, bool $ehProfessor = true): string
-    {
-        if ($funcaoExercida >= 1 && $funcaoExercida <= 11) {
-            return (string) $funcaoExercida;
+    public static function funcao(
+        ?int $siapFuncao = null,
+        ?int $funcaoExercida = null,
+        bool $ehProfessor = true
+    ): string {
+        $funcoes = config('siap.funcoes', []);
+
+        if ($siapFuncao !== null && isset($funcoes[$siapFuncao])) {
+            return (string) $siapFuncao;
         }
 
-        return $ehProfessor ? '1' : '8';
+        $mapaEducacenso = config('siap.funcao_exercida_para_siap', []);
+        if ($funcaoExercida !== null && isset($mapaEducacenso[$funcaoExercida])) {
+            return (string) $mapaEducacenso[$funcaoExercida];
+        }
+
+        // Fallback: docente → 2; demais → 11 (Serviços Administrativos)
+        return $ehProfessor ? '2' : '11';
+    }
+
+    /**
+     * @return array<int|string, string>
+     */
+    public static function opcoesFuncao(): array
+    {
+        $opcoes = ['' => 'Selecione'];
+        foreach (config('siap.funcoes', []) as $codigo => $nome) {
+            $opcoes[(string) $codigo] = $codigo . ' - ' . $nome;
+        }
+
+        return $opcoes;
+    }
+
+    public static function labelFuncao(?int $codigo): string
+    {
+        if ($codigo === null) {
+            return '';
+        }
+
+        $nome = config('siap.funcoes.' . $codigo);
+
+        return $nome ? $codigo . ' - ' . $nome : (string) $codigo;
     }
 
     public static function tipoVinculo(?int $tipo): string
