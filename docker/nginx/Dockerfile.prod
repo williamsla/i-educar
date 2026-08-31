@@ -1,4 +1,5 @@
-ARG APP_IMAGE
+# Default só para o linter (InvalidDefaultArgInFrom). O build real sempre passa --build-arg APP_IMAGE.
+ARG APP_IMAGE=scratch
 FROM ${APP_IMAGE} AS app
 
 FROM nginx:1.28-alpine

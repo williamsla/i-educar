@@ -3,6 +3,7 @@
 namespace App\Services\Siap\Exporters;
 
 use App\Services\Siap\SiapCodeMappers;
+use iEducar\Modules\Educacenso\Model\TipoAtendimentoTurma;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -16,7 +17,6 @@ class TurmaExporter extends AbstractSiapExporter
     public function export(): string
     {
         $builder = $this->builder();
-        $cargaDefault = (string) config('siap.defaults.carga_horaria_turma', '20');
         $cardapioDefault = (string) config('siap.defaults.codigo_cardapio', '1');
         $cardapios = $this->carregarCardapios();
 
@@ -35,19 +35,27 @@ class TurmaExporter extends AbstractSiapExporter
                 't.etapa_educacenso',
                 'c.modalidade_curso',
                 't.turma_turno_id',
-                't.hora_inicial',
-                't.hora_final',
+                't.dias_semana',
+                't.tipo_atendimento',
                 't.ano'
             );
 
         $this->aplicarFiltroInstituicao($query);
 
         $turmas = $query->get();
+        $turmaRegularPorAee = $this->carregarTurmasRegularesDosAee($turmas);
 
         foreach ($turmas as $turma) {
             $periodo = $this->periodoLetivo((int) $turma->cod_turma, (int) $turma->cod_escola);
-            $carga = $this->calcularCargaHoraria($turma->hora_inicial, $turma->hora_final, $cargaDefault);
-            $codigoCardapio = $this->resolverCodigoCardapio($turma, $cardapios, $cardapioDefault);
+            $carga = SiapCodeMappers::cargaHorariaTurma(
+                $turma->dias_semana,
+                $turma->turma_turno_id ? (int) $turma->turma_turno_id : null
+            );
+            $turmaParaCardapio = $turma;
+            if ($this->turmaEhAee($turma->tipo_atendimento ?? null)) {
+                $turmaParaCardapio = $turmaRegularPorAee[(int) $turma->cod_turma] ?? $turma;
+            }
+            $codigoCardapio = $this->resolverCodigoCardapio($turmaParaCardapio, $cardapios, $cardapioDefault);
 
             $builder->addRecord('Turma', [
                 'Codigo' => (string) $turma->cod_turma,
@@ -64,27 +72,6 @@ class TurmaExporter extends AbstractSiapExporter
         }
 
         return $builder->toFormattedXml();
-    }
-
-    private function calcularCargaHoraria($horaInicial, $horaFinal, string $default): string
-    {
-        if (!$horaInicial || !$horaFinal) {
-            return $default;
-        }
-
-        try {
-            $ini = strtotime($horaInicial);
-            $fim = strtotime($horaFinal);
-            if ($fim <= $ini) {
-                return $default;
-            }
-            $horasDia = (int) round(($fim - $ini) / 3600);
-            $semanal = max(1, min(99, $horasDia * 5));
-
-            return (string) $semanal;
-        } catch (\Throwable $e) {
-            return $default;
-        }
     }
 
     private function periodoLetivo(int $codTurma, int $codEscola): array
@@ -159,6 +146,85 @@ class TurmaExporter extends AbstractSiapExporter
             })
             ->orderBy('id')
             ->get($colunas);
+    }
+
+    /**
+     * Turma AEE herda o cardápio da turma regular de um aluno enturmado nela.
+     * Prefere matrícula regular na mesma escola; se ninguém tiver regular, resolve pela própria AEE.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $turmas
+     * @return array<int, object>
+     */
+    private function carregarTurmasRegularesDosAee($turmas): array
+    {
+        $codTurmasAee = $turmas
+            ->filter(fn ($turma) => $this->turmaEhAee($turma->tipo_atendimento ?? null))
+            ->map(fn ($turma) => (int) $turma->cod_turma)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($codTurmasAee === []) {
+            return [];
+        }
+
+        $registros = DB::table('pmieducar.matricula_turma as mt_aee')
+            ->join('pmieducar.matricula as m_aee', 'm_aee.cod_matricula', '=', 'mt_aee.ref_cod_matricula')
+            ->join('pmieducar.turma as t_aee', 't_aee.cod_turma', '=', 'mt_aee.ref_cod_turma')
+            ->join('pmieducar.matricula as m_reg', function ($join) {
+                $join->on('m_reg.ref_cod_aluno', '=', 'm_aee.ref_cod_aluno')
+                    ->whereColumn('m_reg.ano', 'm_aee.ano');
+            })
+            ->join('pmieducar.matricula_turma as mt_reg', 'mt_reg.ref_cod_matricula', '=', 'm_reg.cod_matricula')
+            ->join('pmieducar.turma as t_reg', 't_reg.cod_turma', '=', 'mt_reg.ref_cod_turma')
+            ->whereIn('mt_aee.ref_cod_turma', $codTurmasAee)
+            ->where('mt_aee.ativo', 1)
+            ->where('m_aee.ativo', 1)
+            ->where('m_aee.ano', $this->ano)
+            ->where('mt_reg.ativo', 1)
+            ->where('m_reg.ativo', 1)
+            ->where('t_reg.ativo', 1)
+            ->whereColumn('t_reg.cod_turma', '<>', 't_aee.cod_turma')
+            ->whereRaw('NOT (? = ANY(COALESCE(t_reg.tipo_atendimento, ARRAY[]::integer[])))', [TipoAtendimentoTurma::AEE])
+            ->whereRaw('NOT (? = ANY(COALESCE(t_reg.tipo_atendimento, ARRAY[]::integer[])))', [TipoAtendimentoTurma::ATIVIDADE_COMPLEMENTAR])
+            ->selectRaw(
+                'DISTINCT ON (mt_aee.ref_cod_turma)
+                    mt_aee.ref_cod_turma as turma_aee,
+                    t_reg.cod_turma,
+                    t_reg.ref_ref_cod_escola as cod_escola,
+                    t_reg.ref_ref_cod_serie,
+                    t_reg.ref_ref_cod_serie_mult,
+                    t_reg.turma_turno_id'
+            )
+            ->orderBy('mt_aee.ref_cod_turma')
+            ->orderByRaw('CASE WHEN t_reg.ref_ref_cod_escola = t_aee.ref_ref_cod_escola THEN 0 ELSE 1 END')
+            ->orderBy('t_reg.cod_turma')
+            ->get();
+
+        $mapa = [];
+        foreach ($registros as $registro) {
+            $mapa[(int) $registro->turma_aee] = $registro;
+        }
+
+        return $mapa;
+    }
+
+    private function turmaEhAee(mixed $tipoAtendimento): bool
+    {
+        $valores = [];
+
+        if (is_array($tipoAtendimento)) {
+            $valores = array_map('intval', $tipoAtendimento);
+        } elseif (is_string($tipoAtendimento)) {
+            $limpo = trim($tipoAtendimento, '{}');
+            if ($limpo !== '') {
+                $valores = array_map('intval', explode(',', $limpo));
+            }
+        } elseif ($tipoAtendimento !== null && $tipoAtendimento !== '') {
+            $valores = [(int) $tipoAtendimento];
+        }
+
+        return in_array(TipoAtendimentoTurma::AEE, $valores, true);
     }
 
     /**
