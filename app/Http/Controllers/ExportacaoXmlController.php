@@ -334,7 +334,12 @@ class ExportacaoXmlController extends Controller
     private function exportarModeloSIAP($ano, $mes, int $instituicaoId, bool $somenteAlunosComInep = false)
     {
         $service = new SiapExportService();
-        $result = $service->export((int) $ano, (int) $mes, $instituicaoId, $somenteAlunosComInep);
+
+        try {
+            $result = $service->export((int) $ano, (int) $mes, $instituicaoId, $somenteAlunosComInep);
+        } catch (\App\Services\Siap\SiapExportValidationException $e) {
+            return back()->withErrors($e->getMessage());
+        }
 
         $this->alerts = array_merge($this->alerts, $service->getAlerts());
 

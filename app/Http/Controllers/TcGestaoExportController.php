@@ -41,6 +41,8 @@ class TcGestaoExportController extends Controller
 
         try {
             $result = $service->export($ano, $mes, $instituicaoId, $somenteAlunosComInep);
+        } catch (\App\Services\Siap\SiapExportValidationException $e) {
+            return back()->withErrors($e->getMessage());
         } catch (\Throwable $e) {
             report($e);
 

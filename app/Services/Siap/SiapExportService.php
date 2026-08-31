@@ -35,6 +35,8 @@ class SiapExportService
             $this->alerts[] = 'ATENÇÃO: configure SIAP_CODIGO (código do município no TCE-AL) no .env.';
         }
 
+        SiapCodeMappers::assertCursosComModalidadeSiap($ano, $instituicaoId);
+
         $arquivos = [];
 
         foreach ($this->exporters($codigo, $ano, $mes, $instituicaoId, $somenteAlunosComInep) as $exporter) {
@@ -44,6 +46,8 @@ class SiapExportService
                 foreach ($exporter->getAlerts() as $alert) {
                     $this->alerts[] = $alert;
                 }
+            } catch (SiapExportValidationException $e) {
+                throw $e;
             } catch (\Throwable $e) {
                 $this->alerts[] = '[' . $exporter->fileName() . '] ERRO: ' . $e->getMessage();
                 $fallback = new SiapXmlBuilder($codigo, (string) $ano, (string) $mes);

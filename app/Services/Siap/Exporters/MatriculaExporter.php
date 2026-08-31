@@ -34,6 +34,8 @@ class MatriculaExporter extends AbstractSiapExporter
                 'inep.cod_escola_inep as inep',
                 't.etapa_educacenso',
                 'c.modalidade_curso',
+                'c.siap_modalidade',
+                'c.siap_etapa',
                 'tt.nome as turno_nome'
             )
             ->get();
@@ -41,8 +43,10 @@ class MatriculaExporter extends AbstractSiapExporter
         $agregado = [];
 
         foreach ($turmas as $turma) {
-            $etapa = SiapCodeMappers::etapa($turma->etapa_educacenso ? (int) $turma->etapa_educacenso : null);
-            $modalidade = SiapCodeMappers::modalidade($turma->modalidade_curso ? (int) $turma->modalidade_curso : null);
+            $siapModalidade = $turma->siap_modalidade !== null ? (int) $turma->siap_modalidade : null;
+            $siapEtapa = $turma->siap_etapa !== null ? (int) $turma->siap_etapa : null;
+            $etapa = SiapCodeMappers::etapa($siapEtapa);
+            $modalidade = SiapCodeMappers::modalidade($siapModalidade);
             $chave = $turma->inep . '|' . $etapa . '|' . $modalidade;
 
             if (!isset($agregado[$chave])) {

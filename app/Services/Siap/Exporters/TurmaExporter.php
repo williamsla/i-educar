@@ -34,6 +34,8 @@ class TurmaExporter extends AbstractSiapExporter
                 'inep.cod_escola_inep as inep',
                 't.etapa_educacenso',
                 'c.modalidade_curso',
+                'c.siap_modalidade',
+                'c.siap_etapa',
                 't.turma_turno_id',
                 't.dias_semana',
                 't.tipo_atendimento',
@@ -56,12 +58,14 @@ class TurmaExporter extends AbstractSiapExporter
                 $turmaParaCardapio = $turmaRegularPorAee[(int) $turma->cod_turma] ?? $turma;
             }
             $codigoCardapio = $this->resolverCodigoCardapio($turmaParaCardapio, $cardapios, $cardapioDefault);
+            $siapModalidade = $turma->siap_modalidade !== null ? (int) $turma->siap_modalidade : null;
+            $siapEtapa = $turma->siap_etapa !== null ? (int) $turma->siap_etapa : null;
 
             $builder->addRecord('Turma', [
                 'Codigo' => (string) $turma->cod_turma,
                 'INEP' => (string) $turma->inep,
-                'Etapa' => SiapCodeMappers::etapa($turma->etapa_educacenso ? (int) $turma->etapa_educacenso : null),
-                'Modalidade' => SiapCodeMappers::modalidade($turma->modalidade_curso ? (int) $turma->modalidade_curso : null),
+                'Etapa' => SiapCodeMappers::etapa($siapEtapa),
+                'Modalidade' => SiapCodeMappers::modalidade($siapModalidade),
                 'Turno' => SiapCodeMappers::turno($turma->turma_turno_id ? (int) $turma->turma_turno_id : null),
                 'CargaHoraria' => substr($carga, 0, 2),
                 'CodigoCardapio' => (string) $codigoCardapio,

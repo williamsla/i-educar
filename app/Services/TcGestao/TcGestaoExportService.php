@@ -27,6 +27,8 @@ class TcGestaoExportService
         $inicio = sprintf('%04d-%02d-01', $ano, $mes);
         $fim = date('Y-m-t', strtotime($inicio));
 
+        SiapCodeMappers::assertCursosComModalidadeSiap($ano, $instituicaoId);
+
         $arquivos = [
             'Escola.csv' => $this->csvEscola($ano),
             'Aluno.csv' => $this->csvAluno($ano, $inicio, $fim, $somenteAlunosComInep),
@@ -220,7 +222,6 @@ class TcGestaoExportService
             'Codigo', 'INEP', 'Etapa', 'Modalidade', 'Turno', 'CargaHoraria',
             'DataInicioAnoLetivo', 'DataFimAnoLetivo', 'ReferenciaAnoLetivo',
         ];
-        $cargaDefault = (string) config('siap.defaults.carga_horaria_turma', '20');
 
         $turmas = DB::table('pmieducar.turma as t')
             ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
@@ -235,9 +236,10 @@ class TcGestaoExportService
                 'inep.cod_escola_inep as inep',
                 't.etapa_educacenso',
                 'c.modalidade_curso',
+                'c.siap_modalidade',
+                'c.siap_etapa',
                 't.turma_turno_id',
-                't.hora_inicial',
-                't.hora_final',
+                't.dias_semana',
                 't.ano'
             )
             ->get();
@@ -245,13 +247,18 @@ class TcGestaoExportService
         $rows = [];
         foreach ($turmas as $turma) {
             $periodo = $this->periodoLetivo((int) $turma->cod_turma, (int) $turma->cod_escola, $ano);
-            $carga = $this->calcularCargaHoraria($turma->hora_inicial, $turma->hora_final, $cargaDefault);
+            $carga = SiapCodeMappers::cargaHorariaTurma(
+                $turma->dias_semana,
+                $turma->turma_turno_id ? (int) $turma->turma_turno_id : null
+            );
+            $siapModalidade = $turma->siap_modalidade !== null ? (int) $turma->siap_modalidade : null;
+            $siapEtapa = $turma->siap_etapa !== null ? (int) $turma->siap_etapa : null;
 
             $rows[] = [
                 (string) $turma->cod_turma,
                 (string) $turma->inep,
-                SiapCodeMappers::etapa($turma->etapa_educacenso ? (int) $turma->etapa_educacenso : null),
-                SiapCodeMappers::modalidade($turma->modalidade_curso ? (int) $turma->modalidade_curso : null),
+                SiapCodeMappers::etapa($siapEtapa),
+                SiapCodeMappers::modalidade($siapModalidade),
                 SiapCodeMappers::turno($turma->turma_turno_id ? (int) $turma->turma_turno_id : null),
                 substr($carga, 0, 2),
                 $periodo['inicio'],
@@ -680,26 +687,6 @@ class TcGestaoExportService
         }
 
         return $matricula;
-    }
-
-    private function calcularCargaHoraria($horaInicial, $horaFinal, string $default): string
-    {
-        if (!$horaInicial || !$horaFinal) {
-            return $default;
-        }
-
-        try {
-            $ini = strtotime((string) $horaInicial);
-            $fim = strtotime((string) $horaFinal);
-            if ($fim <= $ini) {
-                return $default;
-            }
-            $horasDia = (int) round(($fim - $ini) / 3600);
-
-            return (string) max(1, min(99, $horasDia * 5));
-        } catch (\Throwable $e) {
-            return $default;
-        }
     }
 
     private function periodoLetivo(int $codTurma, int $codEscola, int $ano): array

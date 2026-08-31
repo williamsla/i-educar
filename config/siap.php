@@ -22,6 +22,8 @@ return [
         'data_ultima_compra_equipamento' => env('SIAP_DATA_ULTIMA_COMPRA', null),
         // Código de cardápio padrão quando merenda não resolve vínculo
         'codigo_cardapio' => env('SIAP_CODIGO_CARDAPIO', '1'),
+        // Carga horária da turma passa a ser calculada por dias da semana × horas do turno
+        // (integral=8h/dia, noturno=3h/dia, demais=4h/dia; dias vazios=5). Mantido só por compatibilidade.
         'carga_horaria_turma' => env('SIAP_CARGA_HORARIA_TURMA', '20'),
     ],
 
@@ -42,6 +44,45 @@ return [
         'LOCAÇÃO BENS' => '5',
         'LOCACAO BENS' => '5',
         'OUTROS' => '12',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Etapas do leiaute Turma / Matricula (Manual SIAP 2026)
+    |--------------------------------------------------------------------------
+    */
+    'etapas' => [
+        1 => 'Educação Infantil',
+        2 => 'Ensino Fundamental',
+        3 => 'Ensino Médio',
+        4 => 'Ensino Superior',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Modalidades do leiaute Turma / Matricula (Manual SIAP 2026)
+    |--------------------------------------------------------------------------
+    */
+    'modalidades' => [
+        1 => 'Educação Regular',
+        2 => 'Educação Escolar Indígena',
+        3 => 'Educação Especial',
+        4 => 'Educação Escolar Quilombola',
+        5 => 'Educação de Jovens e Adultos (EJA)',
+        6 => 'Educação Profissional',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Modalidade Educacenso (curso.modalidade_curso) → SIAP
+    |--------------------------------------------------------------------------
+    | Educacenso: 1 Regular, 2 Especial, 3 EJA, 4 Profissional
+    */
+    'modalidade_curso_para_siap' => [
+        1 => 1,
+        2 => 3,
+        3 => 5,
+        4 => 6,
     ],
 
     /*
