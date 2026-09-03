@@ -135,7 +135,7 @@ return new class extends clsListagem
                 $minutos_aux = '(' . ($minutos_aux * -1) . ')';
             }
 
-            $tipo = $registro['tipo'] == AbsenceDelayType::DELAY->value ? 'Atraso' : 'Falta';
+            $tipo = AbsenceDelayType::tryFrom((int) $registro['tipo'])?->name() ?? '-';
 
             $urlHelper = CoreExt_View_Helper_UrlHelper::getInstance();
             $url = 'educar_falta_atraso_det.php';

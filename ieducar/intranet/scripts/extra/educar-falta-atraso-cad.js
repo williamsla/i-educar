@@ -2,13 +2,9 @@ var obj_tipo = document.getElementById('tipo');
 var justificada = document.getElementById('justificada');
 
 obj_tipo.onchange = function () {
-  if (document.getElementById('tipo').value == 1) {
-    setVisibility('tr_qtd_horas', true);
-    setVisibility('tr_qtd_min', true);
-  } else if (document.getElementById('tipo').value == 2) {
-    setVisibility('tr_qtd_horas', false);
-    setVisibility('tr_qtd_min', false);
-  }
+  var isAtraso = document.getElementById('tipo').value == 1;
+  setVisibility('tr_qtd_horas', isAtraso);
+  setVisibility('tr_qtd_min', isAtraso);
 }
 
 setVisibility('tr_file', false);

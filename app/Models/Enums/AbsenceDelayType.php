@@ -8,13 +8,22 @@ enum AbsenceDelayType: int
 {
     case DELAY = 1;
     case ABSENCE = 2;
+    case ABONO = 3;
+    case OTHER = 4;
 
     public function name(): string
     {
         return match ($this) {
             self::DELAY => 'Atraso',
-            self::ABSENCE => 'Falta'
+            self::ABSENCE => 'Falta',
+            self::ABONO => 'Abono',
+            self::OTHER => 'Outras',
         };
+    }
+
+    public function requiresHours(): bool
+    {
+        return $this === self::DELAY;
     }
 
     /**

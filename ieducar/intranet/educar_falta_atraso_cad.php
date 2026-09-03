@@ -176,13 +176,17 @@ return new class extends clsCadastro
 
         $this->data_falta_atraso = Portabilis_Date_Utils::brToPgSQL($this->data_falta_atraso);
 
-        if ($this->tipo == 1 && ($this->qtd_horas == '' || $this->qtd_min == '')) {
+        $tipo = AbsenceDelayType::tryFrom((int) $this->tipo);
+
+        if ($tipo?->requiresHours() && ($this->qtd_horas == '' || $this->qtd_min == '')) {
             $this->mensagem = 'Preencha os campos de quantidade de horas e minutos.<br>';
 
             return false;
         }
 
-        if ($this->tipo == 1) {
+        $obj = null;
+
+        if ($tipo === AbsenceDelayType::DELAY) {
             $obj = new LegacyAbsenceDelay;
             $obj->ref_cod_escola = $this->ref_cod_escola;
             $obj->ref_ref_cod_instituicao = $this->ref_cod_instituicao;
@@ -194,8 +198,7 @@ return new class extends clsCadastro
             $obj->qtd_min = $this->qtd_min;
             $obj->justificada = $this->justificada;
             $obj->ref_cod_servidor_funcao = $this->ref_cod_servidor_funcao;
-
-        } elseif ($this->tipo == 2) {
+        } elseif ($tipo !== null) {
             $db = new clsBanco;
             $dia_semana = $db->CampoUnico(sprintf('(SELECT EXTRACT (DOW FROM date \'%s\') + 1 )', $this->data_falta_atraso));
 
@@ -222,7 +225,7 @@ return new class extends clsCadastro
             }
         }
 
-        if ($obj->save()) {
+        if ($obj?->save()) {
             if ($this->file_url) {
                 $fileService = new FileService(new UrlPresigner);
                 $newFiles = json_decode($this->file_url);
@@ -265,14 +268,18 @@ return new class extends clsCadastro
             )
         );
 
-        if ($this->tipo == 1 && ($this->qtd_horas == '' || $this->qtd_min == '')) {
+        $tipo = AbsenceDelayType::tryFrom((int) $this->tipo);
+
+        if ($tipo?->requiresHours() && ($this->qtd_horas == '' || $this->qtd_min == '')) {
             $this->mensagem = 'Preencha os campos de quantidade de horas e minutos.<br>';
 
             return false;
         }
 
         $this->data_falta_atraso = Portabilis_Date_Utils::brToPgSQL($this->data_falta_atraso);
-        if ($this->tipo == 1) {
+        $obj = null;
+
+        if ($tipo === AbsenceDelayType::DELAY) {
             $obj = LegacyAbsenceDelay::find($this->cod_falta_atraso);
             $obj->ref_cod_escola = $this->ref_cod_escola;
             $obj->ref_ref_cod_instituicao = $this->ref_cod_instituicao;
@@ -284,8 +291,7 @@ return new class extends clsCadastro
             $obj->qtd_min = $this->qtd_min;
             $obj->justificada = $this->justificada;
             $obj->ref_cod_servidor_funcao = $this->ref_cod_servidor_funcao;
-
-        } elseif ($this->tipo == 2) {
+        } elseif ($tipo !== null) {
             $obj_ser = new clsPmieducarServidor(
                 cod_servidor: $this->ref_cod_servidor,
                 ativo: 1,
@@ -308,7 +314,7 @@ return new class extends clsCadastro
             $obj->justificada = $this->justificada;
             $obj->ref_cod_servidor_funcao = $this->ref_cod_servidor_funcao;
         }
-        if ($obj->save()) {
+        if ($obj?->save()) {
 
             $fileService = new FileService(new UrlPresigner);
 

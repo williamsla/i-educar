@@ -2,6 +2,7 @@
 
 namespace App\Services\TcGestao;
 
+use App\Models\Enums\AbsenceDelayType;
 use App\Services\Siap\SiapAddressHelper;
 use App\Services\Siap\SiapCodeMappers;
 use Illuminate\Support\Facades\DB;
@@ -607,11 +608,15 @@ class TcGestaoExportService
                 continue;
             }
 
+            $tipoAbono = AbsenceDelayType::ABONO->value;
+            $tipoOutras = AbsenceDelayType::OTHER->value;
             $faltas = DB::table('pmieducar.falta_atraso')
                 ->where('ref_cod_servidor', $alocacao->cod_servidor)
                 ->whereBetween('data_falta_atraso', [$inicio, $fim])
-                ->selectRaw('SUM(CASE WHEN justificada = 0 THEN 1 ELSE 0 END) as justificadas')
-                ->selectRaw('SUM(CASE WHEN justificada <> 0 THEN 1 ELSE 0 END) as injustificadas')
+                ->selectRaw("SUM(CASE WHEN tipo NOT IN ({$tipoAbono}, {$tipoOutras}) AND justificada = 0 THEN 1 ELSE 0 END) as justificadas")
+                ->selectRaw("SUM(CASE WHEN tipo NOT IN ({$tipoAbono}, {$tipoOutras}) AND justificada <> 0 THEN 1 ELSE 0 END) as injustificadas")
+                ->selectRaw("SUM(CASE WHEN tipo = {$tipoAbono} THEN 1 ELSE 0 END) as abonos")
+                ->selectRaw("SUM(CASE WHEN tipo = {$tipoOutras} THEN 1 ELSE 0 END) as outras")
                 ->first();
 
             $licencaMedica = 0;
@@ -646,7 +651,9 @@ class TcGestaoExportService
 
             $justificadas = (int) ($faltas->justificadas ?? 0);
             $injustificadas = (int) ($faltas->injustificadas ?? 0);
-            if ($justificadas + $injustificadas + $licencaMedica + $licencaMaternidade === 0) {
+            $abonos = (int) ($faltas->abonos ?? 0);
+            $outras = (int) ($faltas->outras ?? 0);
+            if ($justificadas + $injustificadas + $licencaMedica + $licencaMaternidade + $abonos + $outras === 0) {
                 continue;
             }
 
@@ -664,8 +671,8 @@ class TcGestaoExportService
                 (string) min(999, $injustificadas),
                 (string) min(999, $licencaMedica),
                 (string) min(999, $licencaMaternidade),
-                '0',
-                '0',
+                (string) min(999, $abonos),
+                (string) min(999, $outras),
             ];
         }
 

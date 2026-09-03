@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Enums\AbsenceDelayType;
 use App\Models\LegacyAbsenceDelay;
 use App\Models\LegacySchool;
 use App\Services\UrlPresigner;
@@ -108,7 +109,7 @@ return new class extends clsDetalhe
                 $color,
                 dataFromPgToBr($registro['data_falta_atraso']),
                 $color,
-                $registro['tipo'] == 1 ? 'Atraso' : 'Falta',
+                AbsenceDelayType::tryFrom((int) $registro['tipo'])?->name() ?? '-',
                 $color,
                 $registro['qtd_horas'],
                 $color,
