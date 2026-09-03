@@ -35,7 +35,13 @@ reuse_existing_package_tree() {
   target_dir="$1"
   repo_ref="${2:-}"
 
-  echo ">> '$target_dir' é bind mount / checkout local; a reutilizar árvore (preserva .git)."
+  if is_mountpoint "$target_dir"; then
+    echo ">> '$target_dir' é bind mount; a reutilizar árvore (preserva .git)."
+  elif [ -d "$target_dir/.git" ]; then
+    echo ">> '$target_dir' já tem checkout git; a reutilizar árvore."
+  else
+    echo ">> '$target_dir' já presente (clone anterior / COPY); a reutilizar árvore."
+  fi
   if [ ! -f "$target_dir/composer.json" ]; then
     echo "ERRO: '$target_dir' sem composer.json; não será limpo o bind mount do host." >&2
     exit 1
@@ -177,12 +183,24 @@ require_git_token() {
   fi
 }
 
+skip_db_steps() {
+  case "${IEDUCAR_SKIP_DB:-}" in
+    1|true|TRUE|yes|YES) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # Build da imagem nao inclui .env; varios comandos artisan exigem APP_KEY.
+# cache:clear/migrate nao correm no build (IEDUCAR_SKIP_DB) — ver entrypoint.prod.sh e deploy-city.sh.
 apply_artisan_build_env() {
   export APP_ENV="${APP_ENV:-production}"
   export CI="${CI:-true}"
   if [ -z "${APP_KEY:-}" ]; then
     export APP_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+  fi
+  if skip_db_steps; then
+    export CACHE_STORE="${CACHE_STORE:-array}"
+    export CACHE_DRIVER="${CACHE_DRIVER:-array}"
   fi
 }
 
@@ -197,11 +215,13 @@ run_readme_artisan_after_composer() {
   apply_artisan_build_env
 
   if [ "${ENABLE_PACKAGE_REPORTS:-false}" = "true" ] && [ -d packages/portabilis/i-educar-reports-package ]; then
-    echo ">> README relatórios: community:reports:link, community:reports:install, publish de assets"
+    echo ">> README relatórios: community:reports:link, publish de assets"
     if artisan_cmd_exists community:reports:link; then
       php artisan community:reports:link --no-interaction || true
     fi
-    if artisan_cmd_exists community:reports:install; then
+    if skip_db_steps; then
+      echo ">> Build: a omitir community:reports:install (chama migrate; corre no entrypoint/deploy)."
+    elif artisan_cmd_exists community:reports:install; then
       php artisan community:reports:install --no-interaction || \
         echo ">> AVISO: community:reports:install falhou (BD/migrate pendente?). Execute após migrate: php artisan community:reports:install" >&2
     fi
@@ -212,7 +232,22 @@ run_readme_artisan_after_composer() {
     echo ">> README pre-matricula-digital: vendor:publish --tag=pmd"
     php artisan vendor:publish --tag=pmd --force --no-interaction 2>/dev/null || true
   fi
+
+  if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
+    echo ">> Merenda: a copiar CSS/JS para public/vendor/merenda"
+    merenda_public="packages/merenda/merenda-escolar/public"
+    if [ -d "$merenda_public" ]; then
+      mkdir -p public/vendor/merenda
+      cp -a "$merenda_public"/. public/vendor/merenda/
+    fi
+    php artisan vendor:publish --tag=merenda-assets --force --no-interaction 2>/dev/null || true
+  fi
 }
+
+# No docker build, aplicar CACHE_STORE=array antes de qualquer artisan/composer.
+if skip_db_steps; then
+  apply_artisan_build_env
+fi
 
 ensure_laravel_runtime_dirs
 
@@ -285,7 +320,19 @@ if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
 
   strip_sudo_from_script "packages/despesas-escolar/install.sh"
   ensure_laravel_runtime_dirs
-  run_if_exists "packages/despesas-escolar/install.sh"
+  if [ -f packages/despesas-escolar/composer.json ]; then
+    composer config --json repositories.despesas \
+      '{"type":"path","url":"packages/despesas-escolar","options":{"symlink":true}}' \
+      --no-interaction 2>/dev/null || true
+    if ! composer show ieducar/despesa-escolar >/dev/null 2>&1; then
+      composer require "ieducar/despesa-escolar:*" --no-update --no-interaction || true
+    fi
+  fi
+  if skip_db_steps; then
+    echo ">> Build: a omitir install.sh (cache:clear/migrate no entrypoint/deploy)."
+  else
+    run_if_exists "packages/despesas-escolar/install.sh"
+  fi
 
   installed_any_package=1
 fi
@@ -330,7 +377,11 @@ if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
     strip_sudo_from_script "$merenda_install"
     ensure_laravel_runtime_dirs
     chmod +x "$merenda_install"
-    sh "$merenda_install"
+    if skip_db_steps; then
+      echo ">> Build: a omitir instalar_modulo.sh (cache:clear/migrate no entrypoint/deploy)."
+    else
+      sh "$merenda_install"
+    fi
   else
     echo "AVISO: instalar_modulo.sh nao encontrado em packages/merenda." >&2
     echo "AVISO: Defina MERENDA_INSTALL_SCRIPT com o caminho completo no contentor (ex.: packages/merenda/subpasta/instalar_modulo.sh)." >&2

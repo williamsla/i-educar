@@ -22,16 +22,20 @@ class MatriculaExporter extends AbstractSiapExporter
         $fim = $this->fimMes();
 
         $turmas = DB::table('pmieducar.turma as t')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 't.ref_ref_cod_escola')
             ->leftJoin('pmieducar.curso as c', 'c.cod_curso', '=', 't.ref_cod_curso')
             ->leftJoin('pmieducar.turma_turno as tt', 'tt.id', '=', 't.turma_turno_id')
             ->where('t.ano', $this->ano)
             ->where('t.ativo', 1)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->select(
                 't.cod_turma',
                 'inep.cod_escola_inep as inep',
                 't.etapa_educacenso',
                 'c.modalidade_curso',
+                'c.siap_modalidade',
+                'c.siap_etapa',
                 'tt.nome as turno_nome'
             )
             ->get();
@@ -39,8 +43,10 @@ class MatriculaExporter extends AbstractSiapExporter
         $agregado = [];
 
         foreach ($turmas as $turma) {
-            $etapa = SiapCodeMappers::etapa($turma->etapa_educacenso ? (int) $turma->etapa_educacenso : null);
-            $modalidade = SiapCodeMappers::modalidade($turma->modalidade_curso ? (int) $turma->modalidade_curso : null);
+            $siapModalidade = $turma->siap_modalidade !== null ? (int) $turma->siap_modalidade : null;
+            $siapEtapa = $turma->siap_etapa !== null ? (int) $turma->siap_etapa : null;
+            $etapa = SiapCodeMappers::etapa($siapEtapa);
+            $modalidade = SiapCodeMappers::modalidade($siapModalidade);
             $chave = $turma->inep . '|' . $etapa . '|' . $modalidade;
 
             if (!isset($agregado[$chave])) {

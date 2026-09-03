@@ -119,7 +119,9 @@ if [ "${images_changed}" = "true" ]; then
   compose exec -T "${php_service}" sh -lc "rm -f bootstrap/cache/*.php"
 
   compose exec -T "${php_service}" php artisan storage:link --relative --force || true
+  # Merenda/despesas: loadMigrationsFrom no ServiceProvider — entram neste migrate.
   compose exec -T "${php_service}" php artisan migrate --force
+  compose exec -T "${php_service}" php artisan cache:clear || true
 
   # Imagem registry pode nao ter packages/portabilis/... (build sem ENABLE_PACKAGE_REPORTS).
   # O gatilho correto e' o comando Artisan registado (plug-and-play / composer).

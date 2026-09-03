@@ -1,3 +1,7 @@
+# Default só para o linter (InvalidDefaultArgInFrom). O build real sempre passa --build-arg APP_IMAGE.
+ARG APP_IMAGE=scratch
+FROM ${APP_IMAGE} AS app
+
 FROM nginx:1.28-alpine
 
 WORKDIR /var/www/ieducar
@@ -5,6 +9,10 @@ WORKDIR /var/www/ieducar
 RUN apk add --no-cache gettext
 
 COPY . /var/www/ieducar
+
+# CSS/JS publicados na imagem PHP (merenda, reports, pmd). Sem isto o Nginx
+# devolve index.php para /vendor/merenda/*.css e o layout fica sem estilo.
+COPY --from=app /var/www/ieducar/public/vendor /var/www/ieducar/public/vendor
 
 COPY docker/nginx/conf.d/nginx.conf /etc/nginx/conf.d/nginx.conf
 COPY docker/nginx/templates/default.template.conf /etc/nginx/templates/default.template.conf

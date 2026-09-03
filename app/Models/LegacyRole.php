@@ -36,6 +36,7 @@ class LegacyRole extends LegacyModel
         'nm_funcao',
         'abreviatura',
         'professor',
+        'siap_funcao',
     ];
 
     protected function id(): Attribute

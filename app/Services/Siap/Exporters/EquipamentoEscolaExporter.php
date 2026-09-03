@@ -18,7 +18,7 @@ class EquipamentoEscolaExporter extends AbstractSiapExporter
         $dataDefault = config('siap.defaults.data_ultima_compra_equipamento')
             ?: sprintf('%04d-%02d-01', $this->ano, max(1, $this->mes - 1));
 
-        $escolas = DB::table('pmieducar.escola as e')
+        $query = DB::table('pmieducar.escola as e')
             ->join('pmieducar.escola_ano_letivo as eal', 'eal.ref_cod_escola', '=', 'e.cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 'e.cod_escola')
             ->where('e.ativo', 1)
@@ -42,9 +42,11 @@ class EquipamentoEscolaExporter extends AbstractSiapExporter
                 'e.quantidade_computadores_alunos_mesa',
                 'e.quantidade_computadores_alunos_tablets',
                 'e.lousas_digitais'
-            )
-            ->distinct()
-            ->get();
+            );
+
+        $this->aplicarFiltroInstituicao($query);
+
+        $escolas = $query->distinct()->get();
 
         $usouDefault = false;
 

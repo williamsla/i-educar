@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\LegacyRole;
+use App\Services\Siap\SiapCodeMappers;
 
 return new class extends clsListagem
 {
@@ -44,6 +45,7 @@ return new class extends clsListagem
             'Nome Funcão',
             'Abreviatura',
             'Professor',
+            'Função SIAP',
         ];
 
         $obj_permissoes = new clsPermissoes;
@@ -113,6 +115,9 @@ return new class extends clsListagem
                     "<a href=\"educar_funcao_det.php?cod_funcao={$registro['cod_funcao']}&ref_cod_instituicao={$registro['ref_cod_instituicao']}\">{$registro['nm_funcao']}</a>",
                     "<a href=\"educar_funcao_det.php?cod_funcao={$registro['cod_funcao']}&ref_cod_instituicao={$registro['ref_cod_instituicao']}\">{$registro['abreviatura']}</a>",
                     "<a href=\"educar_funcao_det.php?cod_funcao={$registro['cod_funcao']}&ref_cod_instituicao={$registro['ref_cod_instituicao']}\">{$registro['professor']}</a>",
+                    '<a href="educar_funcao_det.php?cod_funcao=' . $registro['cod_funcao'] . '&ref_cod_instituicao=' . $registro['ref_cod_instituicao'] . '">'
+                        . htmlspecialchars(SiapCodeMappers::labelFuncao($registro['siap_funcao'] !== null ? (int) $registro['siap_funcao'] : null) ?: '-', ENT_QUOTES, 'UTF-8')
+                        . '</a>',
                 ];
 
                 if ($nivel_usuario == 1) {

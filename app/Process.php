@@ -46,6 +46,16 @@ class Process
 
     public const TCE_EXPORT = 1027;
 
+    public const SGP_EXPORT = 1028;
+
+    public const SAGRES_EXPORT = 1029;
+
+    public const SIAP_EXPORT = 1030;
+
+    public const MEC_GESTAO_PRESENTE_EXPORT = 1031;
+
+    public const TC_GESTAO_PUBLICA_EXPORT = 1032;
+
     public const UNDO_STUDENT_UNIFICATION = 2001;
 
     public const EXEMPTION_LIST = 2002;

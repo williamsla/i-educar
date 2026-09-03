@@ -2,10 +2,12 @@
 
 use App\Http\Controllers\EnrollmentInepController;
 use App\Http\Controllers\EnrollmentsPromotionController;
+use App\Http\Controllers\ExportacaoXmlController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\SchoolClassController;
 use App\Http\Controllers\SocialiteCallbackController;
 use App\Http\Controllers\SocialiteRedirectController;
+use App\Http\Controllers\TcGestaoExportController;
 use App\Http\Controllers\VerificarCpfEsusExportController;
 use App\Http\Controllers\VerificarCpfEsusProcessController;
 use App\Http\Controllers\WebController;
@@ -13,7 +15,6 @@ use App\Http\Middleware\AnnouncementMiddleware;
 use App\Process;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ExportacaoXmlController;
 
 Auth::routes(['register' => false]);
 
@@ -136,6 +137,20 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
     Route::get('/exportacao-para-o-seb', 'SebExportController@index')->name('seb-export.index');
     Route::post('/exportacao-para-o-seb', 'SebExportController@export')->name('seb-export.export');
 
+    Route::get('/exportacao-sgp', 'SgpExportController@index')
+        ->middleware('can:view:' . Process::SGP_EXPORT)
+        ->name('sgp-export.index');
+    Route::post('/exportacao-sgp', 'SgpExportController@export')
+        ->middleware('can:modify:' . Process::SGP_EXPORT)
+        ->name('sgp-export.export');
+
+    Route::get('/exportacao-mec-gestao-presente', 'MecGestaoPresenteExportController@index')
+        ->middleware('can:view:' . Process::MEC_GESTAO_PRESENTE_EXPORT)
+        ->name('mec-gestao-presente-export.index');
+    Route::post('/exportacao-mec-gestao-presente', 'MecGestaoPresenteExportController@export')
+        ->middleware('can:modify:' . Process::MEC_GESTAO_PRESENTE_EXPORT)
+        ->name('mec-gestao-presente-export.export');
+
     Route::get('/abre-url-privada', 'OpenPrivateUrlController@open')->name('open_private_url.open');
 
     Route::get('/notificacoes', 'NotificationController@index')->name('notifications.index');
@@ -211,6 +226,22 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
     Route::post('/enrollments-promotion', [EnrollmentsPromotionController::class, 'processEnrollmentsPromotionJobs'])
         ->name('enrollments.promotion');
 
+    Route::get('/exportacao-sagres', [ExportacaoXmlController::class, 'index'])
+        ->defaults('modelo', 'sagres')
+        ->middleware('can:view:' . Process::SAGRES_EXPORT)
+        ->name('sagres-export.index');
+    Route::get('/exportacao-siap', [ExportacaoXmlController::class, 'index'])
+        ->defaults('modelo', 'siap')
+        ->middleware('can:view:' . Process::SIAP_EXPORT)
+        ->name('siap-export.index');
+
+    Route::get('/exportacao-tc-gestao-publica', [TcGestaoExportController::class, 'index'])
+        ->middleware('can:view:' . Process::TC_GESTAO_PUBLICA_EXPORT)
+        ->name('tc-gestao-export.index');
+    Route::post('/exportacao-tc-gestao-publica', [TcGestaoExportController::class, 'export'])
+        ->middleware('can:modify:' . Process::TC_GESTAO_PUBLICA_EXPORT)
+        ->name('tc-gestao-export.export');
+
     Route::get('/exportar-xml-view', [ExportacaoXmlController::class, 'index']);
     Route::get('/exportar-xml', [ExportacaoXmlController::class, 'exportar']);
 
@@ -220,7 +251,7 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
 Route::get('/auth/redirect', SocialiteRedirectController::class)->name('socialite.redirect');
 Route::get('/auth/callback', SocialiteCallbackController::class)->name('socialite.callback');
 
-//TODO: Remover. Funciona apenas em Delmiro Gouveia
+// TODO: Remover. Funciona apenas em Delmiro Gouveia
 Route::get('/pre-matricula', function () {
     return redirect('/pre-matricula-digital');
 });

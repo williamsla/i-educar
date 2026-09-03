@@ -26,7 +26,7 @@ class SiapExportService
 {
     private array $alerts = [];
 
-    public function export(int $ano, int $mes): array
+    public function export(int $ano, int $mes, int $instituicaoId, bool $somenteAlunosComInep = false): array
     {
         $this->alerts = [];
         $codigo = (string) config('siap.codigo', '000');
@@ -35,15 +35,19 @@ class SiapExportService
             $this->alerts[] = 'ATENÇÃO: configure SIAP_CODIGO (código do município no TCE-AL) no .env.';
         }
 
+        SiapCodeMappers::assertCursosComModalidadeSiap($ano, $instituicaoId);
+
         $arquivos = [];
 
-        foreach ($this->exporters($codigo, $ano, $mes) as $exporter) {
+        foreach ($this->exporters($codigo, $ano, $mes, $instituicaoId, $somenteAlunosComInep) as $exporter) {
             try {
                 $conteudo = $exporter->export();
                 $arquivos[$exporter->fileName() . '.xml'] = $conteudo;
                 foreach ($exporter->getAlerts() as $alert) {
                     $this->alerts[] = $alert;
                 }
+            } catch (SiapExportValidationException $e) {
+                throw $e;
             } catch (\Throwable $e) {
                 $this->alerts[] = '[' . $exporter->fileName() . '] ERRO: ' . $e->getMessage();
                 $fallback = new SiapXmlBuilder($codigo, (string) $ano, (string) $mes);
@@ -62,28 +66,28 @@ class SiapExportService
     /**
      * @return AbstractSiapExporter[]
      */
-    private function exporters(string $codigo, int $ano, int $mes): array
+    private function exporters(string $codigo, int $ano, int $mes, int $instituicaoId, bool $somenteAlunosComInep = false): array
     {
         return [
-            new EscolaExporter($codigo, $ano, $mes),
-            new EstruturaEscolarExporter($codigo, $ano, $mes),
-            new EquipamentoEscolaExporter($codigo, $ano, $mes),
-            new AlunoExporter($codigo, $ano, $mes),
-            new MatriculaExporter($codigo, $ano, $mes),
-            new TurmaExporter($codigo, $ano, $mes),
-            new TurmaAlunoExporter($codigo, $ano, $mes),
-            new ProfissionalEducacaoExporter($codigo, $ano, $mes),
-            new VinculoProfissionalEducacaoExporter($codigo, $ano, $mes),
-            new TurmaProfissionalExporter($codigo, $ano, $mes),
-            new CapacitacaoProfissionalEducacaoExporter($codigo, $ano, $mes),
-            new FaltasProfissionalEducacaoExporter($codigo, $ano, $mes),
-            new CardapioExporter($codigo, $ano, $mes),
-            new ResponsavelTecnicoExporter($codigo, $ano, $mes),
-            new EmptyHeaderExporter($codigo, $ano, $mes, 'AtividadesResponsavelTecnico'),
-            new EmptyHeaderExporter($codigo, $ano, $mes, 'AgriculturaFamiliar'),
-            new EmptyHeaderExporter($codigo, $ano, $mes, 'ConselhoAlimentacaoEscolar'),
-            new EmptyHeaderExporter($codigo, $ano, $mes, 'EventoAlimentacaoEscolar'),
-            new DespesaPorEscolaExporter($codigo, $ano, $mes),
+            new EscolaExporter($codigo, $ano, $mes, $instituicaoId),
+            new EstruturaEscolarExporter($codigo, $ano, $mes, $instituicaoId),
+            new EquipamentoEscolaExporter($codigo, $ano, $mes, $instituicaoId),
+            new AlunoExporter($codigo, $ano, $mes, $instituicaoId, $somenteAlunosComInep),
+            new MatriculaExporter($codigo, $ano, $mes, $instituicaoId),
+            new TurmaExporter($codigo, $ano, $mes, $instituicaoId),
+            new TurmaAlunoExporter($codigo, $ano, $mes, $instituicaoId, $somenteAlunosComInep),
+            new ProfissionalEducacaoExporter($codigo, $ano, $mes, $instituicaoId),
+            new VinculoProfissionalEducacaoExporter($codigo, $ano, $mes, $instituicaoId),
+            new TurmaProfissionalExporter($codigo, $ano, $mes, $instituicaoId),
+            new CapacitacaoProfissionalEducacaoExporter($codigo, $ano, $mes, $instituicaoId),
+            new FaltasProfissionalEducacaoExporter($codigo, $ano, $mes, $instituicaoId),
+            new CardapioExporter($codigo, $ano, $mes, $instituicaoId),
+            new ResponsavelTecnicoExporter($codigo, $ano, $mes, $instituicaoId),
+            new EmptyHeaderExporter($codigo, $ano, $mes, $instituicaoId, 'AtividadesResponsavelTecnico'),
+            new EmptyHeaderExporter($codigo, $ano, $mes, $instituicaoId, 'AgriculturaFamiliar'),
+            new EmptyHeaderExporter($codigo, $ano, $mes, $instituicaoId, 'ConselhoAlimentacaoEscolar'),
+            new EmptyHeaderExporter($codigo, $ano, $mes, $instituicaoId, 'EventoAlimentacaoEscolar'),
+            new DespesaPorEscolaExporter($codigo, $ano, $mes, $instituicaoId),
         ];
     }
 

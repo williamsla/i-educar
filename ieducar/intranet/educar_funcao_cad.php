@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\LegacyRole;
+use App\Services\Siap\SiapCodeMappers;
 
 return new class extends clsCadastro
 {
@@ -17,6 +18,8 @@ return new class extends clsCadastro
     public $abreviatura;
 
     public $professor;
+
+    public $siap_funcao;
 
     public $data_cadastro;
 
@@ -84,6 +87,13 @@ return new class extends clsCadastro
         ];
 
         $this->campoLista(nome: 'professor', campo: 'Professor', valor: $opcoes, default: $this->professor);
+        $this->campoLista(
+            nome: 'siap_funcao',
+            campo: 'Função SIAP',
+            valor: SiapCodeMappers::opcoesFuncao(),
+            default: $this->siap_funcao !== null && $this->siap_funcao !== '' ? (string) $this->siap_funcao : '',
+            obrigatorio: false
+        );
     }
 
     public function Novo()
@@ -101,6 +111,9 @@ return new class extends clsCadastro
         $obj->nm_funcao = $this->nm_funcao;
         $obj->abreviatura = $this->abreviatura;
         $obj->professor = $this->professor;
+        $obj->siap_funcao = $this->siap_funcao !== '' && $this->siap_funcao !== null
+            ? (int) $this->siap_funcao
+            : null;
         $obj->ref_cod_instituicao = $this->ref_cod_instituicao;
         $obj->ref_usuario_cad = $this->pessoa_logada;
 
@@ -129,6 +142,9 @@ return new class extends clsCadastro
         $obj->nm_funcao = $this->nm_funcao;
         $obj->abreviatura = $this->abreviatura;
         $obj->professor = $this->professor;
+        $obj->siap_funcao = $this->siap_funcao !== '' && $this->siap_funcao !== null
+            ? (int) $this->siap_funcao
+            : null;
         $obj->ref_cod_instituicao = $this->ref_cod_instituicao;
         $obj->ref_usuario_exc = $this->pessoa_logada;
 

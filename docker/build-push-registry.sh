@@ -88,6 +88,7 @@ echo ">> Build+push nginx via buildx: ${NGINX_IMAGE}"
 docker buildx build \
   -f docker/nginx/Dockerfile.prod \
   --platform "${PLATFORM}" \
+  --build-arg APP_IMAGE="${APP_IMAGE}" \
   -t "${NGINX_IMAGE}" \
   --push \
   .

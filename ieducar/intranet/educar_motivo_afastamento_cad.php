@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\WithdrawalReason;
+use App\Services\Siap\SiapCodeMappers;
 
 return new class extends clsCadastro
 {
@@ -20,6 +21,8 @@ return new class extends clsCadastro
     public $nm_motivo;
 
     public $descricao;
+
+    public $siap_tipo;
 
     public $data_cadastro;
 
@@ -84,6 +87,13 @@ return new class extends clsCadastro
         // text
         $this->campoTexto(nome: 'nm_motivo', campo: 'Motivo de Afastamento', valor: $this->nm_motivo, tamanhovisivel: 30, tamanhomaximo: 255, obrigatorio: true);
         $this->campoMemo(nome: 'descricao', campo: 'Descrição', valor: $this->descricao, colunas: 60, linhas: 5);
+        $this->campoLista(
+            nome: 'siap_tipo',
+            campo: 'Mapeamento SIAP',
+            valor: SiapCodeMappers::opcoesLicenca(),
+            default: $this->siap_tipo !== null && $this->siap_tipo !== '' ? (string) $this->siap_tipo : '',
+            obrigatorio: false
+        );
     }
 
     public function Novo()
@@ -95,6 +105,9 @@ return new class extends clsCadastro
         $obj->ref_usuario_cad = $this->pessoa_logada;
         $obj->nm_motivo = $this->nm_motivo;
         $obj->descricao = $this->descricao;
+        $obj->siap_tipo = array_key_exists((string) $this->siap_tipo, config('siap.licencas', []))
+            ? (string) $this->siap_tipo
+            : null;
         $obj->ref_cod_instituicao = $this->ref_cod_instituicao;
 
         if ($obj->save()) {
@@ -121,6 +134,9 @@ return new class extends clsCadastro
         $obj->ref_usuario_exc = $this->pessoa_logada;
         $obj->nm_motivo = $this->nm_motivo;
         $obj->descricao = $this->descricao;
+        $obj->siap_tipo = array_key_exists((string) $this->siap_tipo, config('siap.licencas', []))
+            ? (string) $this->siap_tipo
+            : null;
         $obj->ref_cod_instituicao = $this->ref_cod_instituicao;
 
         if ($obj->save()) {

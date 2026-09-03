@@ -56,4 +56,37 @@ do
   fi
 done
 
+# cache:clear / migrate nao correm no docker build (sem Postgres). Aqui, com
+# DB_CONNECTION=pgsql, o helper php_* (nao FPM/queue) aplica as migrations
+# dos pacotes (merenda, despesas, etc.) e limpa o cache. FPM e queue sobem
+# sem esperar; o deploy-city.sh tambem corre migrate + optimize:clear.
+run_runtime_migrate_and_cache() {
+  [ "${DB_CONNECTION:-}" = "pgsql" ] || return 0
+  [ "${SKIP_RUNTIME_MIGRATE:-false}" != "true" ] || return 0
+
+  for a in "$@"; do
+    if [ "$a" = "php-fpm" ]; then
+      return 0
+    fi
+  done
+  case " $* " in
+    *" queue:work "*) return 0 ;;
+  esac
+
+  echo ">> Entrypoint: php artisan migrate --force e cache:clear"
+  i=0
+  while [ "$i" -lt 15 ]; do
+    if php artisan migrate --force; then
+      php artisan cache:clear || true
+      return 0
+    fi
+    i=$((i + 1))
+    echo ">> Aguardando Postgres para migrate ($i/15)..."
+    sleep 2
+  done
+  echo ">> AVISO: migrate falhou no arranque. Use docker/deploy-city.sh ou: php artisan migrate --force" >&2
+}
+
+run_runtime_migrate_and_cache "$@"
+
 exec "$@"

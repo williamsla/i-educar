@@ -2,46 +2,154 @@
 
 namespace App\Services\Siap;
 
+use Illuminate\Support\Facades\DB;
+
 class SiapCodeMappers
 {
     /**
-     * Etapa SIAP: 1=Infantil, 2=Fundamental, 3=Médio, 4=EJA/Outros
+     * Etapa SIAP (1-4). Exige curso.siap_etapa preenchido.
      */
-    public static function etapa(?int $etapaEducacenso): string
+    public static function etapa(?int $siapEtapa = null): string
     {
-        if (!$etapaEducacenso) {
-            return '2';
+        $etapas = config('siap.etapas', []);
+
+        if ($siapEtapa !== null && isset($etapas[$siapEtapa])) {
+            return (string) $siapEtapa;
         }
 
-        if (in_array($etapaEducacenso, [1, 2, 3], true)) {
-            return '1';
-        }
-
-        $fundamental = array_merge(range(14, 24), [41, 56, 69, 70]);
-        if (in_array($etapaEducacenso, $fundamental, true)) {
-            return '2';
-        }
-
-        $medio = array_merge(range(25, 38), [71, 72, 73, 74]);
-        if (in_array($etapaEducacenso, $medio, true)) {
-            return '3';
-        }
-
-        return '4';
+        throw new SiapExportValidationException(
+            'É necessário preencher o mapeamento Etapa SIAP no cadastro do curso (Escola → Cursos).'
+        );
     }
 
     /**
-     * Modalidade Educacenso 1-4 → SIAP 1-6 (extras reservados).
+     * Modalidade SIAP (1-6). Exige curso.siap_modalidade preenchido.
      */
-    public static function modalidade(?int $modalidadeCurso): string
+    public static function modalidade(?int $siapModalidade): string
     {
-        $modalidade = (int) $modalidadeCurso;
+        $modalidades = config('siap.modalidades', []);
 
-        if ($modalidade >= 1 && $modalidade <= 6) {
-            return (string) $modalidade;
+        if ($siapModalidade !== null && isset($modalidades[$siapModalidade])) {
+            return (string) $siapModalidade;
         }
 
-        return '1';
+        throw new SiapExportValidationException(
+            'É necessário preencher o mapeamento Modalidade SIAP no cadastro do curso (Escola → Cursos).'
+        );
+    }
+
+    /**
+     * Garante que todos os cursos das turmas ativas do ano/instituição
+     * tenham siap_modalidade e siap_etapa preenchidos.
+     *
+     * @throws SiapExportValidationException
+     */
+    public static function assertCursosComModalidadeSiap(int $ano, int $instituicaoId): void
+    {
+        self::assertCursosComMapeamentoSiap($ano, $instituicaoId);
+    }
+
+    /**
+     * @throws SiapExportValidationException
+     */
+    public static function assertCursosComMapeamentoSiap(int $ano, int $instituicaoId): void
+    {
+        $modalidadesValidas = array_keys(config('siap.modalidades', []));
+        $etapasValidas = array_keys(config('siap.etapas', []));
+
+        $cursos = DB::table('pmieducar.turma as t')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 't.ref_ref_cod_escola')
+            ->join('pmieducar.curso as c', 'c.cod_curso', '=', 't.ref_cod_curso')
+            ->where('t.ano', $ano)
+            ->where('t.ativo', 1)
+            ->where('e.ref_cod_instituicao', $instituicaoId)
+            ->where(function ($q) use ($modalidadesValidas, $etapasValidas) {
+                $q->whereNull('c.siap_modalidade')
+                    ->orWhereNull('c.siap_etapa');
+
+                if (!empty($modalidadesValidas)) {
+                    $q->orWhereNotIn('c.siap_modalidade', $modalidadesValidas);
+                }
+                if (!empty($etapasValidas)) {
+                    $q->orWhereNotIn('c.siap_etapa', $etapasValidas);
+                }
+            })
+            ->select('c.cod_curso', 'c.nm_curso', 'c.siap_modalidade', 'c.siap_etapa')
+            ->distinct()
+            ->orderBy('c.nm_curso')
+            ->get();
+
+        if ($cursos->isEmpty()) {
+            return;
+        }
+
+        $lista = $cursos
+            ->map(function ($c) use ($modalidadesValidas, $etapasValidas) {
+                $faltas = [];
+                if ($c->siap_modalidade === null || !in_array((int) $c->siap_modalidade, $modalidadesValidas, true)) {
+                    $faltas[] = 'Modalidade SIAP';
+                }
+                if ($c->siap_etapa === null || !in_array((int) $c->siap_etapa, $etapasValidas, true)) {
+                    $faltas[] = 'Etapa SIAP';
+                }
+
+                return trim((string) $c->nm_curso)
+                    . ' (código ' . $c->cod_curso . ')'
+                    . (empty($faltas) ? '' : ' — falta: ' . implode(' e ', $faltas));
+            })
+            ->implode('; ');
+
+        throw new SiapExportValidationException(
+            'Preencha o mapeamento SIAP nos cursos antes de exportar: ' . $lista
+        );
+    }
+
+    /**
+     * @return array<int|string, string>
+     */
+    public static function opcoesModalidade(): array
+    {
+        $opcoes = ['' => 'Selecione'];
+        foreach (config('siap.modalidades', []) as $codigo => $nome) {
+            $opcoes[(string) $codigo] = $codigo . ' - ' . $nome;
+        }
+
+        return $opcoes;
+    }
+
+    public static function labelModalidade(?int $codigo): string
+    {
+        if ($codigo === null) {
+            return '';
+        }
+
+        $nome = config('siap.modalidades.' . $codigo);
+
+        return $nome ? $codigo . ' - ' . $nome : (string) $codigo;
+    }
+
+    /**
+     * @return array<int|string, string>
+     */
+    public static function opcoesEtapa(): array
+    {
+        $opcoes = ['' => 'Selecione'];
+        foreach (config('siap.etapas', []) as $codigo => $nome) {
+            $opcoes[(string) $codigo] = $codigo . ' - ' . $nome;
+        }
+
+        return $opcoes;
+    }
+
+    public static function labelEtapa(?int $codigo): string
+    {
+        if ($codigo === null) {
+            return '';
+        }
+
+        $nome = config('siap.etapas.' . $codigo);
+
+        return $nome ? $codigo . ' - ' . $nome : (string) $codigo;
     }
 
     /**
@@ -56,6 +164,26 @@ class SiapCodeMappers
         }
 
         return '1';
+    }
+
+    /**
+     * Carga horária semanal da turma (SIAP).
+     * Dias: conta dias_semana; se vazio, assume 5.
+     * Horas/dia: 8 se integral (4), 3 se noturno (3), senão 4.
+     */
+    public static function cargaHorariaTurma($diasSemana, ?int $turmaTurnoId): string
+    {
+        $dias = self::pgArray($diasSemana);
+        $quantidadeDias = count($dias) > 0 ? count($dias) : 5;
+        $turno = (int) $turmaTurnoId;
+        $horasPorDia = match ($turno) {
+            4 => 8, // Integral
+            3 => 3, // Noturno
+            default => 4,
+        };
+        $carga = max(1, min(99, $quantidadeDias * $horasPorDia));
+
+        return (string) $carga;
     }
 
     public static function localizacao(?int $zona): string
@@ -116,7 +244,20 @@ class SiapCodeMappers
 
     public static function cpf(?string $cpf): string
     {
-        return substr(self::apenasDigitos($cpf), 0, 11);
+        $digits = self::apenasDigitos($cpf);
+        // Vazio, só zeros ou inválido → não exportar
+        if ($digits === '' || preg_match('/^0+$/', $digits)) {
+            return '';
+        }
+
+        // CPF no banco costuma perder zeros à esquerda (armazenado como numérico).
+        // SIAP exige exatamente 11 dígitos.
+        return str_pad(substr($digits, -11), 11, '0', STR_PAD_LEFT);
+    }
+
+    public static function cpfValido(?string $cpf): bool
+    {
+        return strlen(self::cpf($cpf)) === 11;
     }
 
     public static function cep(?string $cep): string
@@ -239,13 +380,91 @@ class SiapCodeMappers
         return ($valor >= 1 && $valor <= 4) ? (string) $valor : '';
     }
 
-    public static function funcao(?int $funcaoExercida, bool $ehProfessor = true): string
-    {
-        if ($funcaoExercida >= 1 && $funcaoExercida <= 11) {
-            return (string) $funcaoExercida;
+    public static function funcao(
+        ?int $siapFuncao = null,
+        ?int $funcaoExercida = null,
+        bool $ehProfessor = true
+    ): string {
+        $funcoes = config('siap.funcoes', []);
+
+        if ($siapFuncao !== null && isset($funcoes[$siapFuncao])) {
+            return (string) $siapFuncao;
         }
 
-        return $ehProfessor ? '1' : '8';
+        $mapaEducacenso = config('siap.funcao_exercida_para_siap', []);
+        if ($funcaoExercida !== null && isset($mapaEducacenso[$funcaoExercida])) {
+            return (string) $mapaEducacenso[$funcaoExercida];
+        }
+
+        // Fallback: docente → 2; demais → 11 (Serviços Administrativos)
+        return $ehProfessor ? '2' : '11';
+    }
+
+    /**
+     * @return array<int|string, string>
+     */
+    public static function opcoesFuncao(): array
+    {
+        $opcoes = ['' => 'Selecione'];
+        foreach (config('siap.funcoes', []) as $codigo => $nome) {
+            $opcoes[(string) $codigo] = $codigo . ' - ' . $nome;
+        }
+
+        return $opcoes;
+    }
+
+    public static function labelFuncao(?int $codigo): string
+    {
+        if ($codigo === null) {
+            return '';
+        }
+
+        $nome = config('siap.funcoes.' . $codigo);
+
+        return $nome ? $codigo . ' - ' . $nome : (string) $codigo;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function opcoesLicenca(): array
+    {
+        $opcoes = ['' => 'Selecione'];
+        foreach (config('siap.licencas', []) as $codigo => $nome) {
+            $opcoes[$codigo] = $nome;
+        }
+
+        return $opcoes;
+    }
+
+    public static function labelLicenca(?string $codigo): string
+    {
+        if ($codigo === null || $codigo === '') {
+            return '';
+        }
+
+        return (string) (config('siap.licencas.' . $codigo) ?: $codigo);
+    }
+
+    /**
+     * Classifica o afastamento nos tipos do leiaute FaltasProfissionalEducacao.
+     */
+    public static function tipoLicencaAfastamento(?string $siapTipo, ?string $nmMotivo = null): ?string
+    {
+        $tipos = config('siap.licencas', []);
+        if ($siapTipo !== null && $siapTipo !== '' && isset($tipos[$siapTipo])) {
+            return $siapTipo;
+        }
+
+        $motivo = mb_strtolower((string) $nmMotivo);
+        if (str_contains($motivo, 'matern') || str_contains($motivo, 'patern')) {
+            return 'LicencaMaternidadePaternidade';
+        }
+        if (str_contains($motivo, 'médic') || str_contains($motivo, 'medic') || str_contains($motivo, 'saúde') || str_contains($motivo, 'saude')) {
+            return 'LicencaMedica';
+        }
+
+        return null;
     }
 
     public static function tipoVinculo(?int $tipo): string

@@ -16,7 +16,7 @@ class EstruturaEscolarExporter extends AbstractSiapExporter
     {
         $builder = $this->builder();
 
-        $escolas = DB::table('pmieducar.escola as e')
+        $query = DB::table('pmieducar.escola as e')
             ->join('pmieducar.escola_ano_letivo as eal', 'eal.ref_cod_escola', '=', 'e.cod_escola')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 'e.cod_escola')
             ->where('e.ativo', 1)
@@ -31,9 +31,11 @@ class EstruturaEscolarExporter extends AbstractSiapExporter
                 'e.salas_atividades',
                 'e.dormitorios',
                 'e.areas_externas'
-            )
-            ->distinct()
-            ->get();
+            );
+
+        $this->aplicarFiltroInstituicao($query);
+
+        $escolas = $query->distinct()->get();
 
         foreach ($escolas as $escola) {
             foreach (SiapCodeMappers::estruturasDaEscola($escola) as $codigo) {

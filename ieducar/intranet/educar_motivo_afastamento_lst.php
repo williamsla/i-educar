@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\WithdrawalReason;
+use App\Services\Siap\SiapCodeMappers;
 
 return new class extends clsListagem
 {
@@ -60,6 +61,7 @@ return new class extends clsListagem
 
         $lista_busca = [
             'Motivo de Afastamento',
+            'Mapeamento SIAP',
         ];
 
         $obj_permissoes = new clsPermissoes;
@@ -99,6 +101,9 @@ return new class extends clsListagem
 
                 $lista_busca = [
                     "<a href=\"educar_motivo_afastamento_det.php?cod_motivo_afastamento={$registro['cod_motivo_afastamento']}\">{$registro['nm_motivo']}</a>",
+                    '<a href="educar_motivo_afastamento_det.php?cod_motivo_afastamento=' . $registro['cod_motivo_afastamento'] . '">'
+                        . htmlspecialchars(SiapCodeMappers::labelLicenca($registro['siap_tipo'] !== null ? (string) $registro['siap_tipo'] : null) ?: '-', ENT_QUOTES, 'UTF-8')
+                        . '</a>',
                 ];
 
                 if ($nivel_usuario == 1) {

@@ -5,6 +5,7 @@ use App\Models\LegacyEducacensoStages;
 use App\Models\LegacyEducationLevel;
 use App\Models\LegacyEducationType;
 use App\Models\LegacyRegimeType;
+use App\Services\Siap\SiapCodeMappers;
 
 return new class extends clsCadastro
 {
@@ -57,6 +58,10 @@ return new class extends clsCadastro
     public $multi_seriado;
 
     public $modalidade_curso;
+
+    public $siap_modalidade;
+
+    public $siap_etapa;
 
     public $importar_curso_pre_matricula;
 
@@ -263,6 +268,22 @@ return new class extends clsCadastro
         $options = ['label' => 'Modalidade do curso', 'resources' => $resources, 'value' => $this->modalidade_curso];
         $this->inputsHelper()->select(attrName: 'modalidade_curso', inputOptions: $options);
 
+        $this->campoLista(
+            nome: 'siap_modalidade',
+            campo: 'Modalidade SIAP',
+            valor: SiapCodeMappers::opcoesModalidade(),
+            default: $this->siap_modalidade !== null && $this->siap_modalidade !== '' ? (string) $this->siap_modalidade : '',
+            obrigatorio: false
+        );
+
+        $this->campoLista(
+            nome: 'siap_etapa',
+            campo: 'Etapa SIAP',
+            valor: SiapCodeMappers::opcoesEtapa(),
+            default: $this->siap_etapa !== null && $this->siap_etapa !== '' ? (string) $this->siap_etapa : '',
+            obrigatorio: false
+        );
+
         $etapasEducacenso = LegacyEducacensoStages::getDescriptiveValues();
         $etapas = $this->cod_curso ? LegacyCourseEducacensoStage::getIdsByCourse(course: $this->cod_curso) : [];
 
@@ -318,6 +339,12 @@ return new class extends clsCadastro
                 bloquear_novas_matriculas: $this->bloquear_novas_matriculas
             );
             $obj->modalidade_curso = $this->modalidade_curso;
+            $obj->siap_modalidade = $this->siap_modalidade !== '' && $this->siap_modalidade !== null
+                ? (int) $this->siap_modalidade
+                : '';
+            $obj->siap_etapa = $this->siap_etapa !== '' && $this->siap_etapa !== null
+                ? (int) $this->siap_etapa
+                : '';
 
             $this->cod_curso = $cadastrou = $obj->cadastra();
             if ($cadastrou) {
@@ -371,6 +398,12 @@ return new class extends clsCadastro
                 bloquear_novas_matriculas: $this->bloquear_novas_matriculas
             );
             $obj->modalidade_curso = $this->modalidade_curso;
+            $obj->siap_modalidade = $this->siap_modalidade !== '' && $this->siap_modalidade !== null
+                ? (int) $this->siap_modalidade
+                : '';
+            $obj->siap_etapa = $this->siap_etapa !== '' && $this->siap_etapa !== null
+                ? (int) $this->siap_etapa
+                : '';
 
             $detalheAntigo = $obj->detalhe();
             $alterouPadraoAnoEscolar = $detalheAntigo['padrao_ano_escolar'] != $this->padrao_ano_escolar;

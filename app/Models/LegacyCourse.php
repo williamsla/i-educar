@@ -65,6 +65,8 @@ class LegacyCourse extends LegacyModel
         'hora_falta',
         'ativo',
         'modalidade_curso',
+        'siap_modalidade',
+        'siap_etapa',
         'padrao_ano_escolar',
         'multi_seriado',
     ];

@@ -4,6 +4,7 @@ use App\Models\LegacyCourse;
 use App\Models\LegacyEducationLevel;
 use App\Models\LegacyEducationType;
 use App\Models\LegacyRegimeType;
+use App\Services\Siap\SiapCodeMappers;
 
 return new class extends clsDetalhe
 {
@@ -103,6 +104,14 @@ return new class extends clsDetalhe
 
         if ($registro['sgl_curso']) {
             $this->addDetalhe(['Sigla Curso', $registro['sgl_curso']]);
+        }
+
+        if (!empty($registro['siap_modalidade'])) {
+            $this->addDetalhe(['Modalidade SIAP', SiapCodeMappers::labelModalidade((int) $registro['siap_modalidade'])]);
+        }
+
+        if (!empty($registro['siap_etapa'])) {
+            $this->addDetalhe(['Etapa SIAP', SiapCodeMappers::labelEtapa((int) $registro['siap_etapa'])]);
         }
 
         if ($registro['qtd_etapas']) {

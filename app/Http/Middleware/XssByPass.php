@@ -3,19 +3,20 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class XssByPass
 {
     /**
      * Handle an incoming request.
      *
-     * @param \Illuminate\Http\Request $request
-     * @return mixed
+     * @param  Closure(Request): (Response)  $next
      */
-    public function handle($request, Closure $next)
+    public function handle(Request $request, Closure $next): Response
     {
-        $response = $next($request)
-            ->header('X-XSS-Protection', 0);
+        $response = $next($request);
+        $response->headers->set('X-XSS-Protection', '0');
 
         return $response;
     }

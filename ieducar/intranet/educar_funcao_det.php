@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\LegacyRole;
+use App\Services\Siap\SiapCodeMappers;
 
 return new class extends clsDetalhe
 {
@@ -22,6 +23,8 @@ return new class extends clsDetalhe
     public $abreviatura;
 
     public $professor;
+
+    public $siap_funcao;
 
     public $data_cadastro;
 
@@ -56,6 +59,10 @@ return new class extends clsDetalhe
 
         if (is_numeric($registro['professor'])) {
             $this->addDetalhe(['Professor', "{$opcoes[$registro['professor']]}"]);
+        }
+
+        if (!empty($registro['siap_funcao'])) {
+            $this->addDetalhe(['Função SIAP', SiapCodeMappers::labelFuncao((int) $registro['siap_funcao'])]);
         }
 
         $obj_permissoes = new clsPermissoes;

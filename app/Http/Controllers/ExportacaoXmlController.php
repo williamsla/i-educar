@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 // namespace App\Http\Controllers\Api;
 
 use App_Model_MatriculaSituacao;
+use App\Process;
 use App\Services\Siap\SiapExportService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,9 +29,32 @@ class ExportacaoXmlController extends Controller
 
     private $alerts = [];
 
-    public function index()
+    public function index(Request $request)
     {
-        return view('exportar-xml');
+        $modelo = $request->route('modelo') ?: $request->input('modelo');
+        $modelo = in_array($modelo, ['sagres', 'siap'], true) ? $modelo : null;
+
+        $titulo = match ($modelo) {
+            'sagres' => 'SAGRES',
+            'siap' => 'SIAP',
+            default => 'Exportar Remessa para TCE',
+        };
+
+        $process = match ($modelo) {
+            'sagres' => Process::SAGRES_EXPORT,
+            'siap' => Process::SIAP_EXPORT,
+            default => Process::TCE_EXPORT,
+        };
+
+        $this->breadcrumb($titulo, [
+            url('intranet/educar_index.php') => 'Escola',
+        ]);
+        $this->menu($process);
+
+        return view('exportar-xml', [
+            'modelo' => $modelo,
+            'titulo' => $titulo,
+        ]);
     }
 
     
@@ -39,27 +63,27 @@ class ExportacaoXmlController extends Controller
         $modelo = $request->input('modelo');
         $ano = $request->input('ano');
         $mes = $request->input('mes');
+        $instituicaoId = (int) $request->input('ref_cod_instituicao');
+        $somenteAlunosComInep = $request->boolean('somente_alunos_com_inep');
 
         $this->alerts = [];
 
-        if (!in_array($modelo, ['sagres', 'siap']) || !$ano || !$mes) {
+        if (!in_array($modelo, ['sagres', 'siap'], true) || !$ano || !$mes) {
             return back()->withErrors('Preencha todos os campos corretamente.');
         }
 
-        if ($modelo === 'sagres') {
-            $result = $this->exportarModeloSAGRES($ano, $mes);
-        } else {
-            $result = $this->exportarModeloSIAP($ano, $mes);
+        if ($instituicaoId <= 0) {
+            return back()->withErrors('Selecione a instituição.');
         }
 
-        // if (!empty($this->alerts)) {
-        //     $this->showAlert(implode('\n', $this->alerts));            
-        // }
+        if ($modelo === 'sagres') {
+            return $this->exportarModeloSAGRES($ano, $mes, $instituicaoId);
+        }
 
-        return $result;
+        return $this->exportarModeloSIAP($ano, $mes, $instituicaoId, $somenteAlunosComInep);
     }
 
-    private function exportarModeloSAGRES($ano, $mes)
+    private function exportarModeloSAGRES($ano, $mes, int $instituicaoId)
     {
         $data = new DateTime("$ano-$mes-01");
         $ultimo_dia_mes = $data->format('t');
@@ -77,7 +101,7 @@ class ExportacaoXmlController extends Controller
         $prestacao->addChild('edu:diaInicPresContas', '1', $xml->getNamespaces()['edu']);
         $prestacao->addChild('edu:diaFinaPresContas', $ultimo_dia_mes, $xml->getNamespaces()['edu']);
 
-        $escolas = $this->getEscolas($ano);
+        $escolas = $this->getEscolas($ano, $instituicaoId);
         if ($escolas->isEmpty()) {
             return response()->json(['erro' => 'Nenhuma escola encontrada.'], 404);
         } 
@@ -106,8 +130,8 @@ class ExportacaoXmlController extends Controller
                 }
 
                 $isProsic = false;
-                if ($turma->multiseriada == 1 
-                    && str_contains($turma->nm_turma, 'PROSIC') === true 
+                if (($turma->multiseriada == 1 
+                    && str_contains($turma->nm_turma, 'PROSIC') === true) 
                     && str_contains($turma->nm_turma, 'FASE') === true) {
                     $isProsic = true;
                 }
@@ -247,6 +271,7 @@ class ExportacaoXmlController extends Controller
 
                 $xmlTurma->addChild('edu:multiseriada', $turma->multiseriada == 1 && count($series_adicionadas) > 1 ? 'true' : 'false', $xml->getNamespaces()['edu']);
                 if ($isProsic === true) {
+                    $xmlTurma->addChild('edu:multiseriada', 'true', $xml->getNamespaces()['edu']);
                     $xmlTurma->addChild('edu:prosic', 'true', $xml->getNamespaces()['edu']);
                 }
                 
@@ -306,10 +331,15 @@ class ExportacaoXmlController extends Controller
         return $this->compactarEEnviar($xml, 'Educacao');
     }
 
-    private function exportarModeloSIAP($ano, $mes)
+    private function exportarModeloSIAP($ano, $mes, int $instituicaoId, bool $somenteAlunosComInep = false)
     {
         $service = new SiapExportService();
-        $result = $service->export((int) $ano, (int) $mes);
+
+        try {
+            $result = $service->export((int) $ano, (int) $mes, $instituicaoId, $somenteAlunosComInep);
+        } catch (\App\Services\Siap\SiapExportValidationException $e) {
+            return back()->withErrors($e->getMessage());
+        }
 
         $this->alerts = array_merge($this->alerts, $service->getAlerts());
 
@@ -342,7 +372,7 @@ class ExportacaoXmlController extends Controller
     }
 
 
-    private function getEscolas($ano)
+    private function getEscolas($ano, int $instituicaoId)
     {
         $query = DB::table('escola')
                 ->join('pmieducar.escola_ano_letivo', 'escola.cod_escola', '=', 'pmieducar.escola_ano_letivo.ref_cod_escola')
@@ -353,6 +383,7 @@ class ExportacaoXmlController extends Controller
                     'modules.educacenso_cod_escola.cod_escola_inep as inep_escola'
                 )
                 ->where('escola.ativo', '=', '1')
+                ->where('escola.ref_cod_instituicao', '=', $instituicaoId)
                 ->where('pmieducar.escola_ano_letivo.ativo', '=', '1')
                 ->where('pmieducar.escola_ano_letivo.ano', '=', $ano);
                 

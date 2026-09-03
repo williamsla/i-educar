@@ -44,6 +44,10 @@ class clsPmieducarCurso extends Model
 
     public $modalidade_curso;
 
+    public $siap_modalidade;
+
+    public $siap_etapa;
+
     public $importar_curso_pre_matricula;
 
     public $descricao;
@@ -86,7 +90,7 @@ class clsPmieducarCurso extends Model
         $this->_schema = 'pmieducar.';
         $this->_tabela = $this->_schema . 'curso';
 
-        $this->_campos_lista = $this->_todos_campos = 'cod_curso, ref_usuario_cad, ref_cod_tipo_regime, ref_cod_nivel_ensino, ref_cod_tipo_ensino, nm_curso, sgl_curso, qtd_etapas, carga_horaria, ato_poder_publico, objetivo_curso, publico_alvo, data_cadastro, data_exclusao, ativo, ref_usuario_exc, ref_cod_instituicao, padrao_ano_escolar, hora_falta, multi_seriado, modalidade_curso, importar_curso_pre_matricula, descricao, bloquear_novas_matriculas';
+        $this->_campos_lista = $this->_todos_campos = 'cod_curso, ref_usuario_cad, ref_cod_tipo_regime, ref_cod_nivel_ensino, ref_cod_tipo_ensino, nm_curso, sgl_curso, qtd_etapas, carga_horaria, ato_poder_publico, objetivo_curso, publico_alvo, data_cadastro, data_exclusao, ativo, ref_usuario_exc, ref_cod_instituicao, padrao_ano_escolar, hora_falta, multi_seriado, modalidade_curso, siap_modalidade, siap_etapa, importar_curso_pre_matricula, descricao, bloquear_novas_matriculas';
 
         if (is_numeric($ref_cod_instituicao)) {
             $this->ref_cod_instituicao = $ref_cod_instituicao;
@@ -312,6 +316,18 @@ class clsPmieducarCurso extends Model
                 $gruda = ', ';
             }
 
+            if (is_numeric($this->siap_modalidade)) {
+                $campos .= "{$gruda}siap_modalidade";
+                $valores .= "{$gruda}'{$this->siap_modalidade}'";
+                $gruda = ', ';
+            }
+
+            if (is_numeric($this->siap_etapa)) {
+                $campos .= "{$gruda}siap_etapa";
+                $valores .= "{$gruda}'{$this->siap_etapa}'";
+                $gruda = ', ';
+            }
+
             if (is_numeric($this->bloquear_novas_matriculas)) {
                 $campos .= "{$gruda}bloquear_novas_matriculas";
                 $valores .= "{$gruda}'{$this->bloquear_novas_matriculas}'";
@@ -453,6 +469,22 @@ class clsPmieducarCurso extends Model
 
             if (is_numeric($this->modalidade_curso)) {
                 $set .= "{$gruda}modalidade_curso = '{$this->modalidade_curso}'";
+                $gruda = ', ';
+            }
+
+            if (is_numeric($this->siap_modalidade)) {
+                $set .= "{$gruda}siap_modalidade = '{$this->siap_modalidade}'";
+                $gruda = ', ';
+            } elseif ($this->siap_modalidade === '') {
+                $set .= "{$gruda}siap_modalidade = NULL";
+                $gruda = ', ';
+            }
+
+            if (is_numeric($this->siap_etapa)) {
+                $set .= "{$gruda}siap_etapa = '{$this->siap_etapa}'";
+                $gruda = ', ';
+            } elseif ($this->siap_etapa === '') {
+                $set .= "{$gruda}siap_etapa = NULL";
                 $gruda = ', ';
             }
 

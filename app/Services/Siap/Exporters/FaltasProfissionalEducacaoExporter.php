@@ -28,12 +28,14 @@ class FaltasProfissionalEducacaoExporter extends AbstractSiapExporter
 
         $alocacoes = DB::table('pmieducar.servidor_alocacao as sa')
             ->join('pmieducar.servidor as s', 's.cod_servidor', '=', 'sa.ref_cod_servidor')
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'sa.ref_cod_escola')
             ->join('cadastro.fisica as f', 'f.idpes', '=', 's.cod_servidor')
             ->join('modules.educacenso_cod_escola as inep', 'inep.cod_escola', '=', 'sa.ref_cod_escola')
             ->leftJoin('portal.funcionario as func', 'func.ref_cod_pessoa_fj', '=', 's.cod_servidor')
             ->where('sa.ativo', 1)
             ->where('s.ativo', 1)
             ->where('sa.ano', $this->ano)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('f.cpf')
             ->select(
                 's.cod_servidor',
@@ -70,15 +72,18 @@ class FaltasProfissionalEducacaoExporter extends AbstractSiapExporter
                             ->orWhereNull('af.data_retorno');
                     })
                     ->whereDate('af.data_saida', '<=', $fim)
-                    ->select('af.data_saida', 'af.data_retorno', 'ma.nm_motivo')
+                    ->select('af.data_saida', 'af.data_retorno', 'ma.siap_tipo', 'ma.nm_motivo')
                     ->get();
 
                 foreach ($afastamentos as $af) {
                     $dias = $this->diasNoMes($af->data_saida, $af->data_retorno, $inicio, $fim);
-                    $motivo = mb_strtolower((string) ($af->nm_motivo ?? ''));
-                    if (str_contains($motivo, 'matern') || str_contains($motivo, 'patern')) {
+                    $tipo = SiapCodeMappers::tipoLicencaAfastamento(
+                        $af->siap_tipo !== null ? (string) $af->siap_tipo : null,
+                        $af->nm_motivo !== null ? (string) $af->nm_motivo : null
+                    );
+                    if ($tipo === 'LicencaMaternidadePaternidade') {
                         $licencaMaternidade += $dias;
-                    } elseif (str_contains($motivo, 'médic') || str_contains($motivo, 'medic') || str_contains($motivo, 'saúde') || str_contains($motivo, 'saude')) {
+                    } elseif ($tipo === 'LicencaMedica') {
                         $licencaMedica += $dias;
                     }
                 }

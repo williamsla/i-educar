@@ -33,8 +33,13 @@ class DespesaPorEscolaExporter extends AbstractSiapExporter
 
         $despesas = DB::table('despesas_escolares as d')
             ->join('fornecedores as f', 'f.id', '=', 'd.fornecedor_id')
+            ->join('modules.educacenso_cod_escola as inep_esc', function ($join) {
+                $join->on(DB::raw('inep_esc.cod_escola_inep::varchar'), '=', DB::raw('d.inep::varchar'));
+            })
+            ->join('pmieducar.escola as e', 'e.cod_escola', '=', 'inep_esc.cod_escola')
             ->where('d.ano', $this->ano)
             ->where('d.mes', $this->mes)
+            ->where('e.ref_cod_instituicao', $this->instituicaoId)
             ->whereNotNull('d.inep')
             ->select(
                 'd.inep',
