@@ -424,6 +424,49 @@ class SiapCodeMappers
         return $nome ? $codigo . ' - ' . $nome : (string) $codigo;
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public static function opcoesLicenca(): array
+    {
+        $opcoes = ['' => 'Selecione'];
+        foreach (config('siap.licencas', []) as $codigo => $nome) {
+            $opcoes[$codigo] = $nome;
+        }
+
+        return $opcoes;
+    }
+
+    public static function labelLicenca(?string $codigo): string
+    {
+        if ($codigo === null || $codigo === '') {
+            return '';
+        }
+
+        return (string) (config('siap.licencas.' . $codigo) ?: $codigo);
+    }
+
+    /**
+     * Classifica o afastamento nos tipos do leiaute FaltasProfissionalEducacao.
+     */
+    public static function tipoLicencaAfastamento(?string $siapTipo, ?string $nmMotivo = null): ?string
+    {
+        $tipos = config('siap.licencas', []);
+        if ($siapTipo !== null && $siapTipo !== '' && isset($tipos[$siapTipo])) {
+            return $siapTipo;
+        }
+
+        $motivo = mb_strtolower((string) $nmMotivo);
+        if (str_contains($motivo, 'matern') || str_contains($motivo, 'patern')) {
+            return 'LicencaMaternidadePaternidade';
+        }
+        if (str_contains($motivo, 'médic') || str_contains($motivo, 'medic') || str_contains($motivo, 'saúde') || str_contains($motivo, 'saude')) {
+            return 'LicencaMedica';
+        }
+
+        return null;
+    }
+
     public static function tipoVinculo(?int $tipo): string
     {
         $tipo = (int) $tipo;

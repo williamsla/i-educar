@@ -106,6 +106,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tipos de licença do leiaute FaltasProfissionalEducacao (Manual SIAP 2026)
+    |--------------------------------------------------------------------------
+    */
+    'licencas' => [
+        'LicencaMedica' => 'Licença Médica',
+        'LicencaMaternidadePaternidade' => 'Licença Maternidade/Paternidade',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Educacenso funcao_exercida → código SIAP Funcao
     |--------------------------------------------------------------------------
     */

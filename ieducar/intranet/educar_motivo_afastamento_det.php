@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\WithdrawalReason;
+use App\Services\Siap\SiapCodeMappers;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\RedirectResponse;
 
@@ -61,6 +62,9 @@ return new class extends clsDetalhe
         }
         if ($registro['descricao']) {
             $this->addDetalhe(detalhe: ['Descrição', "{$registro['descricao']}"]);
+        }
+        if (!empty($registro['siap_tipo'])) {
+            $this->addDetalhe(detalhe: ['Mapeamento SIAP', SiapCodeMappers::labelLicenca((string) $registro['siap_tipo'])]);
         }
 
         $obj_permissoes = new clsPermissoes;

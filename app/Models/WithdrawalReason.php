@@ -25,6 +25,7 @@ class WithdrawalReason extends LegacyModel
     protected $fillable = [
         'nm_motivo',
         'descricao',
+        'siap_tipo',
     ];
 
     /**

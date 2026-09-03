@@ -72,15 +72,18 @@ class FaltasProfissionalEducacaoExporter extends AbstractSiapExporter
                             ->orWhereNull('af.data_retorno');
                     })
                     ->whereDate('af.data_saida', '<=', $fim)
-                    ->select('af.data_saida', 'af.data_retorno', 'ma.nm_motivo')
+                    ->select('af.data_saida', 'af.data_retorno', 'ma.siap_tipo', 'ma.nm_motivo')
                     ->get();
 
                 foreach ($afastamentos as $af) {
                     $dias = $this->diasNoMes($af->data_saida, $af->data_retorno, $inicio, $fim);
-                    $motivo = mb_strtolower((string) ($af->nm_motivo ?? ''));
-                    if (str_contains($motivo, 'matern') || str_contains($motivo, 'patern')) {
+                    $tipo = SiapCodeMappers::tipoLicencaAfastamento(
+                        $af->siap_tipo !== null ? (string) $af->siap_tipo : null,
+                        $af->nm_motivo !== null ? (string) $af->nm_motivo : null
+                    );
+                    if ($tipo === 'LicencaMaternidadePaternidade') {
                         $licencaMaternidade += $dias;
-                    } elseif (str_contains($motivo, 'médic') || str_contains($motivo, 'medic') || str_contains($motivo, 'saúde') || str_contains($motivo, 'saude')) {
+                    } elseif ($tipo === 'LicencaMedica') {
                         $licencaMedica += $dias;
                     }
                 }
