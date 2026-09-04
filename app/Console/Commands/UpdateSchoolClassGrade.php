@@ -19,14 +19,17 @@ class UpdateSchoolClassGrade extends Command
      *
      * @var string
      */
-    protected $signature = 'update:school-class-grade {schoolclass} {grade}';
+    protected $signature = 'update:school-class-grade
+                            {schoolclass : Código da turma}
+                            {grade : Código da série destino}
+                            {--desfazer-multisseriada : Converte turma multisseriada em série única}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Atualiza a série da turma';
+    protected $description = 'Atualiza a série da turma e, opcionalmente, desfaz a multisseriada';
 
     /**
      * @var LegacyGrade
@@ -68,7 +71,43 @@ class UpdateSchoolClassGrade extends Command
 
         $this->updateScheduleGrade();
 
+        if ($this->option('desfazer-multisseriada')) {
+            $this->disableMultigrade();
+        }
+
         DB::commit();
+
+        $this->info("Turma {$this->schoolClass->getKey()} atualizada para a série {$this->grade->getKey()}.");
+    }
+
+    /**
+     * Converte a turma multisseriada em série única.
+     */
+    private function disableMultigrade(): void
+    {
+        $this->schoolClass->load('multigrades');
+
+        if (!(bool) $this->schoolClass->multiseriada && $this->schoolClass->multigrades->isEmpty()) {
+            $this->info('A turma já não é multisseriada.');
+
+            return;
+        }
+
+        $reportCard = $this->schoolClass->multigrades
+            ->firstWhere('serie_id', $this->grade->getKey())
+            ?? $this->schoolClass->multigrades->first();
+
+        $this->schoolClass->update([
+            'multiseriada' => 0,
+            'ref_ref_cod_serie_mult' => null,
+            'ref_ref_cod_escola_mult' => null,
+            'tipo_boletim' => $this->schoolClass->tipo_boletim ?: $reportCard?->boletim_id,
+            'tipo_boletim_diferenciado' => $this->schoolClass->tipo_boletim_diferenciado ?: $reportCard?->boletim_diferenciado_id,
+        ]);
+
+        $this->schoolClass->multigrades()->delete();
+
+        $this->info('Multisseriada desfeita: série única e registros extras em turma_serie removidos.');
     }
 
     /**

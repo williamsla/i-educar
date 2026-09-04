@@ -88,6 +88,9 @@ Algumas perguntas aparecem recorrentemente. Olhe primeiro por aqui: [FAQ](https:
 - Trocando série da turma e matrículas
 `php artisan update:school-class-grade {cod_turma} {cod_serie}`
 
+- Trocando série e desfazendo turma multisseriada
+`php artisan update:school-class-grade {cod_turma} {cod_serie} --desfazer-multisseriada`
+
 ---
 
 Powered by [Portábilis](https://portabilis.com.br/).
