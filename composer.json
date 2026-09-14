@@ -1,6 +1,6 @@
 {
     "name": "portabilis/i-educar",
-    "description": "Software livre de gest\u00e3o escolar",
+    "description": "Software livre de gestao escolar",
     "type": "project",
     "license": "GPL-2.0-or-later",
     "version": "2.10.0",
@@ -10,7 +10,7 @@
     ],
     "authors": [
         {
-            "name": "Port\u00e1bilis",
+            "name": "Portabilis",
             "email": "contato@portabilis.com.br",
             "homepage": "https://portabilis.com.br"
         }
@@ -25,6 +25,7 @@
         "ext-zip": "*",
         "ankurk91/laravel-eloquent-relationships": "^2.1",
         "aws/aws-sdk-php-laravel": "^3.7",
+        "barryvdh/laravel-dompdf": "^3.1",
         "composer/semver": "^3.2",
         "dex/composer-plug-and-play": "^0.24",
         "dex/frontier": "^0.16.0",
@@ -162,7 +163,6 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "repositories": [
-        
         {
             "name": "merenda",
             "type": "path",
