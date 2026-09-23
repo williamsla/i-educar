@@ -48,27 +48,29 @@ ENV COMPOSER_DISABLE_XDEBUG_WARN=1
 # o JasperPHP mostra apenas a mensagem generica (linha ~191).
 COPY --from=composer_bin /usr/bin/composer /usr/local/bin/composer
 
-RUN apk add --no-cache \
-    bash \
-    aws-cli \
-    fontconfig \
-    libc-dev \
-    libpng-dev \
-    libzip-dev \
-    linux-headers \
-    openjdk8 \
-    postgresql17-client \
-    postgresql-dev \
-    ttf-dejavu \
-    unzip \
-    openssh \
-    git \
-    gettext \
-    nodejs \
-    npm \
-    yarn
-
-RUN apk add --no-cache --virtual .phpize_deps $PHPIZE_DEPS
+RUN set -eux; \
+    mkdir -p /usr/share/man/man1 /usr/share/man/man7 /usr/share/man/man8; \
+    apk upgrade --no-cache --scripts=no apk-tools; \
+    apk add --no-cache \
+        bash \
+        aws-cli \
+        fontconfig \
+        libc-dev \
+        libpng-dev \
+        libzip-dev \
+        linux-headers \
+        openjdk8 \
+        postgresql17-client \
+        postgresql-dev \
+        ttf-dejavu \
+        unzip \
+        openssh \
+        git \
+        gettext \
+        nodejs \
+        npm \
+        yarn \
+        $PHPIZE_DEPS
 
 RUN pecl install redis && docker-php-ext-enable redis
 
@@ -92,7 +94,16 @@ RUN docker-php-ext-enable \
     zip \
     ftp
 
-RUN apk del .phpize_deps
+RUN apk del --no-network \
+    autoconf \
+    dpkg \
+    dpkg-dev \
+    file \
+    g++ \
+    gcc \
+    make \
+    pkgconf \
+    re2c
 
 COPY docker/php/conf.d/99-uploads.ini /usr/local/etc/php/conf.d/99-uploads.ini
 

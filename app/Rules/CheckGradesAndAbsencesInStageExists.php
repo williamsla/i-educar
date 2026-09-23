@@ -6,10 +6,17 @@ use App\Services\iDiarioService;
 use App\Services\SchoolClassStageService;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class CheckGradesAndAbsencesInStageExists implements Rule
 {
+    /** @var array<int, int> */
+    private array $stagesWithScores = [];
+
+    /** @var array<int, int> */
+    private array $stagesWithAbsences = [];
+
     /**
      * Determine if the validation rule passes.
      *
@@ -32,40 +39,61 @@ class CheckGradesAndAbsencesInStageExists implements Rule
                 return true;
             }
 
-            $counts = [];
+            $this->stagesWithAbsences = $this->stageNumbers(
+                DB::table('modules.falta_componente_curricular as fcc')
+                    ->join('modules.falta_aluno as fa', 'fa.id', '=', 'fcc.falta_aluno_id')
+                    ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'fa.matricula_id')
+                    ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
+                    ->whereIn('fcc.etapa', $etapas)
+                    ->where('mt.ref_cod_turma', $turmaId)
+                    ->where('mt.ativo', 1)
+                    ->where('m.ativo', 1)
+                    ->where('fcc.quantidade', '>', 0)
+                    ->distinct()
+                    ->pluck('fcc.etapa')
+            );
 
-            $counts[] = DB::table('modules.falta_componente_curricular as fcc')
-                ->join('modules.falta_aluno as fa', 'fa.id', '=', 'fcc.falta_aluno_id')
-                ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'fa.matricula_id')
-                ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
-                ->whereIn('fcc.etapa', $etapas)
-                ->where('mt.ref_cod_turma', $turmaId)
-                ->where('m.ativo', 1)
-                ->where('fcc.quantidade', '>', 0)
-                ->count();
+            $this->stagesWithAbsences = array_values(array_unique(array_merge(
+                $this->stagesWithAbsences,
+                $this->stageNumbers(
+                    DB::table('modules.falta_geral as fg')
+                        ->join('modules.falta_aluno as fa', 'fa.id', '=', 'fg.falta_aluno_id')
+                        ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'fa.matricula_id')
+                        ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
+                        ->whereIn('fg.etapa', $etapas)
+                        ->where('mt.ref_cod_turma', $turmaId)
+                        ->where('mt.ativo', 1)
+                        ->where('m.ativo', 1)
+                        ->where('fg.quantidade', '>', 0)
+                        ->distinct()
+                        ->pluck('fg.etapa')
+                )
+            )));
 
-            $counts[] = DB::table('modules.falta_geral as fg')
-                ->join('modules.falta_aluno as fa', 'fa.id', '=', 'fg.falta_aluno_id')
-                ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'fa.matricula_id')
-                ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
-                ->whereIn('fg.etapa', $etapas)
-                ->where('mt.ref_cod_turma', $turmaId)
-                ->where('m.ativo', 1)
-                ->where('fg.quantidade', '>', 0)
-                ->count();
+            $this->stagesWithScores = $this->stageNumbers(
+                DB::table('modules.nota_componente_curricular as ncc')
+                    ->join('modules.nota_aluno as na', 'na.id', '=', 'ncc.nota_aluno_id')
+                    ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'na.matricula_id')
+                    ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
+                    ->whereIn('ncc.etapa', $etapas)
+                    ->where('mt.ref_cod_turma', $turmaId)
+                    ->where('mt.ativo', 1)
+                    ->where('m.ativo', 1)
+                    ->where(function ($query) {
+                        $query->whereNotNull('ncc.nota')
+                            ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_arredondada, '')), '') IS NOT NULL")
+                            ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_recuperacao, '')), '') IS NOT NULL")
+                            ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_original, '')), '') IS NOT NULL")
+                            ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_recuperacao_especifica, '')), '') IS NOT NULL");
+                    })
+                    ->distinct()
+                    ->pluck('ncc.etapa')
+            );
 
-            $counts[] = DB::table('modules.nota_componente_curricular as ncc')
-                ->join('modules.nota_aluno as na', 'na.id', '=', 'ncc.nota_aluno_id')
-                ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'na.matricula_id')
-                ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
-                ->whereIn('ncc.etapa', $etapas)
-                ->where('mt.ref_cod_turma', $turmaId)
-                ->where('m.ativo', 1)
-                ->count();
+            sort($this->stagesWithAbsences);
+            sort($this->stagesWithScores);
 
-            $sum = array_sum($counts);
-
-            if ($sum > 0) {
+            if ($this->stagesWithScores !== [] || $this->stagesWithAbsences !== []) {
                 return false;
             }
 
@@ -98,6 +126,42 @@ class CheckGradesAndAbsencesInStageExists implements Rule
      */
     public function message()
     {
-        return 'Não foi possível remover uma das etapas pois existem notas ou faltas lançadas.';
+        $parts = [];
+
+        if ($this->stagesWithScores !== []) {
+            $parts[] = 'notas na(s) etapa(s) ' . $this->formatStages($this->stagesWithScores);
+        }
+
+        if ($this->stagesWithAbsences !== []) {
+            $parts[] = 'faltas na(s) etapa(s) ' . $this->formatStages($this->stagesWithAbsences);
+        }
+
+        if ($parts === []) {
+            return 'Não foi possível remover uma das etapas pois existem notas ou faltas lançadas.';
+        }
+
+        return 'Não foi possível remover etapas pois ainda existem ' . implode(' e ', $parts) . '.';
+    }
+
+    /**
+     * @param Collection<int, mixed> $stages
+     * @return array<int, int>
+     */
+    private function stageNumbers($stages): array
+    {
+        return collect($stages)
+            ->filter(fn ($stage) => is_numeric($stage))
+            ->map(fn ($stage) => (int) $stage)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param array<int, int> $stages
+     */
+    private function formatStages(array $stages): string
+    {
+        return implode(', ', array_map(fn (int $stage) => $stage . 'ª', $stages));
     }
 }

@@ -115,6 +115,7 @@ class SchoolClassStageService
             ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'fa.matricula_id')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->where('mt.ref_cod_turma', $schoolClassId)
+            ->where('mt.ativo', 1)
             ->where('m.ativo', 1)
             ->where('fcc.quantidade', '>', 0)
             ->distinct()
@@ -125,6 +126,7 @@ class SchoolClassStageService
             ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'fa.matricula_id')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->where('mt.ref_cod_turma', $schoolClassId)
+            ->where('mt.ativo', 1)
             ->where('m.ativo', 1)
             ->where('fg.quantidade', '>', 0)
             ->distinct()
@@ -135,7 +137,15 @@ class SchoolClassStageService
             ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'na.matricula_id')
             ->join('pmieducar.matricula_turma as mt', 'mt.ref_cod_matricula', '=', 'm.cod_matricula')
             ->where('mt.ref_cod_turma', $schoolClassId)
+            ->where('mt.ativo', 1)
             ->where('m.ativo', 1)
+            ->where(function ($query) {
+                $query->whereNotNull('ncc.nota')
+                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_arredondada, '')), '') IS NOT NULL")
+                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_recuperacao, '')), '') IS NOT NULL")
+                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_original, '')), '') IS NOT NULL")
+                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_recuperacao_especifica, '')), '') IS NOT NULL");
+            })
             ->distinct()
             ->pluck('ncc.etapa');
 

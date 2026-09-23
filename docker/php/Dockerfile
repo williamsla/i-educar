@@ -21,23 +21,26 @@ ENV XDEBUG_START_WITH_REQUEST=off
 COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
 COPY conf.d/99-uploads.ini /usr/local/etc/php/conf.d/99-uploads.ini
 
-RUN apk add --update \
-    bash \
-    libc-dev \
-    libpng-dev  \
-    libzip-dev  \
-    linux-headers \
-    openjdk8  \
-    postgresql17-client \
-    postgresql-dev \
-    su-exec \
-    ttf-dejavu \
-    unzip \
-    openssh \
-    git
-
-# https://github.com/docker-library/php/issues/436#issuecomment-303171390
-RUN apk add --no-cache --virtual .phpize_deps $PHPIZE_DEPS
+# Alpine 3.23+ (apk-tools 3): o trigger do postgresql-common falha sem man pages;
+# um segundo `apk add --virtual $PHPIZE_DEPS` costuma terminar em "1 error" no busybox trigger.
+RUN set -eux; \
+    mkdir -p /usr/share/man/man1 /usr/share/man/man7 /usr/share/man/man8; \
+    apk upgrade --no-cache --scripts=no apk-tools; \
+    apk add --no-cache \
+        bash \
+        libc-dev \
+        libpng-dev \
+        libzip-dev \
+        linux-headers \
+        openjdk8 \
+        postgresql17-client \
+        postgresql-dev \
+        su-exec \
+        ttf-dejavu \
+        unzip \
+        openssh \
+        git \
+        $PHPIZE_DEPS
 
 RUN pecl install \
     redis \
@@ -67,8 +70,16 @@ RUN docker-php-ext-enable  \
      zip \
      ftp
 
-# https://github.com/docker-library/php/issues/436#issuecomment-303171390
-RUN apk del .phpize_deps
+RUN apk del --no-network \
+    autoconf \
+    dpkg \
+    dpkg-dev \
+    file \
+    g++ \
+    gcc \
+    make \
+    pkgconf \
+    re2c
 
 RUN ln -s /var/www/ieducar/artisan /usr/local/bin/artisan
 
