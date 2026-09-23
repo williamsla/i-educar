@@ -38,10 +38,29 @@ $j(function () {
                 this.env = 'turma';
             }
         },
+        reindexStageInputs: function () {
+            $j(this.getSelector('stepsRows')).each(function (index, row) {
+                $j(row).find('input, select, textarea').each(function () {
+                    var $input = $j(this);
+
+                    ['id', 'name'].forEach(function (attr) {
+                        var value = $input.attr(attr);
+
+                        if (!value || value.indexOf('[') === -1) {
+                            return;
+                        }
+
+                        $input.attr(attr, value.replace(/\[[^\]]*\]$/, '') + '[' + index + ']');
+                    });
+                });
+            });
+        },
         submit: function () {
             var that = this;
 
             $j('#btn_enviar').click(function (e) {
+                that.reindexStageInputs();
+
                 if (that.env === 'turma' && $j('#multiseriada').is(':checked') && typeof defineSerieCursoPrincipal === 'function') {
                     defineSerieCursoPrincipal();
                 }

@@ -80,11 +80,7 @@ class CheckGradesAndAbsencesInStageExists implements Rule
                     ->where('mt.ativo', 1)
                     ->where('m.ativo', 1)
                     ->where(function ($query) {
-                        $query->whereNotNull('ncc.nota')
-                            ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_arredondada, '')), '') IS NOT NULL")
-                            ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_recuperacao, '')), '') IS NOT NULL")
-                            ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_original, '')), '') IS NOT NULL")
-                            ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_recuperacao_especifica, '')), '') IS NOT NULL");
+                        app(SchoolClassStageService::class)->whereHasLaunchedScore($query);
                     })
                     ->distinct()
                     ->pluck('ncc.etapa')

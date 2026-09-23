@@ -140,11 +140,7 @@ class SchoolClassStageService
             ->where('mt.ativo', 1)
             ->where('m.ativo', 1)
             ->where(function ($query) {
-                $query->whereNotNull('ncc.nota')
-                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_arredondada, '')), '') IS NOT NULL")
-                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_recuperacao, '')), '') IS NOT NULL")
-                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_original, '')), '') IS NOT NULL")
-                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(ncc.nota_recuperacao_especifica, '')), '') IS NOT NULL");
+                $this->whereHasLaunchedScore($query);
             })
             ->distinct()
             ->pluck('ncc.etapa');
@@ -179,5 +175,27 @@ class SchoolClassStageService
             ->sort()
             ->values()
             ->all();
+    }
+
+    /**
+     * Nota lançada de fato. Zero e o valor padrão da coluna não contam:
+     * o diário mostra esses registros como nota removida.
+     */
+    public function whereHasLaunchedScore($query): void
+    {
+        $textScore = static function (string $column): string {
+            return "NULLIF(BTRIM(COALESCE(ncc.{$column}, '')), '') IS NOT NULL"
+                . " AND BTRIM(ncc.{$column}) NOT IN ('0', '0,0', '0.0', '0,00', '0.00')";
+        };
+
+        $query->where(function ($query) use ($textScore) {
+            $query->where(function ($query) {
+                $query->whereNotNull('ncc.nota')
+                    ->where('ncc.nota', '<>', 0);
+            })->orWhereRaw($textScore('nota_arredondada'))
+                ->orWhereRaw($textScore('nota_recuperacao'))
+                ->orWhereRaw($textScore('nota_recuperacao_especifica'))
+                ->orWhereRaw($textScore('nota_original'));
+        });
     }
 }
