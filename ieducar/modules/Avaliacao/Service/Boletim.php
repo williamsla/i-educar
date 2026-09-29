@@ -1396,11 +1396,34 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             );
         }
 
-        $presenca->porcentagemPresenca = 100 - $presenca->porcentagemFalta;
+        $presencaCalculada = 100 - $presenca->porcentagemFalta;
+        $avaliacaoSemNotaNumerica = (int) $this->getRegraAvaliacaoTipoNota() === RegraAvaliacao_Model_Nota_TipoValor::NENHUM;
+        $presenca->porcentagemPresenca = $avaliacaoSemNotaNumerica
+            ? $this->porcentagemPresencaParaSituacao($presencaCalculada)
+            : $presencaCalculada;
         $presenca->componentesCurriculares = $faltasComponentes;
 
+        // A porcentagem usa o total de dias/carga do ano (a mesma conta do boletim).
+        // Abaixo do mínimo, o aluno não recupera a frequência nas etapas restantes.
+        $frequenciaJaInsuficiente = $presenca->porcentagemPresenca < $this->getRegraAvaliacaoPorcentagemPresenca()
+            && !$this->regraNaoPermiteReprovarFalta()
+            && !$this->getRegraAvaliacaoDesconsiderarLancamentoFrequencia();
+
+        // Sem nota numérica, o parecer descritivo encerra a avaliação. Também
+        // reprova por falta assim que a presença mínima se torna impossível,
+        // sem esperar falta lançada na última etapa.
+        $avaliacaoEncerradaPorParecer = false;
+        if ($avaliacaoSemNotaNumerica) {
+            try {
+                $avaliacaoEncerradaPorParecer = $this->parecerPreenchidoEmTodasEtapas();
+            } catch (Throwable) {
+                $avaliacaoEncerradaPorParecer = false;
+            }
+        }
+        $reprovaFrequenciaAntesDaUltimaEtapa = $frequenciaJaInsuficiente && $avaliacaoSemNotaNumerica;
+
         // Na última etapa seta situação presença como aprovado ou reprovado.
-        if ($etapa == $this->getOption('etapas') || $etapa === 'Rc') {
+        if ($etapa == $this->getOption('etapas') || $etapa === 'Rc' || $avaliacaoEncerradaPorParecer || $reprovaFrequenciaAntesDaUltimaEtapa) {
 
             // Um aluno terá a situação de aprovado referente a frequência quando:
             // - Atingir o percentual mínimo de presença
@@ -1408,9 +1431,11 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             // - Ter o checkbox desconsiderar lançamento de frequência marcado
             //   na regra de avaliação
 
-            $aprovado = $presenca->porcentagemPresenca >= $this->getRegraAvaliacaoPorcentagemPresenca()
+            $aprovado = !$frequenciaJaInsuficiente && (
+                $presenca->porcentagemPresenca >= $this->getRegraAvaliacaoPorcentagemPresenca()
                 || $this->regraNaoPermiteReprovarFalta()
-                || $this->getRegraAvaliacaoDesconsiderarLancamentoFrequencia();
+                || $this->getRegraAvaliacaoDesconsiderarLancamentoFrequencia()
+            );
 
             $presenca->situacao = $aprovado
                 ? App_Model_MatriculaSituacao::APROVADO
@@ -1422,6 +1447,249 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
         }
 
         return $presenca;
+    }
+
+    /**
+     * Usa a frequência persistida da matrícula (a exibida no boletim) quando
+     * ela existir. A conta interna pode divergir da série/etapa usada no relatório.
+     */
+    private function porcentagemPresencaParaSituacao(float $calculada): float
+    {
+        try {
+            $frequencia = Portabilis_Utils_Database::selectField(
+                'SELECT modules.frequencia_da_matricula($1)',
+                [(int) $this->getOption('matricula')]
+            );
+        } catch (Throwable) {
+            return $calculada;
+        }
+
+        if (!is_numeric($frequencia)) {
+            return $calculada;
+        }
+
+        return (float) $frequencia;
+    }
+
+    /**
+     * O i-Diário só grava a falta. Se a frequência já está abaixo do mínimo,
+     * a matrícula não pode continuar Cursando só porque a última etapa não fechou.
+     */
+    private function aplicaFrequenciaNaSituacao(stdClass $situacaoBoletim): void
+    {
+        if ($this->regraNaoPermiteReprovarFalta() || $this->getRegraAvaliacaoDesconsiderarLancamentoFrequencia()) {
+            return;
+        }
+
+        if ((int) $this->getRegraAvaliacaoTipoNota() !== RegraAvaliacao_Model_Nota_TipoValor::NENHUM) {
+            return;
+        }
+
+        $frequencia = $this->percentualFrequenciaRegistrada();
+        $minimo = (float) $this->getRegraAvaliacaoPorcentagemPresenca();
+
+        if ($frequencia === null || $minimo <= 0) {
+            return;
+        }
+
+        if ($frequencia < $minimo) {
+            $situacaoBoletim->andamento = false;
+            $situacaoBoletim->aprovado = true;
+            $situacaoBoletim->retidoFalta = true;
+            $situacaoBoletim->recuperacao = false;
+
+            return;
+        }
+
+        try {
+            $parecerCompleto = $this->parecerPreenchidoEmTodasEtapas();
+        } catch (Throwable) {
+            $parecerCompleto = false;
+        }
+
+        if ($parecerCompleto) {
+            $situacaoBoletim->andamento = false;
+            $situacaoBoletim->aprovado = true;
+            $situacaoBoletim->retidoFalta = false;
+            $situacaoBoletim->recuperacao = false;
+        }
+    }
+
+    /**
+     * Menor percentual entre os dias da série e a soma dos dias das etapas.
+     * O boletim pode usar uma dessas bases; 83 faltas em 100 dias é 17%.
+     */
+    private function percentualFrequenciaRegistrada(): ?float
+    {
+        $matriculaId = (int) $this->getOption('matricula');
+        $turmaId = (int) $this->getOption('ref_cod_turma');
+
+        try {
+            if ((int) $this->getRegraAvaliacaoTipoPresenca() === RegraAvaliacao_Model_TipoPresenca::POR_COMPONENTE) {
+                $faltas = Portabilis_Utils_Database::selectField(
+                    'SELECT COALESCE(SUM(fcc.quantidade), 0)
+                     FROM modules.falta_aluno fa
+                     JOIN modules.falta_componente_curricular fcc ON fcc.falta_aluno_id = fa.id
+                     WHERE fa.matricula_id = $1',
+                    [$matriculaId]
+                );
+            } else {
+                $faltas = Portabilis_Utils_Database::selectField(
+                    'SELECT COALESCE(SUM(fg.quantidade), 0)
+                     FROM modules.falta_aluno fa
+                     JOIN modules.falta_geral fg ON fg.falta_aluno_id = fa.id
+                     WHERE fa.matricula_id = $1',
+                    [$matriculaId]
+                );
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (!is_numeric($faltas)) {
+            return null;
+        }
+
+        $faltas = (float) $faltas;
+        $bases = array_filter([
+            (float) $this->getOption('serieDiasLetivos'),
+            $this->somaDiasLetivosDasEtapas($turmaId),
+        ], static fn (float $dias): bool => $dias > 0);
+
+        if ($bases === []) {
+            return null;
+        }
+
+        $percentuais = array_map(
+            static fn (float $dias): float => (($dias - $faltas) * 100) / $dias,
+            $bases
+        );
+
+        return min($percentuais);
+    }
+
+    private function somaDiasLetivosDasEtapas(int $turmaId): float
+    {
+        if ($turmaId < 1) {
+            return 0.0;
+        }
+
+        try {
+            $padrao = Portabilis_Utils_Database::selectField(
+                'SELECT c.padrao_ano_escolar
+                 FROM pmieducar.turma t
+                 JOIN pmieducar.curso c ON c.cod_curso = t.ref_cod_curso
+                 WHERE t.cod_turma = $1',
+                [$turmaId]
+            );
+
+            if (dbBool($padrao)) {
+                $dias = Portabilis_Utils_Database::selectField(
+                    'SELECT COALESCE(SUM(anm.dias_letivos), 0)
+                     FROM pmieducar.turma t
+                     JOIN pmieducar.ano_letivo_modulo anm
+                       ON anm.ref_ref_cod_escola = t.ref_ref_cod_escola
+                      AND anm.ref_ano = t.ano
+                     WHERE t.cod_turma = $1',
+                    [$turmaId]
+                );
+            } else {
+                $dias = Portabilis_Utils_Database::selectField(
+                    'SELECT COALESCE(SUM(dias_letivos), 0)
+                     FROM pmieducar.turma_modulo
+                     WHERE ref_cod_turma = $1',
+                    [$turmaId]
+                );
+            }
+        } catch (Throwable) {
+            return 0.0;
+        }
+
+        return is_numeric($dias) ? (float) $dias : 0.0;
+    }
+
+    /**
+     * Sem nota numérica, o parecer descritivo é o lançamento que encerra a etapa.
+     */
+    private function parecerPreenchidoEmTodasEtapas(): bool
+    {
+        $tipoParecer = $this->getRegraAvaliacaoTipoParecerDescritivo();
+
+        if ($tipoParecer === RegraAvaliacao_Model_TipoParecerDescritivo::NENHUM) {
+            return false;
+        }
+
+        $this->_loadParecerDescritivo();
+
+        $etapas = (int) $this->getOption('etapas');
+        if ($etapas < 1) {
+            return false;
+        }
+
+        $anuais = [
+            RegraAvaliacao_Model_TipoParecerDescritivo::ANUAL_GERAL,
+            RegraAvaliacao_Model_TipoParecerDescritivo::ANUAL_COMPONENTE,
+        ];
+        $gerais = [
+            RegraAvaliacao_Model_TipoParecerDescritivo::ETAPA_GERAL,
+            RegraAvaliacao_Model_TipoParecerDescritivo::ANUAL_GERAL,
+        ];
+
+        if (in_array($tipoParecer, $gerais, true)) {
+            $pareceres = $this->getPareceresGerais();
+
+            if (in_array($tipoParecer, $anuais, true)) {
+                return $this->textoParecerPreenchido($pareceres['An'] ?? null);
+            }
+
+            for ($etapa = 1; $etapa <= $etapas; $etapa++) {
+                if (!$this->textoParecerPreenchido($pareceres[$etapa] ?? null)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        $pareceres = $this->getPareceresComponentes();
+        $componentes = $this->getComponentes();
+
+        if ($componentes === []) {
+            return false;
+        }
+
+        foreach (array_keys($componentes) as $componenteId) {
+            $porEtapa = [];
+
+            foreach ($pareceres[$componenteId] ?? [] as $parecer) {
+                $porEtapa[$parecer->etapa] = $parecer;
+            }
+
+            if (in_array($tipoParecer, $anuais, true)) {
+                if (!$this->textoParecerPreenchido($porEtapa['An'] ?? null)) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            for ($etapa = 1; $etapa <= $etapas; $etapa++) {
+                if (!$this->textoParecerPreenchido($porEtapa[$etapa] ?? null)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private function textoParecerPreenchido($parecer): bool
+    {
+        if ($parecer === null) {
+            return false;
+        }
+
+        return trim(strip_tags((string) $parecer->parecer)) !== '';
     }
 
     /**
@@ -2776,6 +3044,8 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
         } elseif ($situacaoMatricula == App_Model_MatriculaSituacao::FALECIDO) {
             $novaSituacaoMatricula = App_Model_MatriculaSituacao::FALECIDO;
         } else {
+            $this->aplicaFrequenciaNaSituacao($situacaoBoletim);
+
             if ($situacaoBoletim->andamento) {
                 $novaSituacaoMatricula = App_Model_MatriculaSituacao::EM_ANDAMENTO;
             } else {
