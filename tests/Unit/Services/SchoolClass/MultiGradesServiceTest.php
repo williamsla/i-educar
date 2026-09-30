@@ -11,7 +11,6 @@ use Database\Factories\LegacySchoolClassFactory;
 use Database\Factories\LegacySchoolClassGradeFactory;
 use Database\Factories\LegacySchoolGradeFactory;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class MultiGradesServiceTest extends TestCase
@@ -39,15 +38,17 @@ class MultiGradesServiceTest extends TestCase
         );
     }
 
-    public function test_rejects_new_multigrade_class_with_incompatible_retake_types(): void
+    public function test_allows_new_multigrade_class_with_incompatible_retake_types(): void
     {
         $schoolClass = LegacySchoolClassFactory::new()->multiplesGrades()->create();
         $gradesPayload = $this->createIncompatibleGradesPayload($schoolClass);
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('As séries selecionadas devem possuir o mesmo tipo de recuperação.');
-
         $this->service->storeSchoolClassGrade($schoolClass, $gradesPayload);
+
+        $this->assertEqualsCanonicalizing(
+            array_column($gradesPayload, 'serie_id'),
+            $schoolClass->multigrades()->pluck('serie_id')->all()
+        );
     }
 
     private function createMultigradeClassWithIncompatibleRetakeTypes(): array

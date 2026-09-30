@@ -9,7 +9,6 @@ use App\Rules\ExistsEnrollmentsInSchoolClassGrades;
 use App\Rules\IncompatibleAbsenceType;
 use App\Rules\IncompatibleChangeToMultiGrades;
 use App\Rules\IncompatibleDescriptiveOpinion;
-use App\Rules\IncompatibleRetakeType;
 use App\Rules\RequiredAlternativeReportCard;
 
 class MultiGradesService
@@ -36,7 +35,6 @@ class MultiGradesService
                 new DuplicateMultiGrades,
                 new IncompatibleAbsenceType,
                 new IncompatibleDescriptiveOpinion,
-                new IncompatibleRetakeType,
                 new RequiredAlternativeReportCard,
             ],
             'grades_delete' => [
