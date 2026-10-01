@@ -408,6 +408,20 @@ return new class
                                 </ul>
                             </div>
                         </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon-wrapper icon-exportacoes">
+                                    <div class="card-icon">📤</div>
+                                </div>
+                                <h2>Exportações</h2>
+                            </div>
+                            <div class="card-content">
+                                <ul>
+                                    <li><a href="/relatorios/frequencia-sistema-presenca" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Frequência Sistema Presença</a></li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="quick-summary-section">

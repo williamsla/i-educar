@@ -56,6 +56,8 @@ class Process
 
     public const TC_GESTAO_PUBLICA_EXPORT = 1032;
 
+    public const FREQUENCIA_SISTEMA_PRESENCA = 1033;
+
     public const UNDO_STUDENT_UNIFICATION = 2001;
 
     public const EXEMPTION_LIST = 2002;

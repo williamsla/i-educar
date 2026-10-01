@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\EnrollmentInepController;
+use App\Http\Controllers\FrequenciaSistemaPresencaController;
 use App\Http\Controllers\EnrollmentsPromotionController;
 use App\Http\Controllers\ExportacaoXmlController;
 use App\Http\Controllers\ExportController;
@@ -150,6 +151,13 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
     Route::post('/exportacao-mec-gestao-presente', 'MecGestaoPresenteExportController@export')
         ->middleware('can:modify:' . Process::MEC_GESTAO_PRESENTE_EXPORT)
         ->name('mec-gestao-presente-export.export');
+
+    Route::get('/relatorios/frequencia-sistema-presenca', [FrequenciaSistemaPresencaController::class, 'index'])
+        ->middleware('can:view:' . Process::FREQUENCIA_SISTEMA_PRESENCA)
+        ->name('frequencia-sistema-presenca.index');
+    Route::post('/relatorios/frequencia-sistema-presenca', [FrequenciaSistemaPresencaController::class, 'report'])
+        ->middleware('can:view:' . Process::FREQUENCIA_SISTEMA_PRESENCA)
+        ->name('frequencia-sistema-presenca.report');
 
     Route::get('/abre-url-privada', 'OpenPrivateUrlController@open')->name('open_private_url.open');
 

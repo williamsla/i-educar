@@ -110,3 +110,4 @@ INSERT INTO public.menus VALUES (233, 20, 'Exportações', 'Exportações', NULL
 INSERT INTO public.menus VALUES (234, 233, 'Exportação para o SEB', 'Exportação para o SEB', '/exportacao-para-o-seb', NULL, 99, 1, 1021, NULL, NULL, true, NULL, NULL);
 INSERT INTO public.menus VALUES (235, 233, 'SGP', 'Exportação para o Sistema Gestão Presente', '/exportacao-sgp', NULL, 99, 1, 1028, 1028, 1020, true, NULL, NULL);
 INSERT INTO public.menus VALUES (236, 233, 'MEC Gestão Presente na Escola', 'Exportação da planilha oficial de profissionais do MEC Gestão Presente na Escola', '/exportacao-mec-gestao-presente', NULL, 96, 1, 1031, 1031, 1020, true, NULL, NULL);
+INSERT INTO public.menus VALUES (237, 233, 'Frequência para o Sistema Presença', 'Relatório de faltas mensais por aluno gerado pelo i-Diário', '/relatorios/frequencia-sistema-presenca', NULL, 97, 1, 1033, 1033, 1020, true, NULL, NULL);

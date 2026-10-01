@@ -114,6 +114,9 @@ body {
 .icon-movimentacao { background-color: #e6f0ff; }
 .icon-movimentacao .card-icon { color: #007bff; } /* Azul */
 
+.icon-exportacoes { background-color: #e6f7f5; }
+.icon-exportacoes .card-icon { color: #0d9488; }
+
 .card-content {
     padding: 0;
 }
