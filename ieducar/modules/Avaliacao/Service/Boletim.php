@@ -1398,7 +1398,8 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
         $presencaCalculada = 100 - $presenca->porcentagemFalta;
         $avaliacaoSemNotaNumerica = (int) $this->getRegraAvaliacaoTipoNota() === RegraAvaliacao_Model_Nota_TipoValor::NENHUM;
-        $presenca->porcentagemPresenca = $avaliacaoSemNotaNumerica
+        $reprovaFrequenciaSemAguardarEtapa = $this->reprovaFrequenciaSemAguardarUltimaEtapa();
+        $presenca->porcentagemPresenca = $reprovaFrequenciaSemAguardarEtapa
             ? $this->porcentagemPresencaParaSituacao($presencaCalculada)
             : $presencaCalculada;
         $presenca->componentesCurriculares = $faltasComponentes;
@@ -1409,9 +1410,9 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             && !$this->regraNaoPermiteReprovarFalta()
             && !$this->getRegraAvaliacaoDesconsiderarLancamentoFrequencia();
 
-        // Sem nota numérica, o parecer descritivo encerra a avaliação. Também
-        // reprova por falta assim que a presença mínima se torna impossível,
-        // sem esperar falta lançada na última etapa.
+        // Sem nota numérica, o parecer descritivo encerra a avaliação.
+        // Sem nota e nota conceitual reprovam por falta assim que a presença
+        // mínima se torna impossível, sem esperar falta lançada na última etapa.
         $avaliacaoEncerradaPorParecer = false;
         if ($avaliacaoSemNotaNumerica) {
             try {
@@ -1420,7 +1421,7 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
                 $avaliacaoEncerradaPorParecer = false;
             }
         }
-        $reprovaFrequenciaAntesDaUltimaEtapa = $frequenciaJaInsuficiente && $avaliacaoSemNotaNumerica;
+        $reprovaFrequenciaAntesDaUltimaEtapa = $frequenciaJaInsuficiente && $reprovaFrequenciaSemAguardarEtapa;
 
         // Na última etapa seta situação presença como aprovado ou reprovado.
         if ($etapa == $this->getOption('etapas') || $etapa === 'Rc' || $avaliacaoEncerradaPorParecer || $reprovaFrequenciaAntesDaUltimaEtapa) {
@@ -1440,6 +1441,14 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             $presenca->situacao = $aprovado
                 ? App_Model_MatriculaSituacao::APROVADO
                 : App_Model_MatriculaSituacao::REPROVADO;
+        }
+
+        if ($reprovaFrequenciaAntesDaUltimaEtapa) {
+            foreach ($presenca->componentesCurriculares as $componentePresenca) {
+                if ((int) $componentePresenca->situacao === App_Model_MatriculaSituacao::EM_ANDAMENTO) {
+                    $componentePresenca->situacao = App_Model_MatriculaSituacao::REPROVADO;
+                }
+            }
         }
 
         if ($this->getRegraAvaliacaoDesconsiderarLancamentoFrequencia()) {
@@ -1481,7 +1490,7 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             return;
         }
 
-        if ((int) $this->getRegraAvaliacaoTipoNota() !== RegraAvaliacao_Model_Nota_TipoValor::NENHUM) {
+        if (!$this->reprovaFrequenciaSemAguardarUltimaEtapa()) {
             return;
         }
 
@@ -1493,11 +1502,24 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
         }
 
         if ($frequencia < $minimo) {
+            $situacaoNotas = (int) ($situacaoBoletim->nota->situacao ?? 0);
+
+            if ($situacaoNotas === App_Model_MatriculaSituacao::EM_EXAME) {
+                return;
+            }
+
             $situacaoBoletim->andamento = false;
-            $situacaoBoletim->aprovado = true;
             $situacaoBoletim->retidoFalta = true;
             $situacaoBoletim->recuperacao = false;
 
+            if ($situacaoNotas !== App_Model_MatriculaSituacao::REPROVADO) {
+                $situacaoBoletim->aprovado = true;
+            }
+
+            return;
+        }
+
+        if ((int) $this->getRegraAvaliacaoTipoNota() !== RegraAvaliacao_Model_Nota_TipoValor::NENHUM) {
             return;
         }
 
@@ -1693,6 +1715,18 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
     }
 
     /**
+     * Nota conceitual e avaliação sem nota não recuperam presença nas etapas
+     * restantes. A frequência abaixo do mínimo da regra encerra a matrícula.
+     */
+    private function reprovaFrequenciaSemAguardarUltimaEtapa(): bool
+    {
+        $tipoNota = (int) $this->getRegraAvaliacaoTipoNota();
+
+        return $tipoNota === RegraAvaliacao_Model_Nota_TipoValor::NENHUM
+            || $tipoNota === RegraAvaliacao_Model_Nota_TipoValor::CONCEITUAL;
+    }
+
+    /**
      * Retorna true caso a regra de avaliação não permita reprovarpor falta
      * Progressão continuada ou Não-continuada somente média
      *
@@ -1833,6 +1867,19 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
             if (is_null($situacaoNota)) {
                 $situacaoNota = App_Model_MatriculaSituacao::EM_ANDAMENTO;
+            }
+
+            // Conceito ainda em aberto não pode manter o aluno cursando quando
+            // a frequência já está abaixo do mínimo da regra.
+            if (
+                (int) $this->getRegraAvaliacaoTipoNota() === RegraAvaliacao_Model_Nota_TipoValor::CONCEITUAL
+                && in_array((int) $situacaoFalta, [
+                    App_Model_MatriculaSituacao::REPROVADO,
+                    App_Model_MatriculaSituacao::REPROVADO_POR_FALTAS,
+                ], true)
+                && (int) $situacaoNota === App_Model_MatriculaSituacao::EM_ANDAMENTO
+            ) {
+                $situacaoNota = App_Model_MatriculaSituacao::APROVADO;
             }
 
             $situacao->componentesCurriculares[$ccId] = $this->getSituacaoNotaFalta($situacaoNota, $situacaoFalta);

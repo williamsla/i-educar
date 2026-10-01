@@ -29,9 +29,7 @@
             </tr>
             <tr>
                 <td class="formlttd" colspan="2">
-                    Gera o PDF de faltas mensais por aluno a partir do i-Diário.
-                    A URL usada é a do campo <b>URL do Diário do Professor</b> em Configurações Gerais.
-                    O token é a <b>API_ACCESS_KEY</b> do .env, a mesma chave de acesso configurada no i-Diário.
+                    Gera o PDF de faltas mensais por aluno.
                     Série e turma são opcionais; sem esses filtros o relatório traz todas as turmas da escola.
                 </td>
             </tr>
