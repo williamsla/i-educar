@@ -1,5 +1,6 @@
 <?php
  
+use App\Menu;
 use App\Models\LegacyStudent;
 use App\Models\LegacyEnrollment;
 use App\Models\LegacySchoolClass;
@@ -45,6 +46,16 @@ return new class
         foreach ($anosDisponiveis as $ano) {
             $sel = $ano === $anoSelecionado ? ' selected' : '';
             $opcoesAnoGlobal .= '<option value="' . $ano . '"' . $sel . '>' . $ano . '</option>';
+        }
+
+        $itemTaxaFrequenciaPorSerie = '';
+        if ($this->perfilPodeVerProcesso($user, 19992054)) {
+            $itemTaxaFrequenciaPorSerie = '<li><a href="/module/Reports/FrequencyRateBySerie" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Taxa de frequência por série</a></li>';
+        }
+
+        $itemDistorcaoIdadeSerie = '';
+        if ($this->perfilPodeVerProcesso($user, 999840)) {
+            $itemDistorcaoIdadeSerie = '<li><a href="/module/Reports/AgeDistortionInSerie" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Distorção idade/série</a></li>';
         }
 
         return '
@@ -405,6 +416,8 @@ return new class
                                 <ul>
                                     <li><a href="/module/Reports/StudentsPerClass" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Alunos por turma</a></li>
                                     <li><a href="/module/Reports/EnrollmentQuantitativeMap" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Quantitativo de matrículas</a></li>
+                                    ' . $itemTaxaFrequenciaPorSerie . '
+                                    ' . $itemDistorcaoIdadeSerie . '
                                 </ul>
                             </div>
                         </div>
@@ -761,6 +774,39 @@ return new class
         } catch (\Exception $e) {
             error_log('Erro ao obter usuário atual: ' . $e->getMessage());
             return null;
+        }
+    }
+
+    /**
+     * O atalho só aparece para administrador ou para o tipo de usuário
+     * com o processo marcado como visível em Configurações.
+     */
+    private function perfilPodeVerProcesso($user, int $process): bool
+    {
+        if (!$user || $process <= 0) {
+            return false;
+        }
+
+        try {
+            if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
+                return true;
+            }
+
+            $tipoUsuario = $user->ref_cod_tipo_usuario ?? null;
+            if (!$tipoUsuario) {
+                return false;
+            }
+
+            return Menu::query()
+                ->where('process', $process)
+                ->whereHas('userTypes', function ($query) use ($tipoUsuario) {
+                    $query->where('cod_tipo_usuario', $tipoUsuario);
+                })
+                ->exists();
+        } catch (\Exception $e) {
+            error_log('Erro ao verificar atalho do processo ' . $process . ': ' . $e->getMessage());
+
+            return false;
         }
     }
 
