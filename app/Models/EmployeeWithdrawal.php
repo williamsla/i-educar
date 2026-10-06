@@ -62,5 +62,12 @@ class EmployeeWithdrawal extends LegacyModel
         static::creating(function ($employeeWithdrawal) {
             $employeeWithdrawal->sequencial = DB::table('pmieducar.servidor_afastamento')->where('ref_cod_servidor', $employeeWithdrawal->ref_cod_servidor)->where('ref_ref_cod_instituicao', $employeeWithdrawal->ref_ref_cod_instituicao)->max('sequencial') + 1;
         });
+
+        static::saved(function ($employeeWithdrawal) {
+            DB::table('pmieducar.servidor')
+                ->where('cod_servidor', $employeeWithdrawal->ref_cod_servidor)
+                ->where('ref_cod_instituicao', $employeeWithdrawal->ref_ref_cod_instituicao)
+                ->update(['updated_at' => now()]);
+        });
     }
 }

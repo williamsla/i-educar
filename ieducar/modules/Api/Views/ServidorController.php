@@ -84,7 +84,14 @@ class ServidorController extends ApiCoreController
 
         $params = [$instituicaoId];
 
-        $updatedAtExpr = 'greatest(p.data_rev::timestamp(0), f.data_rev::timestamp(0), s.updated_at, sa.data_cadastro)';
+        $afastamentoUpdatedAt = '(
+            SELECT MAX(GREATEST(saf.data_cadastro, saf.data_exclusao, saf.data_saida::timestamp, saf.data_retorno::timestamp))
+            FROM pmieducar.servidor_afastamento saf
+            WHERE saf.ref_cod_servidor = s.cod_servidor
+              AND saf.ref_ref_cod_instituicao = s.ref_cod_instituicao
+        )';
+
+        $updatedAtExpr = 'greatest(p.data_rev::timestamp(0), f.data_rev::timestamp(0), s.updated_at, sa.data_cadastro, ' . $afastamentoUpdatedAt . ')';
 
         $where = '';
 
@@ -99,6 +106,19 @@ class ServidorController extends ApiCoreController
                 public.formata_cpf(f.cpf) as cpf,
                 p.nome as nome,
                 s.ativo as ativo,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM pmieducar.servidor_afastamento saf
+                        WHERE saf.ref_cod_servidor = s.cod_servidor
+                          AND saf.ref_ref_cod_instituicao = s.ref_cod_instituicao
+                          AND saf.ativo = 1
+                          AND saf.data_exclusao IS NULL
+                          AND saf.data_saida::date <= CURRENT_DATE
+                          AND (saf.data_retorno IS NULL OR saf.data_retorno::date > CURRENT_DATE)
+                    ) THEN 1
+                    ELSE 0
+                END AS afastamento_ativo,
                 sa.ref_cod_escola as escola_id,
                 func.nm_funcao as nm_funcao,
                 {$updatedAtExpr} as updated_at
@@ -116,7 +136,7 @@ class ServidorController extends ApiCoreController
 
         $servidores = $this->fetchPreparedQuery($sql, $params);
 
-        $attrs = ['servidor_id', 'cpf', 'nome', 'ativo', 'escola_id', 'nm_funcao', 'updated_at'];
+        $attrs = ['servidor_id', 'cpf', 'nome', 'ativo', 'afastamento_ativo', 'escola_id', 'nm_funcao', 'updated_at'];
 
         $servidores = Portabilis_Array_Utils::filterSet($servidores, $attrs);
 
