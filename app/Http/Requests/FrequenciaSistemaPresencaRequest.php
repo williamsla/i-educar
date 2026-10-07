@@ -15,6 +15,7 @@ class FrequenciaSistemaPresencaRequest extends FormRequest
             'meses' => ['required', 'array', 'min:1'],
             'meses.*' => ['integer', 'between:1,12', 'distinct'],
             'ordenar' => ['nullable', 'in:nome,faltas'],
+            'exibir_sem_faltas' => ['nullable', 'in:0,1'],
             'ref_cod_serie' => ['nullable', 'integer'],
             'ref_cod_turma' => ['nullable', 'integer'],
         ];

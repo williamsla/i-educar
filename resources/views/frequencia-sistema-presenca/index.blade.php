@@ -103,6 +103,15 @@
                     </select>
                 </td>
             </tr>
+            <tr id="tr_exibir_sem_faltas">
+                <td class="formmdtd" valign="top"><span class="form">Exibir alunos sem faltas</span></td>
+                <td class="formmdtd" valign="top">
+                    <select class="geral" name="exibir_sem_faltas" id="exibir_sem_faltas" style="width: 308px;">
+                        <option value="0" @selected(old('exibir_sem_faltas', '0') != '1')>Não</option>
+                        <option value="1" @selected((string) old('exibir_sem_faltas') === '1')>Sim</option>
+                    </select>
+                </td>
+            </tr>
             <tr>
                 <td class="formdktd" colspan="2"></td>
             </tr>

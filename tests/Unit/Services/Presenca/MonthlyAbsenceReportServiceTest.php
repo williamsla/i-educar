@@ -52,6 +52,7 @@ class MonthlyAbsenceReportServiceTest extends TestCase
                 && $data['cod_escola'] === '12345'
                 && $data['meses'] === '2,3'
                 && $data['ordenar'] === 'faltas'
+                && $data['exibir_sem_faltas'] === 0
                 && $data['locale'] === 'pt-BR'
                 && !array_key_exists('serie_id', $data)
                 && !array_key_exists('turma_id', $data);
@@ -84,6 +85,7 @@ class MonthlyAbsenceReportServiceTest extends TestCase
             'ano' => 2026,
             'meses' => [2],
             'ordenar' => 'nome',
+            'exibir_sem_faltas' => true,
             'cod_serie' => 8,
             'cod_turma' => 9,
         ]);
@@ -91,7 +93,7 @@ class MonthlyAbsenceReportServiceTest extends TestCase
         Http::assertSent(function ($request) {
             $data = $request->data();
 
-            return $data['serie_id'] === 10 && $data['turma_id'] === 55;
+            return $data['serie_id'] === 10 && $data['turma_id'] === 55 && $data['exibir_sem_faltas'] === 1;
         });
     }
 

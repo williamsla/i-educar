@@ -54,7 +54,7 @@ class FrequenciaSistemaPresencaController extends Controller
     }
 
     /**
-     * @return array{cod_escola:int,ano:int,meses:array<int>,ordenar:string,cod_serie:?int,cod_turma:?int}
+     * @return array{cod_escola:int,ano:int,meses:array<int>,ordenar:string,exibir_sem_faltas:bool,cod_serie:?int,cod_turma:?int}
      */
     private function filters(FrequenciaSistemaPresencaRequest $request): array
     {
@@ -65,6 +65,7 @@ class FrequenciaSistemaPresencaController extends Controller
             'ano' => (int) $request->input('ano'),
             'meses' => $meses,
             'ordenar' => (string) $request->input('ordenar', 'nome'),
+            'exibir_sem_faltas' => (string) $request->input('exibir_sem_faltas', '0') === '1',
             'cod_serie' => $request->filled('ref_cod_serie') ? (int) $request->input('ref_cod_serie') : null,
             'cod_turma' => $request->filled('ref_cod_turma') ? (int) $request->input('ref_cod_turma') : null,
         ];

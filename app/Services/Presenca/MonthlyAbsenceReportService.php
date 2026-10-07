@@ -12,7 +12,7 @@ class MonthlyAbsenceReportService
     }
 
     /**
-     * @param  array{cod_escola:int,ano:int,meses:array<int>,ordenar:string,cod_serie:?int,cod_turma:?int}  $filters
+     * @param  array{cod_escola:int,ano:int,meses:array<int>,ordenar:string,exibir_sem_faltas?:bool,cod_serie:?int,cod_turma:?int}  $filters
      * @return array{body:string,filename:string}
      */
     public function generate(array $filters): array
@@ -45,7 +45,7 @@ class MonthlyAbsenceReportService
     }
 
     /**
-     * @param  array{cod_escola:int,ano:int,meses:array<int>,ordenar:string,cod_serie:?int,cod_turma:?int}  $filters
+     * @param  array{cod_escola:int,ano:int,meses:array<int>,ordenar:string,exibir_sem_faltas?:bool,cod_serie:?int,cod_turma:?int}  $filters
      * @return array<string, int|string>
      */
     public function query(array $filters): array
@@ -58,6 +58,7 @@ class MonthlyAbsenceReportService
             'ano' => (int) $filters['ano'],
             'meses' => implode(',', $meses),
             'ordenar' => ($filters['ordenar'] ?? 'nome') === 'faltas' ? 'faltas' : 'nome',
+            'exibir_sem_faltas' => !empty($filters['exibir_sem_faltas']) ? 1 : 0,
             'locale' => 'pt-BR',
         ];
 
