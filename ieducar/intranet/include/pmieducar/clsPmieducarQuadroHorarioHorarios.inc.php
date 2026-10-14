@@ -628,6 +628,9 @@ class clsPmieducarQuadroHorarioHorarios extends Model
             is_numeric($int_ref_ref_cod_turma) && is_numeric($int_dia_semana)
         ) {
             $db = new clsBanco;
+            // Na turma de série única o horário é da série filtrada.
+            // Na multisseriada, o horário gravado em qualquer série da turma
+            // vale para todas as séries (turma.ref_ref_cod_serie e turma_serie).
             $db->Consulta("
         SELECT
           qhh.*
@@ -636,16 +639,33 @@ class clsPmieducarQuadroHorarioHorarios extends Model
           {$this->_schema}quadro_horario qh,
           {$this->_schema}turma t
         WHERE
-          qhh.ref_cod_serie = t.ref_ref_cod_serie AND
           qhh.ref_cod_escola = t.ref_ref_cod_escola AND
           t.cod_turma = qh.ref_cod_turma AND
           qhh.ref_cod_quadro_horario = qh.cod_quadro_horario AND
           t.cod_turma = {$int_ref_ref_cod_turma} AND
           qhh.ref_cod_instituicao_servidor = {$int_ref_cod_instituicao_servidor} AND
           qhh.ref_cod_escola = {$int_ref_ref_cod_escola} AND
-          qhh.ref_cod_serie = {$int_ref_ref_cod_serie} AND
           qhh.dia_semana = {$int_dia_semana} AND
-          qhh.ativo = 1
+          qhh.ativo = 1 AND
+          (
+            (
+              COALESCE(t.multiseriada, 0) <> 1
+              AND qhh.ref_cod_serie = t.ref_ref_cod_serie
+              AND qhh.ref_cod_serie = {$int_ref_ref_cod_serie}
+            )
+            OR (
+              t.multiseriada = 1
+              AND (
+                qhh.ref_cod_serie = t.ref_ref_cod_serie
+                OR EXISTS (
+                  SELECT 1
+                  FROM {$this->_schema}turma_serie ts
+                  WHERE ts.turma_id = t.cod_turma
+                    AND ts.serie_id = qhh.ref_cod_serie
+                )
+              )
+            )
+          )
         ORDER BY
           hora_inicial");
 

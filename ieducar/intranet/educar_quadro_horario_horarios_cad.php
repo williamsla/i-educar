@@ -98,9 +98,16 @@ return new class extends clsCadastro
             </script>';
 
             $obj = new clsPmieducarQuadroHorarioHorarios;
+            $serieFiltro = $this->ref_ref_cod_serie;
+            $detTurma = (new clsPmieducarTurma(cod_turma: $this->ref_cod_turma))->detalhe();
+
+            if (is_array(value: $detTurma) && (int) $detTurma['multiseriada'] === 1) {
+                $serieFiltro = null;
+            }
+
             $lista = $obj->lista(
                 int_ref_cod_quadro_horario: $this->ref_cod_quadro_horario,
-                int_ref_ref_cod_serie: $this->ref_ref_cod_serie,
+                int_ref_ref_cod_serie: $serieFiltro,
                 int_ref_ref_cod_escola: $this->ref_cod_escola,
                 int_ref_ref_cod_turma: $this->ref_cod_turma,
                 int_dia_semana: $this->dia_semana
