@@ -217,19 +217,43 @@ function atualizaPadraoAnoEscolar(input) {
     getResources(options);
 }
 
+function garanteOpcaoSelecionada(seletor, valor, texto) {
+    if (!valor) {
+        return;
+    }
+
+    const $select = $j(seletor);
+    const valorString = String(valor);
+    const opcaoExistente = $select.find('option').filter(function () {
+        return this.value === valorString;
+    });
+
+    if (opcaoExistente.length === 0) {
+        $select.append(new Option(texto || valorString, valorString));
+    }
+
+    $select.val(valorString);
+}
+
 function defineSerieCursoPrincipal() {
     let combosCursos = $j('select[name^="mult_curso_id"]');
     let cursoPrincipal = 0;
     let seriePrincipal = 0;
+    let nomeCursoPrincipal = '';
+    let nomeSeriePrincipal = '';
 
     $j.each(combosCursos, function(key, curso) {
         let idLinha = curso.id.replace(/\D/g, '');
         let padraoAnoEscolar = $j('input[id="mult_padrao_ano_escolar['+idLinha+']"]').val();
         let serieId = $j('select[id="mult_serie_id['+idLinha+']"]').val();
+        let nomeCurso = $j(curso).find('option:selected').text();
+        let nomeSerie = $j('select[id="mult_serie_id['+idLinha+']"] option:selected').text();
 
         if (key == 0) {
             cursoPrincipal = curso.value;
             seriePrincipal = serieId;
+            nomeCursoPrincipal = nomeCurso;
+            nomeSeriePrincipal = nomeSerie;
             $j('#padrao_ano_escolar').val(1);
             setModuleAndPhasesVisibility(false);
         }
@@ -237,6 +261,8 @@ function defineSerieCursoPrincipal() {
         if (padraoAnoEscolar == 0) {
             cursoPrincipal = curso.value;
             seriePrincipal = serieId;
+            nomeCursoPrincipal = nomeCurso;
+            nomeSeriePrincipal = nomeSerie;
             $j('#padrao_ano_escolar').val(0);
             setModuleAndPhasesVisibility(true);
             return false;
@@ -244,12 +270,12 @@ function defineSerieCursoPrincipal() {
     });
 
     if (cursoPrincipal) {
-        $j('#ref_cod_curso').val(cursoPrincipal);
+        garanteOpcaoSelecionada('#ref_cod_curso', cursoPrincipal, nomeCursoPrincipal);
         $j('#ref_cod_curso_').val(cursoPrincipal);
     }
 
     if (seriePrincipal) {
-        $j('#ref_cod_serie').val(seriePrincipal);
+        garanteOpcaoSelecionada('#ref_cod_serie', seriePrincipal, nomeSeriePrincipal);
         $j('#ref_cod_serie_').val(seriePrincipal);
     }
 }
