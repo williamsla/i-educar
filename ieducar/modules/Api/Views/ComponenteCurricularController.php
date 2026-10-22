@@ -77,7 +77,7 @@ class ComponenteCurricularController extends ApiCoreController
                 $where = ' AND ' . implode(' AND ', $wheres);
             }
 
-            $sql = 'SELECT componente_curricular.id, componente_curricular.nome, area_conhecimento_id, area_conhecimento.nome AS nome_area, ordenamento, componente_curricular.updated_at
+            $sql = 'SELECT componente_curricular.id, componente_curricular.nome, area_conhecimento_id, area_conhecimento.nome AS nome_area, ordenamento, componente_curricular.desconsidera_para_progressao, componente_curricular.updated_at
                 FROM modules.componente_curricular
                INNER JOIN modules.area_conhecimento ON (area_conhecimento.id = componente_curricular.area_conhecimento_id)
                 WHERE componente_curricular.instituicao_id = $1
@@ -85,8 +85,13 @@ class ComponenteCurricularController extends ApiCoreController
                 ORDER BY componente_curricular.updated_at, componente_curricular.nome ';
             $disciplinas = $this->fetchPreparedQuery($sql, $params);
 
-            $attrs = ['id', 'nome', 'area_conhecimento_id', 'nome_area', 'ordenamento', 'updated_at'];
+            $attrs = ['id', 'nome', 'area_conhecimento_id', 'nome_area', 'ordenamento', 'desconsidera_para_progressao', 'updated_at'];
             $disciplinas = Portabilis_Array_Utils::filterSet($disciplinas, $attrs);
+
+            foreach ($disciplinas as &$disciplina) {
+                $disciplina['desconsidera_para_progressao'] = dbBool($disciplina['desconsidera_para_progressao']);
+            }
+            unset($disciplina);
 
             return ['disciplinas' => $disciplinas];
         }
