@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\UnificationService;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\Schema;
  * 3. processaChavesManterPrimeiroVinculo() ordenado topologicamente
  * 4. Tabelas raiz (cadastro.fisica e cadastro.pessoa) SEMPRE por último
  * 5. DISABLE TRIGGER USER (não ALL) — não exige superuser
+ * 6. Antes de excluir um duplicado, FKs RESTRICT/NO ACTION de tabelas filhas
+ *    são reapontadas para o registro mantido, ou removidas se houver conflito
  */
 class App_Unificacao_Base
 {
@@ -29,6 +32,12 @@ class App_Unificacao_Base
 
     /** Triggers que devem ser reabilitadas antes das operações */
     protected $triggersNecessarias = [];
+
+    /** @var array<string, array<int, array<string, mixed>>> */
+    private $cacheFksRestritivas = [];
+
+    /** @var array<string, array<int, array<int, string>>> */
+    private $cacheIndicesUnicos = [];
 
     // ── Parâmetros de execução ────────────────────────────────────────────────
 
@@ -205,6 +214,13 @@ class App_Unificacao_Base
             if (!Schema::hasTable($value['tabela'])) {
                 continue;
             }
+
+            // Reaponta filhos do registro duplicado (ex.: ficha médica) antes do DELETE.
+            $this->realocarDependenciasAntesDaExclusao(
+                $value['tabela'],
+                $value['coluna'],
+                $chavesConsultarString
+            );
 
             // DELETE: remove os registros duplicados, mantendo o principal
             $this->db->Consulta(
@@ -482,5 +498,391 @@ class App_Unificacao_Base
         }
 
         return $addSql;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DEPENDÊNCIAS FORA DA LISTA (ON DELETE RESTRICT / NO ACTION)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Reaponta para o registro mantido os filhos das linhas que serão excluídas.
+     * Se a chave única do filho já existir no registro mantido, o vínculo do
+     * duplicado é removido. Cobre tabelas fora da lista, como a ficha médica.
+     */
+    private function realocarDependenciasAntesDaExclusao(string $tabela, string $coluna, string $chavesConsultarString): void
+    {
+        $colunaSql = $this->quoteIdent($coluna);
+        $tabelaSql = $this->qualificarTabela($tabela);
+        $codigo = (int) $this->codigoUnificador;
+
+        $sobrevivente = DB::selectOne(
+            "SELECT * FROM {$tabelaSql}
+             WHERE {$colunaSql} IN ({$chavesConsultarString})
+             ORDER BY {$colunaSql} = {$codigo} DESC
+             LIMIT 1"
+        );
+
+        if ($sobrevivente === null) {
+            return;
+        }
+
+        $excluidos = DB::select(
+            "SELECT * FROM {$tabelaSql}
+             WHERE {$colunaSql} <> ?
+               AND {$colunaSql} IN ({$chavesConsultarString})",
+            [$sobrevivente->{$coluna}]
+        );
+
+        if ($excluidos === []) {
+            return;
+        }
+
+        $fks = $this->buscarFksRestritivas($tabela);
+
+        foreach ($excluidos as $excluido) {
+            foreach ($fks as $fk) {
+                $valoresAntigos = [];
+                $valoresNovos = [];
+                $semReferencia = false;
+
+                foreach ($fk['parent_columns'] as $colunaPai) {
+                    $antigo = $excluido->{$colunaPai} ?? null;
+                    $novo = $sobrevivente->{$colunaPai} ?? null;
+
+                    if ($antigo === null) {
+                        $semReferencia = true;
+                        break;
+                    }
+
+                    $valoresAntigos[] = $antigo;
+                    $valoresNovos[] = $novo;
+                }
+
+                if ($semReferencia || $this->valoresIguais($valoresAntigos, $valoresNovos)) {
+                    continue;
+                }
+
+                $this->realocarFilhos($fk, $valoresAntigos, $valoresNovos, 0);
+            }
+        }
+    }
+
+    /**
+     * @param  array{child_table: string, child_columns: array<int, string>, parent_columns: array<int, string>}  $fk
+     * @param  array<int, mixed>  $valoresAntigos
+     * @param  array<int, mixed>  $valoresNovos
+     */
+    private function realocarFilhos(array $fk, array $valoresAntigos, array $valoresNovos, int $profundidade): void
+    {
+        if ($profundidade > 12) {
+            throw new CoreExt_Exception('Não foi possível reorganizar os vínculos dependentes durante a unificação.');
+        }
+
+        $this->removerLinhasQueConflitamNaUnicidade($fk, $valoresAntigos, $valoresNovos, $profundidade);
+
+        $alias = 'alvo';
+        [$whereSql, $whereBindings] = $this->whereColunas($alias, $fk['child_columns'], $valoresAntigos);
+
+        $setSql = [];
+        $setBindings = [];
+
+        foreach ($fk['child_columns'] as $indice => $colunaFilha) {
+            $setSql[] = $this->quoteIdent($colunaFilha) . ' = ?';
+            $setBindings[] = $valoresNovos[$indice];
+        }
+
+        $tabela = $this->qualificarTabela($fk['child_table']);
+        $sql = 'UPDATE ' . $tabela . ' AS ' . $alias . ' SET ' . implode(', ', $setSql) . ' WHERE ' . $whereSql;
+
+        try {
+            DB::transaction(function () use ($sql, $setBindings, $whereBindings) {
+                DB::update($sql, array_merge($setBindings, $whereBindings));
+            });
+        } catch (QueryException $e) {
+            $state = $this->sqlState($e);
+
+            if (in_array($state, ['23505', '23502'], true)) {
+                $this->excluirOnde($fk['child_table'], $alias, $whereSql, $whereBindings, $profundidade);
+
+                return;
+            }
+
+            // CASCADE / SET NULL / SET DEFAULT ainda são resolvidos pelo DELETE do pai.
+            if (in_array($fk['delete_rule'], ['c', 'n', 'd'], true)) {
+                return;
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Remove só as linhas do duplicado que, depois do reapontamento, bateriam
+     * numa chave única já ocupada pelo registro mantido.
+     *
+     * @param  array{child_table: string, child_columns: array<int, string>, parent_columns: array<int, string>}  $fk
+     * @param  array<int, mixed>  $valoresAntigos
+     * @param  array<int, mixed>  $valoresNovos
+     */
+    private function removerLinhasQueConflitamNaUnicidade(array $fk, array $valoresAntigos, array $valoresNovos, int $profundidade): void
+    {
+        foreach ($this->buscarColunasDeIndicesUnicos($fk['child_table']) as $colunasUnicas) {
+            if (array_intersect($colunasUnicas, $fk['child_columns']) === []) {
+                continue;
+            }
+
+            $alias = 'antigo';
+            $atual = 'atual';
+            [$whereAntigo, $bindingsAntigo] = $this->whereColunas($alias, $fk['child_columns'], $valoresAntigos);
+
+            $exists = ["{$atual}.ctid <> {$alias}.ctid"];
+            $bindingsExists = [];
+
+            foreach ($colunasUnicas as $colunaUnica) {
+                $posicao = array_search($colunaUnica, $fk['child_columns'], true);
+                $colunaSql = $this->quoteIdent($colunaUnica);
+
+                if ($posicao === false) {
+                    $exists[] = "{$atual}.{$colunaSql} = {$alias}.{$colunaSql}";
+                    continue;
+                }
+
+                $exists[] = "{$atual}.{$colunaSql} = ?";
+                $bindingsExists[] = $valoresNovos[$posicao];
+            }
+
+            $where = $whereAntigo . ' AND EXISTS (SELECT 1 FROM ' . $this->qualificarTabela($fk['child_table']) . ' AS ' . $atual . ' WHERE ' . implode(' AND ', $exists) . ')';
+            $bindings = array_merge($bindingsAntigo, $bindingsExists);
+
+            $conflito = DB::selectOne(
+                'SELECT 1 AS existe FROM ' . $this->qualificarTabela($fk['child_table']) . ' AS ' . $alias . ' WHERE ' . $where . ' LIMIT 1',
+                $bindings
+            );
+
+            if ($conflito) {
+                $this->excluirOnde($fk['child_table'], $alias, $where, $bindings, $profundidade);
+            }
+        }
+    }
+
+    /**
+     * @param  array<int, mixed>  $bindings
+     */
+    private function excluirOnde(string $tabela, string $alias, string $whereSql, array $bindings, int $profundidade): void
+    {
+        if ($profundidade > 12) {
+            throw new CoreExt_Exception('Não foi possível reorganizar os vínculos dependentes durante a unificação.');
+        }
+
+        foreach ($this->buscarFksRestritivas($tabela) as $fk) {
+            $filho = 'dep' . ($profundidade + 1);
+            $ligacao = $this->igualdadeFk($fk, $filho, $alias);
+            $whereFilho = 'EXISTS (SELECT 1 FROM ' . $this->qualificarTabela($tabela) . ' AS ' . $alias . ' WHERE ' . $ligacao . ' AND (' . $whereSql . '))';
+
+            if ($fk['child_table'] === $tabela) {
+                for ($tentativa = 0; $tentativa < 12; $tentativa++) {
+                    $apagados = DB::delete(
+                        'DELETE FROM ' . $this->qualificarTabela($tabela) . ' AS ' . $filho . ' WHERE ' . $whereFilho,
+                        $bindings
+                    );
+
+                    if ($apagados === 0) {
+                        break;
+                    }
+                }
+
+                continue;
+            }
+
+            if (!in_array($fk['delete_rule'], ['a', 'r'], true)) {
+                continue;
+            }
+
+            $this->excluirOnde($fk['child_table'], $filho, $whereFilho, $bindings, $profundidade + 1);
+        }
+
+        DB::delete(
+            'DELETE FROM ' . $this->qualificarTabela($tabela) . ' AS ' . $alias . ' WHERE ' . $whereSql,
+            $bindings
+        );
+    }
+
+    /**
+     * @return array<int, array{child_table: string, child_columns: array<int, string>, parent_columns: array<int, string>, delete_rule: string}>
+     */
+    private function buscarFksRestritivas(string $tabela): array
+    {
+        if (isset($this->cacheFksRestritivas[$tabela])) {
+            return $this->cacheFksRestritivas[$tabela];
+        }
+
+        [$schema, $table] = $this->parsearNomeTabela($tabela);
+
+        $rows = DB::select(
+            "SELECT
+                nc.nspname AS child_schema,
+                c.relname AS child_name,
+                con.confdeltype AS delete_rule,
+                (
+                    SELECT string_agg(a.attname, ',' ORDER BY u.ord)
+                    FROM unnest(con.conkey) WITH ORDINALITY AS u(attnum, ord)
+                    JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = u.attnum
+                ) AS child_columns,
+                (
+                    SELECT string_agg(a.attname, ',' ORDER BY u.ord)
+                    FROM unnest(con.confkey) WITH ORDINALITY AS u(attnum, ord)
+                    JOIN pg_attribute a ON a.attrelid = p.oid AND a.attnum = u.attnum
+                ) AS parent_columns
+             FROM pg_constraint con
+             JOIN pg_class c ON c.oid = con.conrelid
+             JOIN pg_namespace nc ON nc.oid = c.relnamespace
+             JOIN pg_class p ON p.oid = con.confrelid
+             JOIN pg_namespace np ON np.oid = p.relnamespace
+             WHERE con.contype = 'f'
+               AND np.nspname = ?
+               AND p.relname = ?",
+            [$schema, $table]
+        );
+
+        $fks = [];
+
+        foreach ($rows as $row) {
+            if ($row->child_columns === null || $row->parent_columns === null) {
+                continue;
+            }
+
+            $fks[] = [
+                'child_table' => $row->child_schema . '.' . $row->child_name,
+                'child_columns' => explode(',', $row->child_columns),
+                'parent_columns' => explode(',', $row->parent_columns),
+                'delete_rule' => $row->delete_rule,
+            ];
+        }
+
+        return $this->cacheFksRestritivas[$tabela] = $fks;
+    }
+
+    /**
+     * @return array<int, array<int, string>>
+     */
+    private function buscarColunasDeIndicesUnicos(string $tabela): array
+    {
+        if (isset($this->cacheIndicesUnicos[$tabela])) {
+            return $this->cacheIndicesUnicos[$tabela];
+        }
+
+        [$schema, $table] = $this->parsearNomeTabela($tabela);
+
+        $rows = DB::select(
+            "SELECT i.indexrelid::text AS indice, a.attname
+             FROM pg_index i
+             JOIN pg_class t ON t.oid = i.indrelid
+             JOIN pg_namespace n ON n.oid = t.relnamespace
+             JOIN LATERAL unnest(i.indkey::smallint[]) WITH ORDINALITY AS u(attnum, ord) ON u.attnum > 0
+             JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = u.attnum
+             WHERE i.indisunique
+               AND i.indpred IS NULL
+               AND n.nspname = ?
+               AND t.relname = ?
+               AND NOT EXISTS (
+                   SELECT 1 FROM unnest(i.indkey::smallint[]) AS k(attnum) WHERE k.attnum = 0
+               )
+             ORDER BY i.indexrelid, u.ord",
+            [$schema, $table]
+        );
+
+        $indices = [];
+
+        foreach ($rows as $row) {
+            $indices[$row->indice][] = $row->attname;
+        }
+
+        return $this->cacheIndicesUnicos[$tabela] = array_values($indices);
+    }
+
+    /**
+     * @param  array{child_table: string, child_columns: array<int, string>, parent_columns: array<int, string>}  $fk
+     */
+    private function igualdadeFk(array $fk, string $filhoAlias, string $paiAlias): string
+    {
+        $partes = [];
+
+        foreach ($fk['child_columns'] as $indice => $colunaFilha) {
+            $partes[] = $filhoAlias . '.' . $this->quoteIdent($colunaFilha)
+                . ' = ' . $paiAlias . '.' . $this->quoteIdent($fk['parent_columns'][$indice]);
+        }
+
+        return implode(' AND ', $partes);
+    }
+
+    /**
+     * @param  array<int, string>  $colunas
+     * @param  array<int, mixed>  $valores
+     * @return array{0: string, 1: array<int, mixed>}
+     */
+    private function whereColunas(string $alias, array $colunas, array $valores): array
+    {
+        $partes = [];
+        $bindings = [];
+
+        foreach ($colunas as $indice => $coluna) {
+            $qualificada = $alias . '.' . $this->quoteIdent($coluna);
+
+            if ($valores[$indice] === null) {
+                $partes[] = $qualificada . ' IS NULL';
+                continue;
+            }
+
+            $partes[] = $qualificada . ' = ?';
+            $bindings[] = $valores[$indice];
+        }
+
+        return [implode(' AND ', $partes), $bindings];
+    }
+
+    /**
+     * @param  array<int, mixed>  $antigos
+     * @param  array<int, mixed>  $novos
+     */
+    private function valoresIguais(array $antigos, array $novos): bool
+    {
+        if (count($antigos) !== count($novos)) {
+            return false;
+        }
+
+        foreach ($antigos as $indice => $valor) {
+            if ((string) $valor !== (string) $novos[$indice]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function qualificarTabela(string $tabela): string
+    {
+        [$schema, $table] = $this->parsearNomeTabela($tabela);
+
+        return $this->quoteIdent($schema) . '.' . $this->quoteIdent($table);
+    }
+
+    private function quoteIdent(string $ident): string
+    {
+        if (!preg_match('/^[a-z_][a-z0-9_]*$/', $ident)) {
+            throw new CoreExt_Exception('Identificador SQL inesperado durante a unificação.');
+        }
+
+        return '"' . $ident . '"';
+    }
+
+    private function sqlState(QueryException $e): string
+    {
+        $state = (string) $e->getCode();
+
+        if ($state !== '') {
+            return $state;
+        }
+
+        return (string) ($e->errorInfo[0] ?? '');
     }
 }
