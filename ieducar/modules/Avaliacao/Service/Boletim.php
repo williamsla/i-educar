@@ -3500,100 +3500,11 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
         return App_Model_Matricula::atualizaMatricula($matricula, $usuario, $promover);
     }
 
-    /**
-     * Processa histórico automaticamente quando a situação muda de Cursando para Aprovado
-     *
-     * @param int $matriculaId
-     * @return void
+    /*
+     * O processamento automático do histórico escolar é feito pela fila
+     * pmieducar.historico_processamento_fila (alimentada por trigger quando a situação
+     * da matrícula muda). Ver App\Services\SchoolHistory\SchoolHistoryAutoProcessService.
      */
-    protected function _processarHistoricoAutomaticamente($matriculaId)
-    {
-        try {
-            // Busca os dados da matrícula
-            $matriculaInstance = CoreExt_Entity::addClassToStorage(
-                'clsPmieducarMatricula',
-                null,
-                'include/pmieducar/clsPmieducarMatricula.inc.php'
-            );
-            $matriculaInstance->cod_matricula = $matriculaId;
-            $detalheMatricula = $matriculaInstance->detalhe();
-
-            if (!$detalheMatricula) {
-                return;
-            }
-
-            // Busca dados da enturmação ativa
-            $matriculaTurma = new clsPmieducarMatriculaTurma;
-            $enturmacoes = $matriculaTurma->lista($matriculaId, null, null, null, null, null, null, null, 1);
-
-            if (empty($enturmacoes)) {
-                return;
-            }
-
-            $enturmacao = $enturmacoes[0];
-            $instituicaoId = $enturmacao['ref_cod_instituicao'];
-
-            // Verifica se já existe histórico processado para esta matrícula
-            $alunoId = $detalheMatricula['ref_cod_aluno'];
-            $ano = $detalheMatricula['ano'];
-            
-            $sql = 'SELECT 1 FROM pmieducar.historico_escolar 
-                    WHERE ref_cod_aluno = $1 AND ano = $2 
-                    AND ref_cod_instituicao = $3 AND ref_cod_matricula = $4 AND ativo = 1';
-            $params = [$alunoId, $ano, $instituicaoId, $matriculaId];
-            $historicoExiste = Portabilis_Utils_Database::selectField($sql, $params) == 1;
-
-            // Se já existe histórico, não processa novamente automaticamente
-            // (o usuário pode reprocessar manualmente se necessário)
-            if ($historicoExiste) {
-                return;
-            }
-
-            // Prepara os dados do request para o processamento
-            // Salva valores originais do request
-            $requestOriginal = $_REQUEST;
-            
-            // Define valores necessários para processamento automático usando dados do boletim
-            $_REQUEST['matricula_id'] = $matriculaId;
-            $_REQUEST['instituicao_id'] = $instituicaoId;
-            $_REQUEST['situacao'] = 'buscar-matricula';
-            $_REQUEST['disciplinas'] = 'buscar-boletim';
-            $_REQUEST['notas'] = 'buscar-boletim';
-            $_REQUEST['faltas'] = 'buscar-boletim';
-            $_REQUEST['percentual_frequencia'] = 'buscar-boletim';
-            $_REQUEST['dias_letivos'] = '';
-            $_REQUEST['extra_curricular'] = 0;
-            $_REQUEST['grade_curso_id'] = null;
-            $_REQUEST['observacao'] = '';
-            $_REQUEST['registro'] = '';
-            $_REQUEST['livro'] = '';
-            $_REQUEST['folha'] = '';
-            $_REQUEST['dependencia'] = false;
-            $_REQUEST['posicao'] = null;
-            $_REQUEST['media_area_conhecimento'] = false;
-            $_REQUEST['processar_media_geral'] = true;
-            $_REQUEST['att'] = 'processamento';
-            $_REQUEST['oper'] = 'post';
-
-            try {
-                // Usa o ProcessamentoApiController para processar o histórico
-                $processamentoController = new ProcessamentoApiController();
-                
-                // Chama o método Gerar que processa a requisição
-                $processamentoController->Gerar();
-            } catch (Exception $e) {
-                // Em caso de erro, apenas registra mas não interrompe o fluxo
-                error_log('Erro ao processar histórico automaticamente: ' . $e->getMessage());
-            } finally {
-                // Restaura valores originais do request
-                $_REQUEST = $requestOriginal;
-            }
-        } catch (Exception $e) {
-            // Em caso de erro, apenas registra mas não interrompe o fluxo
-            // O histórico pode ser processado manualmente depois
-            error_log('Erro ao processar histórico automaticamente: ' . $e->getMessage());
-        }
-    }
 
     /**
      * @return $this

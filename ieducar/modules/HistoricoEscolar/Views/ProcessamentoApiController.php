@@ -731,7 +731,10 @@ class ProcessamentoApiController extends Core_Controller_Page_EditController
 
             $isGlobalScoreForStage = $this->getService()->getEvaluationRule()->isGlobalScore();
 
-            $dominio = $_SERVER['HTTP_HOST'];
+            // Fora de uma requisição HTTP (processamento automático via comando) não há HTTP_HOST:
+            // usa a conexão (tenant) atual + host da APP_URL
+            $dominio = $_SERVER['HTTP_HOST']
+                ?? DB::getDefaultConnection() . ' ' . parse_url((string) config('app.url'), PHP_URL_HOST);
 
             foreach ($this->getService()->getComponentes() as $componenteCurricular) {
                 if (!$this->shouldProcessAreaConhecimento($componenteCurricular->get('area_conhecimento'))) {
