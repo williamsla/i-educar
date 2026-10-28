@@ -179,6 +179,7 @@ return [
         App\Providers\RouteServiceProvider::class,
         App\Providers\AssetServiceProvider::class,
         App\Providers\HorizonServiceProvider::class,
+        App\Providers\SchoolHistoryServiceProvider::class,
     ],
 
     /*
