@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\LegacySchoolAcademicYear;
+use App\Services\Idiario\IdiarioSync;
 use iEducar\Support\Navigation\Breadcrumb;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\View;
 
@@ -122,38 +124,46 @@ class clsCadastro extends clsCampos
             $this->PreCadastrar();
             $this->sucesso = false;
 
-            if ($this->tipoacao == 'Novo') {
-                $this->sucesso = $this->Novo();
-                if ($this->sucesso && !empty($this->script_sucesso)) {
-                    $this->script = "<script>
+            try {
+                if ($this->tipoacao == 'Novo') {
+                    $this->sucesso = $this->Novo();
+                    if ($this->sucesso && !empty($this->script_sucesso)) {
+                        $this->script = "<script>
               window.opener.AdicionaItem($this->chave, '$this->item_campo_pai', '$this->nome_pai', $this->submete );
               window.close();
             </script>";
+                    }
+
+                    if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
+                        $this->_mensagem = 'Não foi possível inserir a informação. [CAD01]';
+                    }
+                } elseif ($this->tipoacao == 'Editar') {
+                    $this->sucesso = $this->Editar();
+                    if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
+                        $this->_mensagem = 'Não foi possível editar a informação. [CAD02]';
+                    }
+                } elseif ($this->tipoacao == 'Excluir') {
+                    $this->sucesso = $this->Excluir();
+                    if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
+                        $this->_mensagem = 'Não foi possível excluir a informação. [CAD03]';
+                    }
+                } elseif ($this->tipoacao == 'ExcluirImg') {
+                    $this->sucesso = $this->ExcluirImg();
+                    if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
+                        $this->_mensagem = 'Não foi possível excluir a informação. [CAD04]';
+                    }
+                } elseif ($this->tipoacao == 'Enturmar') {
+                    $this->sucesso = $this->Enturmar();
+                    if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
+                        $this->_mensagem = 'Não foi possível copiar as entrumações. [CAD05]';
+                    }
                 }
 
-                if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
-                    $this->_mensagem = 'Não foi possível inserir a informação. [CAD01]';
-                }
-            } elseif ($this->tipoacao == 'Editar') {
-                $this->sucesso = $this->Editar();
-                if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
-                    $this->_mensagem = 'Não foi possível editar a informação. [CAD02]';
-                }
-            } elseif ($this->tipoacao == 'Excluir') {
-                $this->sucesso = $this->Excluir();
-                if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
-                    $this->_mensagem = 'Não foi possível excluir a informação. [CAD03]';
-                }
-            } elseif ($this->tipoacao == 'ExcluirImg') {
-                $this->sucesso = $this->ExcluirImg();
-                if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
-                    $this->_mensagem = 'Não foi possível excluir a informação. [CAD04]';
-                }
-            } elseif ($this->tipoacao == 'Enturmar') {
-                $this->sucesso = $this->Enturmar();
-                if (!$this->sucesso && empty($this->erros) && empty($this->_mensagem)) {
-                    $this->_mensagem = 'Não foi possível copiar as entrumações. [CAD05]';
-                }
+                $this->requestIdiarioSyncIfNeeded();
+            } catch (HttpResponseException $exception) {
+                $this->requestIdiarioSyncIfNeeded();
+
+                throw $exception;
             }
 
             $this->setFlashMessage();
@@ -191,6 +201,22 @@ class clsCadastro extends clsCampos
     public function Gerar()
     {
         return false;
+    }
+
+    public function requestIdiarioSyncIfNeeded(): void
+    {
+        if (!in_array($this->tipoacao, ['Novo', 'Editar', 'Excluir', 'Enturmar'], true)) {
+            return;
+        }
+
+        $message = mb_strtolower((string) $this->_mensagem);
+        $saved = $this->sucesso || str_contains($message, 'sucesso');
+
+        if (!$saved || !IdiarioSync::currentPageNeedsSync()) {
+            return;
+        }
+
+        IdiarioSync::request();
     }
 
     protected function setFlashMessage()

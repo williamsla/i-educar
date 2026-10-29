@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\LegacyDisciplineSchoolClass;
 use App\Models\LegacySchoolClass;
 use App\Services\iDiarioService;
+use App\Services\Idiario\IdiarioSync;
 use App\Services\SchoolClass\MultiGradesService;
 use App\Services\SchoolClass\SchoolClassService;
 use App\Services\SchoolClassInepService;
@@ -135,6 +136,7 @@ class SchoolClassController extends Controller
             return response()->json(['msg' => $ex->getMessage()], 500);
         }
         session()->flash('success', $response['msg']);
+        IdiarioSync::request();
 
         return response()->json($response);
     }
@@ -157,6 +159,7 @@ class SchoolClassController extends Controller
             return response()->json(['msg' => $ex->getMessage()], 500);
         }
         session()->flash('success', $response['msg']);
+        IdiarioSync::request();
 
         return response()->json($response);
     }

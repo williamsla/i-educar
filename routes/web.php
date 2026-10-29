@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\EnrollmentInepController;
+use App\Http\Controllers\IdiarioSyncController;
 use App\Http\Controllers\FrequenciaSistemaPresencaController;
 use App\Http\Controllers\EnrollmentsPromotionController;
 use App\Http\Controllers\ExportacaoXmlController;
@@ -37,6 +38,9 @@ Route::group(['middleware' => ['auth']], function () {
 });
 
 Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.xssbypass', 'ieducar.suspended', 'auth', 'ieducar.checkresetpassword']], function () {
+    Route::get('/idiario-sync/status', [IdiarioSyncController::class, 'status'])->name('idiario-sync.status');
+    Route::post('/idiario-sync/dismiss', [IdiarioSyncController::class, 'dismiss'])->name('idiario-sync.dismiss');
+
     Route::get('/config', [WebController::class, 'config']);
     Route::get('/user', [WebController::class, 'user']);
     Route::get('/institution', [WebController::class, 'institution']);

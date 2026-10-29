@@ -1,6 +1,6 @@
 <div class="flashMessages">
     <div class="flashMessages__container">
-        @foreach (['success', 'error', 'notice', 'info', 'legacy'] as $msgType)
+        @foreach (['success', 'error', 'notice', 'info', 'legacy', 'idiario'] as $msgType)
             @if (Session::get($msgType))
                 @if (is_array(Session::get($msgType)))
                     @foreach (Session::get($msgType) as $message)

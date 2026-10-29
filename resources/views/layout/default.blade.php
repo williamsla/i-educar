@@ -116,6 +116,7 @@
                         <img class="avatar-35" src="{{ session('logged_user_picture') }}" alt="Perfil">
                     </a>
                     <div class="dropdown notifications">
+                        @include('partials.idiario-sync')
                         <div class="dropbtn notifications">
                             <img alt="Notificação" src="{{ Asset::get('intranet/imagens/icon-nav-notifications.png') }}">
                             <span class="notification-balloon"></span>

@@ -7,6 +7,7 @@ use App\Models\LegacyRegistration;
 use App\Models\LegacySchoolClass;
 use App\Process;
 use App\Services\EnrollmentService;
+use App\Services\Idiario\IdiarioSync;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -95,6 +96,7 @@ class EnrollmentController extends Controller
             }
 
             DB::commit();
+            IdiarioSync::request();
 
             return redirect('/intranet/educar_matricula_det.php?cod_matricula=' . $registration->id)
                 ->with('success', $successMessage);
@@ -187,6 +189,7 @@ class EnrollmentController extends Controller
             $enrollmentService->enroll($registration, $schoolClass, $date, $isRelocatedSameClassGroup);
 
             DB::commit();
+            IdiarioSync::request();
 
             return redirect('/intranet/educar_matricula_det.php?cod_matricula=' . $registration->id)
                 ->with('success', 'Remanejamento realizado com sucesso.');

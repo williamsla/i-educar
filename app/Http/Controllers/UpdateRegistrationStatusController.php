@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpdateRegistrationStatusRequest;
 use App\Models\LegacyRegistration;
 use App\Process;
+use App\Services\Idiario\IdiarioSync;
 use App\Services\RegistrationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,6 +82,7 @@ class UpdateRegistrationStatusController extends Controller
         }
 
         DB::commit();
+        IdiarioSync::request();
 
         return redirect()->route('update-registration-status.index')->with('success', count($registrations) . ' matrículas atualizadas com sucesso.');
     }

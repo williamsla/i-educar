@@ -7,6 +7,7 @@ use App\Http\Requests\BatchEnrollmentRequest;
 use App\Http\Requests\CancelBatchEnrollmentRequest;
 use App\Models\LegacySchoolClass;
 use App\Services\EnrollmentService;
+use App\Services\Idiario\IdiarioSync;
 use App\Services\RegistrationService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -111,6 +112,10 @@ class BatchEnrollmentController extends Controller
             }
         }
 
+        if ($success->count() > 0) {
+            IdiarioSync::request();
+        }
+
         return $this->viewCancelEnrollments($schoolClass, $enrollments, $fails, $success);
     }
 
@@ -157,6 +162,10 @@ class BatchEnrollmentController extends Controller
             } catch (Throwable $throwable) {
                 $fails->add($registration->id, $throwable->getMessage());
             }
+        }
+
+        if ($success->count() > 0) {
+            IdiarioSync::request();
         }
 
         $registrations = $registrations->sortBy(function ($registration) {

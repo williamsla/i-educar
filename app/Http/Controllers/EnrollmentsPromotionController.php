@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\EnrollmentsPromotionJob;
 use App\Models\NotificationType;
+use App\Services\Idiario\IdiarioSync;
 use App\Services\NotificationService;
 use Illuminate\Bus\Batch;
 use Illuminate\Http\Request;
@@ -40,6 +41,7 @@ class EnrollmentsPromotionController extends Controller
             ->finally(function (Batch $batch) use ($userId, $message) {
                 $message .= $batch->totalJobs . ' matrícula(s)';
                 (new NotificationService)->createByUser($userId, $message, '', NotificationType::OTHER);
+                IdiarioSync::request();
             })
             ->dispatch();
 

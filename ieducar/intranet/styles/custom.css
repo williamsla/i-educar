@@ -205,6 +205,79 @@ span.error_notice {
 
 .topo .dropdown-content a:hover {color: #188ad1}
 
+.ieducar-header .idiario-sync {
+  position: absolute;
+  right: 100%;
+  top: 8px;
+  float: none;
+  width: 22px;
+  height: 22px;
+  margin: 0 10px 0 0;
+  z-index: 3;
+}
+
+.ieducar-header .idiario-sync[hidden],
+.ieducar-header .idiario-sync__panel[hidden],
+.ieducar-header .idiario-sync__percentage[hidden],
+.ieducar-header .idiario-sync__dismiss[hidden] {
+  display: none !important;
+}
+
+.ieducar-header .idiario-sync__button {
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff3cd;
+  font-size: 16px;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+.ieducar-header .idiario-sync.-syncing .idiario-sync__button {
+  color: #ffffff;
+}
+
+.ieducar-header .idiario-sync.-completed .idiario-sync__button {
+  color: #d4edda;
+}
+
+.ieducar-header .idiario-sync.-failed .idiario-sync__button {
+  color: #ffd6d6;
+}
+
+.ieducar-header .idiario-sync__panel {
+  position: absolute;
+  right: 0;
+  top: 30px;
+  width: 260px;
+  margin: 0;
+  padding: 12px 14px;
+  background: #f9f9f9;
+  color: #475569;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ieducar-header .idiario-sync__message,
+.ieducar-header .idiario-sync__percentage {
+  margin: 0 0 8px;
+}
+
+.ieducar-header .idiario-sync__dismiss {
+  border: 0;
+  background: transparent;
+  color: #188ad1;
+  cursor: pointer;
+  padding: 0;
+}
+
 .ieducar-header-links .dropdown.notifications {
   float: right;
   margin: 0;

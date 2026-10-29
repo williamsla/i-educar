@@ -62,7 +62,8 @@
   background-color: #FFEEEE;
 }
 
-.flashMessages__message.-info {
+.flashMessages__message.-info,
+.flashMessages__message.-idiario {
   color: #3A87AD;
   background-color: #BCE8F1;
 }

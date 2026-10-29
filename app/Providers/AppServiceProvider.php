@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\LegacyInstitution;
 use App\Providers\Postgres\DatabaseServiceProvider;
 use App\Services\CacheManager;
+use App\Services\Idiario\IdiarioSync;
 use App\Services\StudentUnificationService;
 use Exception;
 use iEducar\Modules\ErrorTracking\EmailTracker;
@@ -18,6 +19,7 @@ use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -76,6 +78,10 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->loadLegacyBootstrap();
+
+        View::composer('layout.default', function ($view) {
+            $view->with('idiarioSync', IdiarioSync::snapshot());
+        });
 
         Collection::macro('getKeyValueArray', function ($valueField) {
             $keyValueArray = [];

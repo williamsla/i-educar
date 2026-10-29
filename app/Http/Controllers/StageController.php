@@ -9,6 +9,7 @@ use App\Models\LegacySchoolAcademicYear;
 use App\Models\LegacySchoolClass;
 use App\Models\LegacySchoolClassStage;
 use App\Process;
+use App\Services\Idiario\IdiarioSync;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +39,7 @@ class StageController extends Controller
             }
 
             session()->flash('success', $message);
+            IdiarioSync::request();
         } catch (StageException $e) {
             session()->flash('error', $e->getMessage());
         } catch (\Exception) {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\AcademicYearServiceException;
 use App\Process;
 use App\Services\AcademicYearService;
+use App\Services\Idiario\IdiarioSync;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -187,6 +188,7 @@ class AcademicYearBatchController extends Controller
             ]);
         } else {
             session()->flash('academic_year_batch_result', $result);
+            IdiarioSync::request();
 
             return response()->json([
                 'status' => 'success',
