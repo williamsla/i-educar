@@ -5,6 +5,7 @@ use App\Models\LegacyDiscipline;
 use App\Models\LegacyDisciplineAcademicYear;
 use App\Models\LegacyRegistration;
 use App\Models\LegacySchool;
+use App\Models\LegacySchoolAcademicYear;
 use App\Models\LegacySchoolClass;
 use App\Models\LegacySchoolClassStage;
 use App\Models\LegacyStageType;
@@ -71,9 +72,10 @@ class App_Model_IedFinder extends CoreExt_Entity
      * opcionalmente pelo código da instituição.
      *
      * @param int $instituicaoId
+     * @param int|null $ano Quando informado, mantém só escolas com ano letivo ativo nesse ano
      * @return array
      */
-    public static function getEscolas($instituicaoId = null)
+    public static function getEscolas($instituicaoId = null, $ano = null)
     {
         $_escolas = self::addClassToStorage(
             'clsPmieducarEscola',
@@ -89,7 +91,33 @@ class App_Model_IedFinder extends CoreExt_Entity
             $escolas[$escola['cod_escola']] = mb_strtoupper($escola['nome']);
         }
 
+        if (is_numeric($ano)) {
+            $escolas = self::filtrarEscolasAnoLetivoAtivo($escolas, (int) $ano);
+        }
+
         return $escolas;
+    }
+
+    /**
+     * Mantém apenas escolas com registro ativo em escola_ano_letivo para o ano informado.
+     *
+     * @param array<int|string, string> $escolas
+     * @return array<int|string, string>
+     */
+    public static function filtrarEscolasAnoLetivoAtivo(array $escolas, int $ano): array
+    {
+        if ($escolas === []) {
+            return [];
+        }
+
+        $ids = LegacySchoolAcademicYear::query()
+            ->where('ativo', 1)
+            ->where('ano', $ano)
+            ->whereIn('ref_cod_escola', array_keys($escolas))
+            ->pluck('ref_cod_escola')
+            ->all();
+
+        return array_intersect_key($escolas, array_flip($ids));
     }
 
     /**

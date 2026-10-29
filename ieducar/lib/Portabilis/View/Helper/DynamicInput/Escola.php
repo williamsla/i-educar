@@ -17,6 +17,7 @@ class Portabilis_View_Helper_DynamicInput_Escola extends Portabilis_View_Helper_
         $resources = $options['resources'];
         $instituicaoId = $this->getInstituicaoId($options['instituicaoId'] ?? null);
         $userId = $this->getCurrentUserId();
+        $ano = is_numeric($options['ano'] ?? null) ? (int) $options['ano'] : null;
 
         if ($instituicaoId && empty($resources)) {
             $permissao = new clsPermissoes;
@@ -33,10 +34,14 @@ class Portabilis_View_Helper_DynamicInput_Escola extends Portabilis_View_Helper_
                     $escolas_usuario[$e['ref_cod_escola']] = $e['nome'];
                 }
 
+                if ($ano) {
+                    $escolas_usuario = App_Model_IedFinder::filtrarEscolasAnoLetivoAtivo($escolas_usuario, $ano);
+                }
+
                 return $this->insertOption(null, 'Selecione uma escola', $escolas_usuario);
             }
 
-            $resources = App_Model_IedFinder::getEscolas($instituicaoId);
+            $resources = App_Model_IedFinder::getEscolas($instituicaoId, $ano);
         }
 
         return $this->insertOption(null, 'Selecione uma escola', $resources);
@@ -45,6 +50,14 @@ class Portabilis_View_Helper_DynamicInput_Escola extends Portabilis_View_Helper_
     public function escola($options = [])
     {
         $this->select($options);
+
+        if (!empty($options['filtraAnoLetivo'])) {
+            Portabilis_View_Helper_Application::embedJavascript(
+                $this->viewInstance,
+                "var campoEscola = document.getElementById('ref_cod_escola'); if (campoEscola) { campoEscola.setAttribute('filtra_ano_letivo', 'true'); }"
+            );
+        }
+
         Portabilis_View_Helper_Application::loadChosenLib($this->viewInstance);
         Portabilis_View_Helper_Application::loadJavascript($this->viewInstance, '/vendor/legacy/DynamicInput/Assets/Javascripts/Escola.js');
     }

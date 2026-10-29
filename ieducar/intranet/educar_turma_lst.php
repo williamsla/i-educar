@@ -97,6 +97,7 @@ return new class extends clsListagem
         $get_escola_serie = true;
         $get_select_name_full = true;
         $get_ano = $this->ano;
+        $filtra_escola_ano_letivo = true;
 
         include 'include/pmieducar/educar_campo_lista.php';
 

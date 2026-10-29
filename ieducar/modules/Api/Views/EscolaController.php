@@ -554,28 +554,47 @@ class EscolaController extends ApiCoreController
         return ['escolas' => $escolas];
     }
 
+    protected function anoLetivoSelecionado(): ?int
+    {
+        $ano = $this->getRequest()->ano ?? null;
+
+        return is_numeric($ano) ? (int) $ano : null;
+    }
+
     protected function getEscolasSelecao()
     {
         $userId = \Illuminate\Support\Facades\Auth::id();
         $permissao = new clsPermissoes;
         $nivel = $permissao->nivel_acesso($userId);
+        $ano = $this->anoLetivoSelecionado();
 
         if (
             $nivel == App_Model_NivelTipoUsuario::ESCOLA ||
             $nivel == App_Model_NivelTipoUsuario::BIBLIOTECA
         ) {
-            $escolas_usuario = [];
+            $escolasUsuario = [];
             $escolasUser = App_Model_IedFinder::getEscolasUser($userId);
 
             foreach ($escolasUser as $e) {
-                $escolas_usuario['__'.$e['ref_cod_escola']] = mb_strtoupper($e['nome']);
+                $escolasUsuario[$e['ref_cod_escola']] = mb_strtoupper($e['nome']);
             }
 
-            return ['options' => $escolas_usuario];
+            if ($ano) {
+                $escolasUsuario = App_Model_IedFinder::filtrarEscolasAnoLetivoAtivo($escolasUsuario, $ano);
+            }
+
+            $escolas = [];
+
+            foreach ($escolasUsuario as $id => $nome) {
+                $escolas['__'.$id] = $nome;
+            }
+
+            return ['options' => $escolas];
         }
 
         $instituicao = $this->getRequest()->instituicao;
-        $escolasInstituicao = App_Model_IedFinder::getEscolas($instituicao);
+        $escolasInstituicao = App_Model_IedFinder::getEscolas($instituicao, $ano);
+        $escolas = [];
 
         foreach ($escolasInstituicao as $id => $nome) {
             $escolas['__'.$id] = mb_strtoupper($this->toUtf8($nome));
@@ -587,7 +606,9 @@ class EscolaController extends ApiCoreController
     protected function getEscolasSelecaoSemFiltroPorUsuario()
     {
         $instituicao = $this->getRequest()->instituicao;
-        $escolasInstituicao = App_Model_IedFinder::getEscolas($instituicao);
+        $ano = $this->anoLetivoSelecionado();
+        $escolasInstituicao = App_Model_IedFinder::getEscolas($instituicao, $ano);
+        $escolas = [];
 
         foreach ($escolasInstituicao as $id => $nome) {
             $escolas['__'.$id] = mb_strtoupper($this->toUtf8($nome));

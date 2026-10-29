@@ -99,10 +99,21 @@ elseif ($nivel_usuario != 1) {
 }
 //                    administrador          institucional - CPD
 if ($get_escola && ($nivel_usuario == 1 || $nivel_usuario == 2 || $cad_usuario)) {
-    $this->inputsHelper()->dynamic(['escola'], [
+    $opcoesEscola = [
         'required' => $escola_obrigatorio,
         'disabled' => $escola_desabilitado,
-    ]);
+    ];
+    $opcoesHelperEscola = [];
+
+    if (!empty($filtra_escola_ano_letivo)) {
+        $opcoesHelperEscola['filtraAnoLetivo'] = true;
+
+        if (is_numeric($this->ano)) {
+            $opcoesHelperEscola['ano'] = (int) $this->ano;
+        }
+    }
+
+    $this->inputsHelper()->dynamic(['escola'], $opcoesEscola, $opcoesHelperEscola);
 }
 if ($get_curso) {
     $opcoes_curso = ['' => $get_select_name_full ? 'Selecione um curso' : 'Selecione'];
