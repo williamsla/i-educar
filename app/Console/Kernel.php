@@ -29,6 +29,15 @@ class Kernel extends ConsoleKernel
         $schedule->job(new TenantsJob(CheckInstitutionConfigurationsJob::class))->cron('0 8 1 1 *');
 
         $schedule->command('notifications:delete')->saturdays()->dailyAt('04:00');
+
+        // Processamento automático do histórico escolar (fila alimentada por trigger
+        // quando a situação da matrícula muda)
+        if (config('school_history.auto_process.enabled', true) && config('school_history.auto_process.schedule', true)) {
+            $schedule->command('historico:processar-automatico' . (config('app.multi_tenant') ? ' --todas-conexoes' : ''))
+                ->everyMinute()
+                ->withoutOverlapping(30)
+                ->runInBackground();
+        }
     }
 
     /**
