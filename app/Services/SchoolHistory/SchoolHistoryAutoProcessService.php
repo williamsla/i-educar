@@ -405,7 +405,7 @@ class SchoolHistoryAutoProcessService
                 'livro' => $historico->livro,
                 'folha' => $historico->folha,
                 'dependencia' => $historico->dependencia ? 't' : 'f',
-                'posicao' => $historico->posicao ?? $this->posicao($matricula),
+                'posicao' => $historico->posicao,
             ];
         }
 
@@ -418,7 +418,7 @@ class SchoolHistoryAutoProcessService
             'livro' => null,
             'folha' => null,
             'dependencia' => $matricula->dependencia ? 't' : 'f',
-            'posicao' => $this->posicao($matricula),
+            'posicao' => null,
         ];
     }
 
