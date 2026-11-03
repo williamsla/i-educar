@@ -828,6 +828,130 @@ class clsModulesProfessorTurma extends Model
     }
 
     /**
+     * Vínculos removidos de modules.professor_turma, com quem excluiu quando a
+     * auditoria registrou o DELETE feito pela tela.
+     *
+     * @param null $servidor_id
+     * @param null $instituicao_id
+     * @param null $ano
+     * @param null $ref_cod_escola
+     * @param null $ref_cod_curso
+     * @param null $ref_cod_serie
+     * @param null $ref_cod_turma
+     * @return array|bool
+     *
+     * @throws Exception
+     */
+    public function listaExcluidos(
+        $servidor_id = null,
+        $instituicao_id = null,
+        $ano = null,
+        $ref_cod_escola = null,
+        $ref_cod_curso = null,
+        $ref_cod_serie = null,
+        $ref_cod_turma = null
+    ) {
+        if (!is_numeric($servidor_id)) {
+            return false;
+        }
+
+        $servidor_id = (int) $servidor_id;
+        $joins = '
+            FROM modules.professor_turma_excluidos pte
+            LEFT JOIN pmieducar.turma t ON t.cod_turma = pte.turma_id
+            LEFT JOIN pmieducar.escola e ON e.cod_escola = t.ref_ref_cod_escola
+            LEFT JOIN cadastro.pessoa p ON p.idpes = e.ref_idpes
+        ';
+        $where = " WHERE pte.servidor_id = {$servidor_id}";
+
+        if (is_numeric($instituicao_id)) {
+            $where .= ' AND pte.instituicao_id = ' . (int) $instituicao_id;
+        }
+
+        if (is_numeric($ano)) {
+            $where .= ' AND pte.ano = ' . (int) $ano;
+        }
+
+        if (is_numeric($ref_cod_escola)) {
+            $where .= ' AND t.ref_ref_cod_escola = ' . (int) $ref_cod_escola;
+        } elseif ($this->codUsuario) {
+            $where .= ' AND EXISTS (SELECT 1
+                                   FROM pmieducar.escola_usuario
+                                  WHERE escola_usuario.ref_cod_escola = t.ref_ref_cod_escola
+                                    AND escola_usuario.ref_cod_usuario = ' . (int) $this->codUsuario . ')';
+        }
+
+        if (is_numeric($ref_cod_curso)) {
+            $where .= ' AND t.ref_cod_curso = ' . (int) $ref_cod_curso;
+        }
+
+        if (is_numeric($ref_cod_serie)) {
+            $where .= ' AND t.ref_ref_cod_serie = ' . (int) $ref_cod_serie;
+        }
+
+        if (is_numeric($ref_cod_turma)) {
+            $where .= ' AND t.cod_turma = ' . (int) $ref_cod_turma;
+        }
+
+        $db = new clsBanco;
+        $this->_total = (int) $db->CampoUnico("SELECT COUNT(pte.id) {$joins} {$where}");
+
+        if ($this->_total === 0) {
+            return false;
+        }
+
+        $sql = "
+            SELECT
+                pte.id,
+                pte.ano,
+                pte.turma_id,
+                pte.deleted_at,
+                t.nm_turma,
+                p.nome AS nm_escola,
+                CASE
+                    WHEN aud.user_id ~ '^[1-9][0-9]*$' AND COALESCE(aud.user_name, '') <> '' THEN aud.user_name
+                    WHEN aud.user_id ~ '^[1-9][0-9]*$' THEN 'Usuário #' || aud.user_id
+                    ELSE 'Não identificado'
+                END AS excluido_por
+            {$joins}
+            LEFT JOIN (
+                SELECT DISTINCT ON (a.before->>'id')
+                       a.before->>'id' AS vinculo_id,
+                       a.context->>'user_id' AS user_id,
+                       a.context->>'user_name' AS user_name
+                  FROM public.ieducar_audit a
+                 WHERE a.schema = 'modules'
+                   AND a.\"table\" = 'professor_turma'
+                   AND a.after IS NULL
+                   AND (a.before->>'servidor_id') = '{$servidor_id}'
+                 ORDER BY a.before->>'id', a.\"date\" DESC
+            ) aud ON aud.vinculo_id = pte.id::text
+            {$where}
+        ";
+
+        if (!is_string($this->_campo_order_by) || $this->_campo_order_by === '') {
+            $this->setOrderby('pte.deleted_at DESC NULLS LAST, pte.ano DESC, nm_escola, nm_turma');
+        }
+
+        $sql .= $this->getOrderby() . $this->getLimite();
+
+        $db->Consulta($sql);
+        $resultado = [];
+
+        while ($db->ProximoRegistro()) {
+            $tupla = $db->Tupla();
+            $tupla['_total'] = $this->_total;
+            $resultado[] = $tupla;
+        }
+
+        if (count($resultado)) {
+            return $resultado;
+        }
+
+        return false;
+    }
+
+    /**
      * Retorna um array com os dados de um registro.
      *
      * @return array|bool

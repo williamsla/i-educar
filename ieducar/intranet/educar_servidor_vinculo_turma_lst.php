@@ -42,18 +42,35 @@ return new class extends clsListagem
             $this->$var = ($val === '') ? null : $val;
         }
 
-        $this->addCabecalhos(coluna: [
-            'Ano',
-            'Escola',
-            'Curso',
-            'Série',
-            'Turma',
-            'Turno',
-            'Professor de área específica',
-            'Disciplinas',
-        ]);
+        $podeVerExcluidos = $this->podeVerVinculosExcluidos();
+        $abaExcluidos = $podeVerExcluidos && (($_GET['aba'] ?? null) === 'excluidos');
+
+        if ($abaExcluidos) {
+            $this->addCabecalhos(coluna: [
+                'Ano',
+                'Escola',
+                'Turma',
+                'Excluído em',
+                'Excluído por',
+            ]);
+        } else {
+            $this->addCabecalhos(coluna: [
+                'Ano',
+                'Escola',
+                'Curso',
+                'Série',
+                'Turma',
+                'Turno',
+                'Professor de área específica',
+                'Disciplinas',
+            ]);
+        }
 
         $this->campoOculto(nome: 'ref_cod_servidor', valor: $this->servidor_id);
+
+        if ($abaExcluidos) {
+            $this->campoOculto(nome: 'aba', valor: 'excluidos');
+        }
 
         $this->inputsHelper()->dynamic(helperNames: ['ano', 'instituicao', 'escola', 'curso', 'serie', 'turma'], inputOptions: ['required' => false]);
 
@@ -68,21 +85,33 @@ return new class extends clsListagem
             $obj_vinculo->codUsuario = $this->pessoa_logada;
         }
 
-        $obj_vinculo->setOrderby(strNomeCampo: ' ano DESC, nm_escola, nm_curso, nm_serie, nm_turma ASC');
-
         $obj_vinculo->setLimite(intLimiteQtd: $this->limite, intLimiteOffset: $this->offset);
 
-        $lista = $obj_vinculo->lista(
-            servidor_id: $this->servidor_id,
-            instituicao_id: $this->ref_cod_instituicao,
-            ano: $this->ano,
-            ref_cod_escola: $this->ref_cod_escola,
-            ref_cod_curso: $this->ref_cod_curso,
-            ref_cod_serie: $this->ref_cod_serie,
-            ref_cod_turma: $this->ref_cod_turma,
-            funcao_exercida: $this->funcao_exercida,
-            tipo_vinculo: $this->tipo_vinculo
-        );
+        if ($abaExcluidos) {
+            $lista = $obj_vinculo->listaExcluidos(
+                servidor_id: $this->servidor_id,
+                instituicao_id: $this->ref_cod_instituicao,
+                ano: $this->ano,
+                ref_cod_escola: $this->ref_cod_escola,
+                ref_cod_curso: $this->ref_cod_curso,
+                ref_cod_serie: $this->ref_cod_serie,
+                ref_cod_turma: $this->ref_cod_turma
+            );
+        } else {
+            $obj_vinculo->setOrderby(strNomeCampo: ' ano DESC, nm_escola, nm_curso, nm_serie, nm_turma ASC');
+
+            $lista = $obj_vinculo->lista(
+                servidor_id: $this->servidor_id,
+                instituicao_id: $this->ref_cod_instituicao,
+                ano: $this->ano,
+                ref_cod_escola: $this->ref_cod_escola,
+                ref_cod_curso: $this->ref_cod_curso,
+                ref_cod_serie: $this->ref_cod_serie,
+                ref_cod_turma: $this->ref_cod_turma,
+                funcao_exercida: $this->funcao_exercida,
+                tipo_vinculo: $this->tipo_vinculo
+            );
+        }
 
         $total = $obj_vinculo->_total;
 
@@ -93,6 +122,25 @@ return new class extends clsListagem
         // Monta a lista
         if (is_array(value: $lista) && count(value: $lista)) {
             foreach ($lista as $registro) {
+                if ($abaExcluidos) {
+                    $turma = $registro['nm_turma'] ?: ('Turma removida (' . (int) $registro['turma_id'] . ')');
+                    $excluidoEm = '-';
+
+                    if (!empty($registro['deleted_at'])) {
+                        $excluidoEm = Portabilis_Date_Utils::pgSQLToBr(timestamp: $registro['deleted_at']) ?: $registro['deleted_at'];
+                    }
+
+                    $this->addLinhas(linha: [
+                        $this->textoLista(valor: $registro['ano']),
+                        $this->textoLista(valor: $registro['nm_escola'] ?: '-'),
+                        $this->textoLista(valor: $turma),
+                        $this->textoLista(valor: $excluidoEm),
+                        $this->textoLista(valor: $registro['excluido_por']),
+                    ]);
+
+                    continue;
+                }
+
                 $options = [
                     'query' => [
                         'id' => $registro['id'],
@@ -109,6 +157,10 @@ return new class extends clsListagem
                     $url->l(text: $registro['disciplinas'], path: $path, options: $options),
                 ]);
             }
+        }
+
+        if ($podeVerExcluidos) {
+            $this->titulo = $this->htmlAbas(abaExcluidos: $abaExcluidos);
         }
 
         $this->addPaginador2(strUrl: 'educar_servidor_vinculo_turma_lst.php', intTotalRegistros: $total, mixVariaveisMantidas: $_GET, nome: $this->nome, intResultadosPorPagina: $this->limite);
@@ -135,9 +187,50 @@ return new class extends clsListagem
 
         $this->largura = '100%';
 
-        $this->breadcrumb(currentPage: 'Registro de vínculos do professor', breadcrumbs: [
+        $this->breadcrumb(currentPage: $abaExcluidos ? 'Vínculos excluídos do professor' : 'Registro de vínculos do professor', breadcrumbs: [
             url(path: 'intranet/educar_servidores_index.php') => 'Servidores',
         ]);
+    }
+
+    private function podeVerVinculosExcluidos(): bool
+    {
+        $nivel = (new clsPermissoes)->nivel_acesso(int_idpes_usuario: $this->pessoa_logada);
+
+        return in_array((int) $nivel, [
+            App_Model_NivelTipoUsuario::POLI_INSTITUCIONAL,
+            App_Model_NivelTipoUsuario::INSTITUCIONAL,
+        ], true);
+    }
+
+    private function urlDaAba(string $aba): string
+    {
+        $params = $_GET;
+        unset($params['pagina_' . $this->nome], $params['pagina_formulario'], $params['pagina_']);
+
+        if ($aba === 'excluidos') {
+            $params['aba'] = 'excluidos';
+        } else {
+            unset($params['aba']);
+        }
+
+        return 'educar_servidor_vinculo_turma_lst.php?' . http_build_query($params);
+    }
+
+    private function htmlAbas(bool $abaExcluidos): string
+    {
+        $urlAtivos = htmlspecialchars(string: $this->urlDaAba(aba: 'ativos'), flags: ENT_QUOTES, encoding: 'UTF-8');
+        $urlExcluidos = htmlspecialchars(string: $this->urlDaAba(aba: 'excluidos'), flags: ENT_QUOTES, encoding: 'UTF-8');
+        $estiloAtivo = 'color:#47728f;text-decoration:underline';
+        $estiloInativo = 'color:#47728f;font-weight:normal;text-decoration:none';
+
+        return '<a href="' . $urlAtivos . '" style="' . ($abaExcluidos ? $estiloInativo : $estiloAtivo) . '">Vínculos ativos</a>'
+            . ' <span style="font-weight:normal">|</span> '
+            . '<a href="' . $urlExcluidos . '" style="' . ($abaExcluidos ? $estiloAtivo : $estiloInativo) . '">Vínculos excluídos</a>';
+    }
+
+    private function textoLista($valor): string
+    {
+        return htmlspecialchars(string: (string) $valor, flags: ENT_QUOTES, encoding: 'UTF-8');
     }
 
     public function Formular()
