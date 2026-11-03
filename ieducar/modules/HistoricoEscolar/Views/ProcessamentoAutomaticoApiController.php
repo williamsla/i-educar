@@ -176,6 +176,68 @@ class ProcessamentoAutomaticoApiController extends ProcessamentoApiController
         return is_array($row) && !empty($row) ? $row : null;
     }
 
+    /* =====================================================================
+     * ALUNO CURSANDO: histórico sem notas
+     *
+     * Enquanto a matrícula está "Cursando", o histórico é gravado com "-" no
+     * lugar das notas e sem CH, frequência e carga horária total. Assim, se o
+     * histórico for emitido nesse período, a coluna do ano aparece com o
+     * resultado final "Cur", mas sem notas parciais.
+     *
+     * Quando a situação muda (Aprovado, Retido, Transferido, etc.) o histórico
+     * é reprocessado automaticamente e as notas reais do boletim são gravadas.
+     * ===================================================================== */
+
+    /** Texto gravado no lugar da nota enquanto o aluno está cursando */
+    public const NOTA_CURSANDO = '-';
+
+    protected function isAlunoCursando(): bool
+    {
+        return (int) $this->getSituacaoMatricula() === App_Model_MatriculaSituacao::EM_ANDAMENTO;
+    }
+
+    /** Notas e CH de cada componente: "-" / vazio enquanto cursando */
+    protected function _createHistoricoDisciplinas($fields)
+    {
+        if ($this->isAlunoCursando()) {
+            $fields['nota'] = self::NOTA_CURSANDO;
+            $fields['falta'] = null;
+            $fields['carga_horaria_disciplina'] = null;
+        }
+
+        parent::_createHistoricoDisciplinas($fields);
+    }
+
+    /** % Frequência: vazia enquanto cursando */
+    protected function getPercentualFrequencia()
+    {
+        if ($this->isAlunoCursando()) {
+            return null;
+        }
+
+        return parent::getPercentualFrequencia();
+    }
+
+    /** Carga horária total do ano: vazia enquanto cursando */
+    protected function getCargaHorariaDisciplinas($alunoId)
+    {
+        if ($this->isAlunoCursando()) {
+            return null;
+        }
+
+        return parent::getCargaHorariaDisciplinas($alunoId);
+    }
+
+    /** Faltas globalizadas: vazias enquanto cursando */
+    protected function getFaltaGlobalizada($defaultValue = null)
+    {
+        if ($this->isAlunoCursando()) {
+            return $defaultValue;
+        }
+
+        return parent::getFaltaGlobalizada($defaultValue);
+    }
+
     /**
      * O processamento automático pode rodar fora de uma requisição autenticada
      * (comando agendado). O serviço garante um usuário antes de chamar processar().
