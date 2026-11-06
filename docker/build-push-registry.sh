@@ -1,23 +1,33 @@
 #!/bin/sh
 set -eu
 
-# Obrigatorio: REGISTRY_HOST, REGISTRY_NAMESPACE, IMAGE_TAG (export ou na mesma linha).
+# Obrigatorio: REGISTRY_HOST, REGISTRY_NAMESPACE (export ou na mesma linha).
+# IMAGE_TAG opcional: se vazio, usa o sha curto (8 caracteres) do HEAD.
 # Opcional: ENABLE_PACKAGE_*, PACKAGE_REF_*, GIT_TOKEN (BuildKit --secret, nao --build-arg).
 # Exemplo:
 #   REGISTRY_HOST=container-registry.br-ne1.magalu.cloud \
-#   REGISTRY_NAMESPACE=ieducar IMAGE_TAG=2.10.15 \
+#   REGISTRY_NAMESPACE=ieducar \
 #   ./docker/build-push-registry.sh
 # Com token para repos privados (BuildKit secret — nao use --build-arg com o token):
-#   GIT_TOKEN=ghp_xxx REGISTRY_HOST=... REGISTRY_NAMESPACE=... IMAGE_TAG=... ./docker/build-push-registry.sh
+#   GIT_TOKEN=ghp_xxx REGISTRY_HOST=... REGISTRY_NAMESPACE=... ./docker/build-push-registry.sh
 # Ou ficheiro no host (util em CI):
 #   GIT_TOKEN_FILE=/caminho/token.txt REGISTRY_HOST=... ... ./docker/build-push-registry.sh
 # Se usar sudo: sudo -E env GIT_TOKEN=... ./docker/build-push-registry.sh  (senao o token nao chega ao docker)
 
-if [ -z "${REGISTRY_HOST:-}" ] || [ -z "${REGISTRY_NAMESPACE:-}" ] || [ -z "${IMAGE_TAG:-}" ]; then
-  echo "ERRO: defina REGISTRY_HOST, REGISTRY_NAMESPACE e IMAGE_TAG no ambiente." >&2
+if [ -z "${REGISTRY_HOST:-}" ] || [ -z "${REGISTRY_NAMESPACE:-}" ]; then
+  echo "ERRO: defina REGISTRY_HOST e REGISTRY_NAMESPACE no ambiente." >&2
   echo "Exemplo:" >&2
-  echo "  REGISTRY_HOST=container-registry.br-ne1.magalu.cloud REGISTRY_NAMESPACE=ieducar IMAGE_TAG=2.10.15 $0" >&2
+  echo "  REGISTRY_HOST=container-registry.br-ne1.magalu.cloud REGISTRY_NAMESPACE=ieducar $0" >&2
   exit 1
+fi
+
+if [ -z "${IMAGE_TAG:-}" ]; then
+  IMAGE_TAG=$(git rev-parse HEAD 2>/dev/null | cut -c1-8 || true)
+  if [ -z "${IMAGE_TAG}" ]; then
+    echo "ERRO: IMAGE_TAG vazia e nao foi possivel ler o sha do HEAD." >&2
+    exit 1
+  fi
+  echo ">> IMAGE_TAG gerada: ${IMAGE_TAG}"
 fi
 
 APP_IMAGE="${REGISTRY_HOST}/${REGISTRY_NAMESPACE}/ieducar-app:${IMAGE_TAG}"

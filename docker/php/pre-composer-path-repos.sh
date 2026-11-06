@@ -13,7 +13,28 @@ clone_path_repo() {
   parent=$(dirname "$target_dir")
   mkdir -p "$parent"
   rm -rf "$target_dir"
-  git clone "$repo_url" "$target_dir"
+
+  # Autenticação HTTPS sem colocar o token na URL.
+  askpass=$(mktemp)
+
+  cat > "$askpass" <<'EOF'
+#!/bin/sh
+case "$1" in
+  *Username*) printf '%s\n' "x-access-token" ;;
+  *Password*) printf '%s\n' "$GIT_TOKEN" ;;
+  *) exit 1 ;;
+esac
+EOF
+
+  chmod 700 "$askpass"
+
+  if ! GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+       git clone "$repo_url" "$target_dir"; then
+    rm -f "$askpass"
+    return 1
+  fi
+
+  rm -f "$askpass"
 
   if [ -n "$repo_ref" ]; then
     git -C "$target_dir" checkout "$repo_ref"
@@ -39,7 +60,7 @@ if [ "${ENABLE_PACKAGE_DESPESAS:-false}" = "true" ]; then
       exit 1
     fi
     clone_path_repo \
-      "${PACKAGE_REPO_DESPESAS:-https://${GIT_TOKEN}@github.com/williamsla/despesas-escolar.git}" \
+      "${PACKAGE_REPO_DESPESAS:-https://github.com/williamsla/despesas-escolar.git}" \
       "packages/despesas-escolar" \
       "${PACKAGE_REF_DESPESAS:-}"
   fi
@@ -52,7 +73,7 @@ if [ "${ENABLE_PACKAGE_MERENDA:-false}" = "true" ]; then
       exit 1
     fi
     clone_path_repo \
-      "${PACKAGE_REPO_MERENDA:-https://${GIT_TOKEN}@github.com/williamsla/merenda.git}" \
+      "${PACKAGE_REPO_MERENDA:-https://github.com/williamsla/merenda.git}" \
       "packages/merenda/merenda-escolar" \
       "${PACKAGE_REF_MERENDA:-}"
   fi

@@ -31,6 +31,47 @@ use_local_packages() {
   [ "${USE_LOCAL_PACKAGES:-false}" = "true" ]
 }
 
+# https://token@github.com/... perde o token quando o GitHub redireciona
+# (warning: redirecting to https://github.com/.../). O build nao tem TTY.
+github_url_without_userinfo() {
+  url="$1"
+  case "$url" in
+    https://*@github.com/*)
+      printf 'https://github.com/%s\n' "${url#https://*@github.com/}"
+      ;;
+    *)
+      printf '%s\n' "$url"
+      ;;
+  esac
+}
+
+run_git() {
+  if [ -z "${GIT_TOKEN:-}" ]; then
+    git "$@"
+    return
+  fi
+
+  export GIT_TOKEN
+  askpass=$(mktemp)
+  cat > "$askpass" <<'EOF'
+#!/bin/sh
+case "$1" in
+  *Username*) printf '%s\n' "x-access-token" ;;
+  *Password*) printf '%s\n' "$GIT_TOKEN" ;;
+  *) exit 1 ;;
+esac
+EOF
+  chmod 700 "$askpass"
+
+  if GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git "$@"; then
+    rm -f "$askpass"
+    return 0
+  fi
+  status=$?
+  rm -f "$askpass"
+  return "$status"
+}
+
 reuse_existing_package_tree() {
   target_dir="$1"
   repo_ref="${2:-}"
@@ -54,7 +95,7 @@ reuse_existing_package_tree() {
   fi
 
   if [ -n "$repo_ref" ] && [ -d "$target_dir/.git" ]; then
-    git -C "$target_dir" fetch origin 2>/dev/null || true
+    run_git -C "$target_dir" fetch origin 2>/dev/null || true
     git -C "$target_dir" checkout "$repo_ref" 2>/dev/null || true
   fi
 }
@@ -90,7 +131,11 @@ clone_or_update_repo() {
 
   rm -rf "$target_dir"
   mkdir -p "$target_dir"
-  git clone "$repo_url" "$target_dir"
+  clone_url="$repo_url"
+  if [ -n "${GIT_TOKEN:-}" ]; then
+    clone_url=$(github_url_without_userinfo "$repo_url")
+  fi
+  run_git clone "$clone_url" "$target_dir"
 
   if [ -n "$repo_ref" ]; then
     git -C "$target_dir" checkout "$repo_ref"
@@ -127,7 +172,7 @@ apply_cdn_config_customizations() {
       exit 1
     fi
     rm -rf "$cdn_dir"
-    git clone "https://${GIT_TOKEN}@github.com/semed-al/cdn-config.git" "$cdn_dir"
+    run_git clone "https://github.com/semed-al/cdn-config.git" "$cdn_dir"
     cloned_ephemeral=1
   else
     echo "AVISO: GIT_TOKEN ausente e cdn-config local não encontrado; pulando customizações SEMED-AL."
