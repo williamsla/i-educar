@@ -1241,7 +1241,6 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
         $tipoFaltaGeral = $presenca->tipoFalta == RegraAvaliacao_Model_TipoPresenca::GERAL;
         $tipoFaltaPorComponente = $presenca->tipoFalta == RegraAvaliacao_Model_TipoPresenca::POR_COMPONENTE;
-        $mediaPercentualComponentes = null;
 
         if ($tipoFaltaGeral) {
             $faltas = $this->getFaltasGerais();
@@ -1374,10 +1373,6 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
                 $etapa = min($etapasComponentes);
             }
 
-            $mediaPercentualComponentes = $this->mediaPercentualPresencaDisciplinas(
-                $componentesTotal,
-                $faltasComponentesTotal
-            );
         } // fim if por_componente
 
         $presenca->totalFaltas = $total;
@@ -1393,7 +1388,6 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
         }
 
         if ($tipoFaltaPorComponente) {
-            // Quando é $tipoFaltaPorComponente a carga horária é a soma da quantidade de horas faltas dos componentes reprovativos $totalHorasFaltaComponentes
             $presenca->horasFaltas = $totalHorasFaltaComponentes;
             $presenca->porcentagemFalta = $this->_calculatePorcentagem(
                 $presenca->cargaHoraria,
@@ -1403,20 +1397,16 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
         }
 
         $presencaCalculada = 100 - $presenca->porcentagemFalta;
-        if ($tipoFaltaPorComponente && $mediaPercentualComponentes !== null) {
-            // Por componente, a frequência da matrícula é a média dos percentuais
-            // de presença das disciplinas, não a soma das faltas.
-            $presencaCalculada = $mediaPercentualComponentes;
-        }
         $avaliacaoSemNotaNumerica = (int) $this->getRegraAvaliacaoTipoNota() === RegraAvaliacao_Model_Nota_TipoValor::NENHUM;
         $reprovaFrequenciaSemAguardarEtapa = $this->reprovaFrequenciaSemAguardarUltimaEtapa();
-        $presenca->porcentagemPresenca = ($reprovaFrequenciaSemAguardarEtapa && !$tipoFaltaPorComponente)
+        // Por componente, a frequência é a de modules.frequencia_da_matricula,
+        // que já divide pela carga horária total da série.
+        $presenca->porcentagemPresenca = ($reprovaFrequenciaSemAguardarEtapa || $tipoFaltaPorComponente)
             ? $this->porcentagemPresencaParaSituacao($presencaCalculada)
             : $presencaCalculada;
         $presenca->componentesCurriculares = $faltasComponentes;
 
         // Abaixo do mínimo configurado, o aluno não recupera a frequência nas etapas restantes.
-        // Por componente, o mínimo compara a média dos percentuais de cada disciplina.
         $frequenciaJaInsuficiente = $presenca->porcentagemPresenca < $this->getRegraAvaliacaoPorcentagemPresenca()
             && !$this->regraNaoPermiteReprovarFalta()
             && !$this->getRegraAvaliacaoDesconsiderarLancamentoFrequencia();
@@ -1454,31 +1444,9 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
                 : App_Model_MatriculaSituacao::REPROVADO;
         }
 
-        if ($reprovaFrequenciaAntesDaUltimaEtapa && !$tipoFaltaPorComponente) {
+        if ($reprovaFrequenciaAntesDaUltimaEtapa) {
             foreach ($presenca->componentesCurriculares as $componentePresenca) {
                 if ((int) $componentePresenca->situacao === App_Model_MatriculaSituacao::EM_ANDAMENTO) {
-                    $componentePresenca->situacao = App_Model_MatriculaSituacao::REPROVADO;
-                }
-            }
-        }
-
-        if ($tipoFaltaPorComponente
-            && $reprovaFrequenciaSemAguardarEtapa
-            && !$this->regraNaoPermiteReprovarFalta()
-            && !$this->getRegraAvaliacaoDesconsiderarLancamentoFrequencia()
-        ) {
-            $minimoPresenca = (float) $this->getRegraAvaliacaoPorcentagemPresenca();
-
-            foreach ($presenca->componentesCurriculares as $componentePresenca) {
-                if ((int) $componentePresenca->situacao !== App_Model_MatriculaSituacao::EM_ANDAMENTO) {
-                    continue;
-                }
-
-                if (!is_numeric($componentePresenca->porcentagemPresenca ?? null)) {
-                    continue;
-                }
-
-                if ((float) $componentePresenca->porcentagemPresenca < $minimoPresenca) {
                     $componentePresenca->situacao = App_Model_MatriculaSituacao::REPROVADO;
                 }
             }
@@ -1574,37 +1542,6 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             $situacaoBoletim->retidoFalta = false;
             $situacaoBoletim->recuperacao = false;
         }
-    }
-
-    /**
-     * Média aritmética do percentual de presença de cada disciplina.
-     * Disciplina sem falta lançada entra com 100%.
-     *
-     * @param array<int|string, object> $componentes
-     * @param array<int|string, object> $faltasComponentes
-     */
-    private function mediaPercentualPresencaDisciplinas(array $componentes, array $faltasComponentes): ?float
-    {
-        $percentuais = [];
-
-        foreach ($componentes as $id => $componente) {
-            if (!empty($componente->desconsidera_para_progressao)) {
-                continue;
-            }
-
-            if (isset($faltasComponentes[$id]) && is_numeric($faltasComponentes[$id]->porcentagemPresenca ?? null)) {
-                $percentuais[] = (float) $faltasComponentes[$id]->porcentagemPresenca;
-                continue;
-            }
-
-            $percentuais[] = 100.0;
-        }
-
-        if ($percentuais === []) {
-            return null;
-        }
-
-        return array_sum($percentuais) / count($percentuais);
     }
 
     /**

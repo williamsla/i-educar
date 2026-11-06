@@ -44,10 +44,10 @@ class ConceptualScoreAbsenceTest extends TestCase
     }
 
     /**
-     * Cada disciplina com 20 faltas fica em 85% de presença (carga 100, hora-falta 0,75).
-     * A média desses percentuais permanece acima dos 75% da regra.
+     * frequencia_da_matricula usa a carga horária da série (800) e hora-aula 0,75.
+     * 80 faltas: 100 - (80 * 0,75 * 100 / 800) = 92,5%, acima dos 75%.
      */
-    public function test_component_absences_do_not_reprove_when_average_percentage_stays_above_minimum()
+    public function test_component_absences_do_not_reprove_when_frequency_stays_above_minimum()
     {
         $evaluationRule = LegacyEvaluationRuleFactory::new()->progressaoContinuadaNotaConceitual()->create([
             'tipo_progressao' => RegraAvaliacao_Model_TipoProgressao::NAO_CONTINUADA_MEDIA_PRESENCA,
@@ -72,10 +72,10 @@ class ConceptualScoreAbsenceTest extends TestCase
     }
 
     /**
-     * Cada disciplina com 40 faltas fica em 70% de presença. A média fica abaixo
-     * dos 75% configurados e a matrícula reprova por faltas.
+     * Com carga horária da série em 400, 160 faltas e hora-aula 0,75:
+     * 100 - (160 * 0,75 * 100 / 400) = 70%, abaixo dos 75%.
      */
-    public function test_component_absences_reprove_when_average_percentage_is_below_minimum()
+    public function test_component_absences_reprove_when_frequency_is_below_minimum()
     {
         $evaluationRule = LegacyEvaluationRuleFactory::new()->progressaoContinuadaNotaConceitual()->create([
             'tipo_progressao' => RegraAvaliacao_Model_TipoProgressao::NAO_CONTINUADA_MEDIA_PRESENCA,
@@ -87,6 +87,7 @@ class ConceptualScoreAbsenceTest extends TestCase
         $schoolClass = $enrollment->schoolClass;
         $school = $schoolClass->school;
         $registration = $enrollment->registration;
+        $schoolClass->grade->update(['carga_horaria' => 400]);
 
         $this->createStages($school, 2);
         $this->createDisciplines($schoolClass, 4);
