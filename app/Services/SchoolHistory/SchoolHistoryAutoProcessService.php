@@ -142,6 +142,17 @@ class SchoolHistoryAutoProcessService
      */
     public function processRegistration(int $matriculaId, ?int $userId = null): array
     {
+        // O histórico automático é uma cópia do boletim. A alteração da nota
+        // ou da falta já entrou em ieducar_audit. Regravar disciplinas aqui
+        // (apaga todas e insere de novo) duplicava isso a cada minuto.
+        return $this->withoutAudit(fn () => $this->processRegistrationAudited($matriculaId, $userId));
+    }
+
+    /**
+     * @return array{status: string, mensagem: string}
+     */
+    private function processRegistrationAudited(int $matriculaId, ?int $userId = null): array
+    {
         $matricula = DB::selectOne(
             'SELECT m.cod_matricula, m.ref_cod_aluno, m.ano, m.aprovado, m.ativo, m.dependencia,
                     m.ref_ref_cod_serie, m.ref_cod_curso, m.ref_ref_cod_escola,
@@ -321,6 +332,25 @@ class SchoolHistoryAutoProcessService
 
         foreach ($travados as $item) {
             $this->requeue($item, 'Processamento interrompido.', true);
+        }
+    }
+
+    /**
+     * Desliga a auditoria nesta conexão enquanto o callback roda.
+     * clsBanco usa o mesmo PDO do Laravel, então o SET vale para o legado.
+     */
+    private function withoutAudit(callable $callback): mixed
+    {
+        $pdo = DB::connection()->getPdo();
+        $previous = $pdo->query("SELECT current_setting('audit.enabled', true)")->fetchColumn();
+        $previous = is_string($previous) ? $previous : '';
+
+        $pdo->exec('SET "audit.enabled" = false');
+
+        try {
+            return $callback();
+        } finally {
+            $pdo->exec('SET "audit.enabled" = ' . ($previous === 'false' ? 'false' : 'true'));
         }
     }
 
