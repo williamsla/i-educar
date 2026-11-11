@@ -79,6 +79,38 @@ class EnrollmentServiceTest extends TestCase
             'ref_cod_turma' => $enrollment->ref_cod_turma,
             'ativo' => 0,
         ]);
+
+        $enrollment->refresh();
+        $this->assertFalse((bool) $enrollment->remanejado);
+    }
+
+    /**
+     * Desenturmação marcada como remanejamento permanece na tabela, sem exclusão.
+     *
+     * @return void
+     *
+     * @throws Throwable
+     */
+    public function test_cancel_enrollment_marks_as_relocated()
+    {
+        $enrollment = LegacyEnrollmentFactory::new()->create([
+            'ref_cod_turma' => $this->schoolClass,
+        ]);
+
+        $result = $this->service->cancelEnrollment($enrollment, now(), true);
+
+        $this->assertTrue($result);
+
+        $enrollment->refresh();
+
+        $this->assertSame(0, (int) $enrollment->ativo);
+        $this->assertTrue((bool) $enrollment->remanejado);
+        $this->assertDatabaseHas($enrollment->getTable(), [
+            'id' => $enrollment->id,
+        ]);
+        $this->assertDatabaseMissing('pmieducar.matricula_turma_excluidos', [
+            'id' => $enrollment->id,
+        ]);
     }
 
     /**

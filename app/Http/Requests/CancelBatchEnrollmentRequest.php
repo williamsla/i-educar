@@ -16,6 +16,7 @@ class CancelBatchEnrollmentRequest extends FormRequest
         return [
             'date' => 'required|date_format:d/m/Y',
             'enrollments' => 'required|array',
+            'remanejamento' => 'nullable|boolean',
         ];
     }
 

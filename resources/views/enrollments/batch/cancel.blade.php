@@ -76,6 +76,14 @@
                 <input name="date" value="{{ old('date') }}" onkeypress="formataData(this, event);" class="form-input {{ $errors->has('date') ? 'error' : '' }}" type="text" maxlength="10" placeholder="Data da saída">
             </div>
             <div class="form-col">
+                <label for="remanejamento">
+                    <input type="checkbox"
+                           name="remanejamento"
+                           id="remanejamento"
+                           value="1"
+                           {{ old('remanejamento') ? 'checked' : '' }}>
+                    Remanejamento para outra turma
+                </label>
             </div>
         </div>
 
@@ -159,11 +167,15 @@
 
         $j('#enrollments-unenroll').submit(function (e) {
             e.preventDefault();
+            const remanejamento = $j('#remanejamento').prop('checked');
+            const content = remanejamento
+                ? 'As enturmações selecionadas não serão excluídas. Elas serão desenturmadas e marcadas como remanejamento para outra turma. Deseja continuar?'
+                : 'O processo de desenturmação e enturmação manual ' +
+                    'não será considerado como remanejamento ou troca de turma, ' +
+                    'para isso você deve selecionar a turma nova e remanejar. Deseja continuar?';
             makeDialog({
                 title: 'Atenção!',
-                content: 'O processo de desenturmação e enturmação manual ' +
-                    'não será considerado como remanejamento ou troca de turma, ' +
-                    'para isso você deve selecionar a turma nova e remanejar. Deseja continuar?',
+                content: content,
                 maxWidth: 860,
                 width: 860,
                 modal: true,

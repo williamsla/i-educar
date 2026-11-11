@@ -121,13 +121,14 @@ class EnrollmentService
      *
      * @param LegacyEnrollment $enrollment ID da enturmação
      * @param DateTime         $date       Data do cancelamento
+     * @param bool             $relocated  Marca a enturmação como remanejamento, sem excluí-la
      * @return bool
      *
      * @throws PreviousCancellationDateException
      * @throws ModelNotFoundException
      * @throws Throwable
      */
-    public function cancelEnrollment(LegacyEnrollment $enrollment, DateTime $date)
+    public function cancelEnrollment(LegacyEnrollment $enrollment, DateTime $date, bool $relocated = false)
     {
         $schoolClass = $enrollment->schoolClass;
 
@@ -155,6 +156,11 @@ class EnrollmentService
             $enrollment->ref_usuario_exc = $this->user->getKey();
             $enrollment->data_exclusao = $date;
             $enrollment->ativo = 0;
+
+            if ($relocated) {
+                $enrollment->remanejado = true;
+            }
+
             $enrollment->save();
 
             $relocationDate = $enrollment->schoolClass->school->institution->relocation_date;

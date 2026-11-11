@@ -27,7 +27,8 @@ class BatchEnrollmentController extends Controller
         LegacySchoolClass $schoolClass,
         Collection $enrollments,
         ?MessageBag $fails = null,
-        ?MessageBag $success = null
+        ?MessageBag $success = null,
+        bool $remanejamento = false
     ) {
         $this->breadcrumb('Desenturmar em lote', [
             url('intranet/educar_index.php') => 'Escola',
@@ -35,7 +36,7 @@ class BatchEnrollmentController extends Controller
 
         $this->menu(659); // Código: ieducar/intranet/educar_matriculas_turma_lst.php
 
-        $this->setMessages($fails, $success, 'cancel');
+        $this->setMessages($fails, $success, 'cancel', $remanejamento);
 
         return view('enrollments.batch.cancel', [
             'schoolClass' => $schoolClass,
@@ -97,6 +98,7 @@ class BatchEnrollmentController extends Controller
     ) {
         $date = Carbon::createFromFormat('d/m/Y', $request->input('date'));
         $enrollmentsIds = $request->input('enrollments', []);
+        $remanejamento = $request->boolean('remanejamento');
 
         $fails = new MessageBag;
         $success = new MessageBag;
@@ -105,8 +107,13 @@ class BatchEnrollmentController extends Controller
 
         foreach ($enrollmentService->findAll($enrollmentsIds) as $enrollment) {
             try {
-                $enrollmentService->cancelEnrollment($enrollment, $date);
-                $success->add($enrollment->id, 'Aluno desenturmado.');
+                $enrollmentService->cancelEnrollment($enrollment, $date, $remanejamento);
+                $success->add(
+                    $enrollment->id,
+                    $remanejamento
+                        ? 'Aluno desenturmado e marcado como remanejamento.'
+                        : 'Aluno desenturmado.'
+                );
             } catch (Throwable $throwable) {
                 $fails->add($enrollment->id, $throwable->getMessage());
             }
@@ -116,7 +123,7 @@ class BatchEnrollmentController extends Controller
             IdiarioSync::request();
         }
 
-        return $this->viewCancelEnrollments($schoolClass, $enrollments, $fails, $success);
+        return $this->viewCancelEnrollments($schoolClass, $enrollments, $fails, $success, $remanejamento);
     }
 
     /**
@@ -181,7 +188,8 @@ class BatchEnrollmentController extends Controller
     protected function setMessages(
         ?MessageBag $fail,
         ?MessageBag $success,
-        string $type = 'enroll'
+        string $type = 'enroll',
+        bool $remanejamento = false
     ) {
         $fail = $fail ?? new MessageBag;
         $success = $success ?? new MessageBag;
@@ -209,9 +217,13 @@ class BatchEnrollmentController extends Controller
                 }
 
                 if ($success->count() === 1) {
-                    Session::now('success', 'Foi desenturmado 1 aluno.');
+                    Session::now('success', $remanejamento
+                        ? 'Foi desenturmado 1 aluno e marcado como remanejamento.'
+                        : 'Foi desenturmado 1 aluno.');
                 } elseif ($success->count() > 1) {
-                    Session::now('success', sprintf('Foram desenturmados %s alunos.', $success->count()));
+                    Session::now('success', $remanejamento
+                        ? sprintf('Foram desenturmados %s alunos e marcados como remanejamento.', $success->count())
+                        : sprintf('Foram desenturmados %s alunos.', $success->count()));
                 }
 
                 break;
