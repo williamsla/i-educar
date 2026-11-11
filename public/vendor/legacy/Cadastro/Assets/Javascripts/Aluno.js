@@ -3298,3 +3298,774 @@ aluno_inep_id.on("keyup change", function () {
     $j(this).val("");
   }
 });
+
+(function () {
+  var TAMANHO_MAXIMO_FOTO = 2 * 1024 * 1024;
+  var LADO_MAXIMO_CAPTURA = 1280;
+  var ALTURA_MAXIMA_FOTO = 500;
+  var PROPORCAO_LARGURA = 3;
+  var PROPORCAO_ALTURA = 4;
+
+  function initFotoWebcam() {
+    var input = document.querySelector('#tr_file input[type="file"][name="file"]');
+
+    if (!input || input.getAttribute("data-webcam-ready") === "1") {
+      return;
+    }
+
+    input.setAttribute("data-webcam-ready", "1");
+
+    var wrap = input.parentNode;
+    var abrir = document.createElement("button");
+    abrir.type = "button";
+    abrir.className = "btn-tirar-foto";
+    abrir.id = "btn-tirar-foto";
+    abrir.textContent = "Tirar foto";
+
+    var celular = document.createElement("button");
+    celular.type = "button";
+    celular.className = "btn-capturar-celular";
+    celular.id = "btn-capturar-celular";
+    celular.textContent = "Capturar pelo celular";
+
+    var preview = document.createElement("div");
+    preview.className = "preview-foto-capturada";
+    preview.hidden = true;
+
+    var previewImg = document.createElement("img");
+    previewImg.alt = "Foto que será gravada";
+
+    var previewTexto = document.createElement("span");
+    previewTexto.textContent = "Esta foto será salva ao gravar o cadastro.";
+
+    preview.appendChild(previewImg);
+    preview.appendChild(previewTexto);
+
+    var labelArquivo = input.nextElementSibling;
+    if (labelArquivo && labelArquivo.parentNode) {
+      labelArquivo.parentNode.insertBefore(abrir, labelArquivo.nextSibling);
+      labelArquivo.parentNode.insertBefore(celular, abrir.nextSibling);
+    } else {
+      wrap.appendChild(abrir);
+      wrap.appendChild(celular);
+    }
+
+    wrap.appendChild(preview);
+
+    var previewUrl = null;
+    var stream = null;
+    var temCaptura = false;
+    var arrastandoMoldura = false;
+    var origemArrasteX = 0;
+    var origemArrasteY = 0;
+    var inicioMolduraLeft = 0;
+    var inicioMolduraTop = 0;
+    var botaoQueAbriu = abrir;
+
+    var overlay = document.createElement("div");
+    overlay.className = "webcam-foto-overlay";
+    overlay.hidden = true;
+
+    var dialog = document.createElement("div");
+    dialog.className = "webcam-foto-dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "webcam-foto-titulo");
+
+    var titulo = document.createElement("h3");
+    titulo.id = "webcam-foto-titulo";
+    titulo.textContent = "Tirar foto";
+
+    var erro = document.createElement("p");
+    erro.className = "webcam-foto-erro";
+    erro.hidden = true;
+
+    var stage = document.createElement("div");
+    stage.className = "webcam-foto-stage";
+
+    var video = document.createElement("video");
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true;
+
+    var canvas = document.createElement("canvas");
+
+    var recorte = document.createElement("div");
+    recorte.className = "webcam-foto-recorte";
+    recorte.hidden = true;
+
+    var moldura = document.createElement("div");
+    moldura.className = "webcam-foto-moldura";
+    moldura.tabIndex = 0;
+    moldura.setAttribute("aria-label", "Área de corte 3 por 4. Arraste para posicionar.");
+
+    var rotuloMoldura = document.createElement("span");
+    rotuloMoldura.className = "webcam-foto-moldura-rotulo";
+    rotuloMoldura.textContent = "3×4";
+    moldura.appendChild(rotuloMoldura);
+
+    var dica = document.createElement("p");
+    dica.className = "webcam-foto-dica";
+    dica.hidden = true;
+    dica.textContent = "Arraste o retângulo para a área 3x4 da foto.";
+
+    var acoes = document.createElement("div");
+    acoes.className = "webcam-foto-actions";
+
+    var capturar = document.createElement("button");
+    capturar.type = "button";
+    capturar.className = "webcam-foto-capturar";
+    capturar.textContent = "Capturar";
+    capturar.disabled = true;
+
+    var novamente = document.createElement("button");
+    novamente.type = "button";
+    novamente.className = "webcam-foto-novamente";
+    novamente.textContent = "Tirar outra";
+    novamente.hidden = true;
+
+    var usar = document.createElement("button");
+    usar.type = "button";
+    usar.className = "webcam-foto-usar";
+    usar.textContent = "Usar esta foto";
+    usar.hidden = true;
+
+    var cancelar = document.createElement("button");
+    cancelar.type = "button";
+    cancelar.className = "webcam-foto-cancelar";
+    cancelar.textContent = "Cancelar";
+
+    recorte.appendChild(canvas);
+    recorte.appendChild(moldura);
+    stage.appendChild(video);
+    stage.appendChild(recorte);
+    acoes.appendChild(capturar);
+    acoes.appendChild(novamente);
+    acoes.appendChild(usar);
+    acoes.appendChild(cancelar);
+    dialog.appendChild(titulo);
+    dialog.appendChild(erro);
+    dialog.appendChild(stage);
+    dialog.appendChild(dica);
+    dialog.appendChild(acoes);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    function mostrarErro(mensagem) {
+      erro.textContent = mensagem;
+      erro.hidden = !mensagem;
+    }
+
+    function pararCamera() {
+      if (stream) {
+        stream.getTracks().forEach(function (track) {
+          track.stop();
+        });
+        stream = null;
+      }
+
+      video.srcObject = null;
+    }
+
+    function mostrarAoVivo() {
+      temCaptura = false;
+      arrastandoMoldura = false;
+      video.hidden = false;
+      recorte.hidden = true;
+      dica.hidden = true;
+      capturar.hidden = false;
+      novamente.hidden = true;
+      usar.hidden = true;
+      usar.disabled = false;
+    }
+
+    function limitarMoldura(left, top) {
+      var maxLeft = Math.max(0, recorte.clientWidth - moldura.offsetWidth);
+      var maxTop = Math.max(0, recorte.clientHeight - moldura.offsetHeight);
+      left = Math.max(0, Math.min(maxLeft, left));
+      top = Math.max(0, Math.min(maxTop, top));
+      moldura.style.left = left + "px";
+      moldura.style.top = top + "px";
+    }
+
+    function ajustarExibicao() {
+      var larguraDisponivel = stage.clientWidth;
+      var alturaMaxima = 420;
+      var proporcao = canvas.width / canvas.height;
+
+      if (!proporcao || !larguraDisponivel) {
+        return;
+      }
+
+      var largura = larguraDisponivel;
+      var altura = largura / proporcao;
+
+      if (altura > alturaMaxima) {
+        altura = alturaMaxima;
+        largura = altura * proporcao;
+      }
+
+      canvas.style.width = Math.round(largura) + "px";
+      canvas.style.height = Math.round(altura) + "px";
+    }
+
+    var tentativasMoldura = 0;
+
+    function posicionarMoldura() {
+      ajustarExibicao();
+
+      var larguraImagem = canvas.clientWidth;
+      var alturaImagem = canvas.clientHeight;
+
+      if (!larguraImagem || !alturaImagem) {
+        if (!recorte.hidden && tentativasMoldura < 8) {
+          tentativasMoldura += 1;
+          requestAnimationFrame(posicionarMoldura);
+        }
+        return;
+      }
+
+      tentativasMoldura = 0;
+
+      var largura = larguraImagem;
+      var altura = largura * PROPORCAO_ALTURA / PROPORCAO_LARGURA;
+
+      if (altura > alturaImagem) {
+        altura = alturaImagem;
+        largura = altura * PROPORCAO_LARGURA / PROPORCAO_ALTURA;
+      }
+
+      moldura.style.width = largura + "px";
+      moldura.style.height = altura + "px";
+      limitarMoldura((larguraImagem - largura) / 2, (alturaImagem - altura) / 2);
+    }
+
+    function mostrarRecorte() {
+      video.hidden = true;
+      recorte.hidden = false;
+      dica.hidden = false;
+      capturar.hidden = true;
+      novamente.hidden = false;
+      usar.hidden = false;
+      usar.disabled = false;
+      tentativasMoldura = 0;
+      posicionarMoldura();
+      moldura.focus();
+    }
+
+    function fechar() {
+      overlay.hidden = true;
+      pararCamera();
+      temCaptura = false;
+      arrastandoMoldura = false;
+      document.removeEventListener("keydown", aoPressionarTecla);
+      botaoQueAbriu.focus();
+    }
+
+    function aoPressionarTecla(event) {
+      if (event.key === "Escape") {
+        fechar();
+      }
+    }
+
+    function mostrarPreview(file) {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
+      }
+
+      if (!file || !file.type || file.type.indexOf("image/") !== 0) {
+        preview.hidden = true;
+        previewImg.removeAttribute("src");
+        return;
+      }
+
+      previewUrl = URL.createObjectURL(file);
+      previewImg.src = previewUrl;
+      preview.hidden = false;
+    }
+
+    function anexarFoto(file) {
+      if (typeof DataTransfer === "undefined") {
+        mostrarErro("Este navegador não permite anexar a foto capturada. Escolha um arquivo.");
+        return false;
+      }
+
+      var transferencia = new DataTransfer();
+      transferencia.items.add(file);
+      input.files = transferencia.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+
+      var excluir = document.querySelector('input[name="file_delete"]');
+      if (excluir) {
+        excluir.checked = false;
+      }
+
+      var legenda = input.nextElementSibling && input.nextElementSibling.querySelector("span");
+      if (legenda) {
+        legenda.textContent = file.name;
+      }
+
+      return true;
+    }
+
+    function gerarArquivoRecortado(callback) {
+      var retanguloFoto = canvas.getBoundingClientRect();
+      var retanguloCorte = moldura.getBoundingClientRect();
+      var escalaX = canvas.width / retanguloFoto.width;
+      var escalaY = canvas.height / retanguloFoto.height;
+      var origemX = (retanguloCorte.left - retanguloFoto.left) * escalaX;
+      var origemY = (retanguloCorte.top - retanguloFoto.top) * escalaY;
+      var larguraCorte = retanguloCorte.width * escalaX;
+      var alturaCorte = retanguloCorte.height * escalaY;
+
+      origemX = Math.max(0, Math.min(canvas.width - 1, origemX));
+      origemY = Math.max(0, Math.min(canvas.height - 1, origemY));
+      larguraCorte = Math.max(1, Math.min(larguraCorte, canvas.width - origemX));
+      alturaCorte = Math.max(1, Math.min(alturaCorte, canvas.height - origemY));
+
+      var alturaSaida = Math.max(1, Math.min(Math.round(alturaCorte), ALTURA_MAXIMA_FOTO));
+      var larguraSaida = Math.max(1, Math.round(alturaSaida * PROPORCAO_LARGURA / PROPORCAO_ALTURA));
+      var destino = document.createElement("canvas");
+      destino.width = larguraSaida;
+      destino.height = alturaSaida;
+      destino.getContext("2d").drawImage(
+        canvas,
+        origemX,
+        origemY,
+        larguraCorte,
+        alturaCorte,
+        0,
+        0,
+        larguraSaida,
+        alturaSaida
+      );
+
+      function reduzirQualidade(qualidade) {
+        destino.toBlob(function (blob) {
+          if (!blob) {
+            callback(null);
+            return;
+          }
+
+          if (blob.size > TAMANHO_MAXIMO_FOTO && qualidade > 0.5) {
+            reduzirQualidade(qualidade - 0.15);
+            return;
+          }
+
+          callback(blob);
+        }, "image/jpeg", qualidade);
+      }
+
+      reduzirQualidade(0.92);
+    }
+
+    input.addEventListener("change", function () {
+      var arquivo = input.files && input.files[0];
+      mostrarPreview(arquivo || null);
+    });
+
+    abrir.addEventListener("click", function () {
+      botaoQueAbriu = abrir;
+      mostrarErro("");
+      mostrarAoVivo();
+      capturar.disabled = true;
+      overlay.hidden = false;
+      document.addEventListener("keydown", aoPressionarTecla);
+      dialog.tabIndex = -1;
+      dialog.focus();
+
+      if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        mostrarErro("A webcam só pode ser usada em uma conexão segura (HTTPS) ou em localhost. Escolha um arquivo para continuar.");
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }
+      }).then(function (midia) {
+        if (overlay.hidden) {
+          midia.getTracks().forEach(function (track) {
+            track.stop();
+          });
+          return;
+        }
+
+        stream = midia;
+        video.srcObject = midia;
+        video.onloadedmetadata = function () {
+          if (!overlay.hidden && stream && video.videoWidth) {
+            capturar.disabled = false;
+          }
+        };
+        return video.play();
+      }).then(function () {
+        if (!overlay.hidden && stream && video.videoWidth) {
+          capturar.disabled = false;
+          capturar.focus();
+        }
+      }).catch(function () {
+        if (overlay.hidden) {
+          return;
+        }
+
+        pararCamera();
+        mostrarErro("Não foi possível acessar a webcam. Verifique a permissão do navegador ou escolha um arquivo.");
+      });
+    });
+
+    capturar.addEventListener("click", function () {
+      if (!video.videoWidth || !video.videoHeight) {
+        mostrarErro("Aguarde a câmera iniciar e tente capturar de novo.");
+        return;
+      }
+
+      var largura = video.videoWidth;
+      var altura = video.videoHeight;
+      var escala = Math.min(1, LADO_MAXIMO_CAPTURA / Math.max(largura, altura));
+
+      canvas.width = Math.round(largura * escala);
+      canvas.height = Math.round(altura * escala);
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+      temCaptura = true;
+      mostrarErro("");
+      mostrarRecorte();
+    });
+
+    novamente.addEventListener("click", function () {
+      mostrarErro("");
+      mostrarAoVivo();
+      capturar.focus();
+    });
+
+    usar.addEventListener("click", function () {
+      if (!temCaptura || usar.disabled) {
+        return;
+      }
+
+      usar.disabled = true;
+      gerarArquivoRecortado(function (blob) {
+        usar.disabled = false;
+
+        if (!blob || blob.size > TAMANHO_MAXIMO_FOTO) {
+          mostrarErro("A foto ficou maior que 2MB. Ajuste o recorte e tente novamente.");
+          return;
+        }
+
+        var arquivo = new File([blob], "foto-aluno.jpg", {
+          type: "image/jpeg",
+          lastModified: Date.now()
+        });
+
+        if (anexarFoto(arquivo)) {
+          fechar();
+        }
+      });
+    });
+
+    moldura.addEventListener("pointerdown", function (event) {
+      if (!temCaptura) {
+        return;
+      }
+
+      arrastandoMoldura = true;
+      origemArrasteX = event.clientX;
+      origemArrasteY = event.clientY;
+      inicioMolduraLeft = moldura.offsetLeft;
+      inicioMolduraTop = moldura.offsetTop;
+      moldura.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+
+    moldura.addEventListener("pointermove", function (event) {
+      if (!arrastandoMoldura) {
+        return;
+      }
+
+      limitarMoldura(
+        inicioMolduraLeft + (event.clientX - origemArrasteX),
+        inicioMolduraTop + (event.clientY - origemArrasteY)
+      );
+    });
+
+    function soltarMoldura() {
+      arrastandoMoldura = false;
+    }
+
+    moldura.addEventListener("pointerup", soltarMoldura);
+    moldura.addEventListener("pointercancel", soltarMoldura);
+
+    moldura.addEventListener("keydown", function (event) {
+      if (!temCaptura || recorte.hidden) {
+        return;
+      }
+
+      var passo = event.shiftKey ? 24 : 8;
+      var left = moldura.offsetLeft;
+      var top = moldura.offsetTop;
+
+      if (event.key === "ArrowLeft") {
+        left -= passo;
+      } else if (event.key === "ArrowRight") {
+        left += passo;
+      } else if (event.key === "ArrowUp") {
+        top -= passo;
+      } else if (event.key === "ArrowDown") {
+        top += passo;
+      } else {
+        return;
+      }
+
+      event.preventDefault();
+      limitarMoldura(left, top);
+    });
+
+    cancelar.addEventListener("click", fechar);
+
+    overlay.addEventListener("click", function (event) {
+      if (event.target === overlay) {
+        fechar();
+      }
+    });
+
+    window.addEventListener("pagehide", function () {
+      pararCamera();
+      encerrarCelular(true);
+    });
+
+    var geracaoCelular = 0;
+    var tokenCelular = null;
+    var modalCelular = document.createElement("div");
+    modalCelular.className = "webcam-foto-overlay";
+    modalCelular.hidden = true;
+
+    var caixaCelular = document.createElement("div");
+    caixaCelular.className = "webcam-foto-dialog";
+    caixaCelular.setAttribute("role", "dialog");
+    caixaCelular.setAttribute("aria-modal", "true");
+    caixaCelular.setAttribute("aria-labelledby", "foto-celular-titulo");
+
+    var tituloCelular = document.createElement("h3");
+    tituloCelular.id = "foto-celular-titulo";
+    tituloCelular.textContent = "Capturar pelo celular";
+
+    var textoCelular = document.createElement("p");
+    textoCelular.className = "foto-celular-status";
+    textoCelular.textContent = "Aponte a câmera do telefone para o código. A foto 3x4 volta para este cadastro.";
+
+    var qrCelular = document.createElement("div");
+    qrCelular.className = "foto-celular-qr";
+    qrCelular.setAttribute("aria-hidden", "true");
+
+    var situacaoCelular = document.createElement("p");
+    situacaoCelular.className = "foto-celular-status";
+    situacaoCelular.textContent = "Gerando o código...";
+
+    var acoesCelular = document.createElement("div");
+    acoesCelular.className = "webcam-foto-actions";
+
+    var fecharCelular = document.createElement("button");
+    fecharCelular.type = "button";
+    fecharCelular.className = "webcam-foto-cancelar";
+    fecharCelular.textContent = "Fechar";
+
+    acoesCelular.appendChild(fecharCelular);
+    caixaCelular.appendChild(tituloCelular);
+    caixaCelular.appendChild(textoCelular);
+    caixaCelular.appendChild(qrCelular);
+    caixaCelular.appendChild(situacaoCelular);
+    caixaCelular.appendChild(acoesCelular);
+    modalCelular.appendChild(caixaCelular);
+    document.body.appendChild(modalCelular);
+
+    function cabecalhosCelular() {
+      var headers = {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      };
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta) {
+        headers["X-CSRF-TOKEN"] = meta.getAttribute("content");
+      }
+      return headers;
+    }
+
+    function encerrarCelular(descartar) {
+      geracaoCelular += 1;
+      var token = tokenCelular;
+      tokenCelular = null;
+      if (descartar && token) {
+        fetch("/foto-celular/" + token, {
+          method: "DELETE",
+          headers: cabecalhosCelular(),
+          keepalive: true
+        });
+      }
+    }
+
+    function fecharModalCelular(descartar) {
+      modalCelular.hidden = true;
+      encerrarCelular(descartar);
+      celular.focus();
+    }
+
+    function carregarGeradorQr(callback) {
+      if (window.qrcode) {
+        callback();
+        return;
+      }
+      var script = document.createElement("script");
+      script.src = "/vendor/qrcode/qrcode.js";
+      script.onload = function () { callback(); };
+      script.onerror = function () { callback(new Error("qr")); };
+      document.head.appendChild(script);
+    }
+
+    function desenharQr(url) {
+      if (!window.qrcode) {
+        return false;
+      }
+      qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
+      var codigo = qrcode(0, "M");
+      codigo.addData(url);
+      codigo.make();
+      qrCelular.innerHTML = codigo.createSvgTag({ cellSize: 4, margin: 2 });
+      return qrCelular.querySelector("svg") !== null;
+    }
+
+    function baixarFotoCelular(geracao, token) {
+      fetch("/foto-celular/" + token + "/arquivo", { headers: cabecalhosCelular() })
+        .then(function (resposta) {
+          if (!resposta.ok) {
+            throw new Error("arquivo");
+          }
+          var tipo = resposta.headers.get("Content-Type") || "image/jpeg";
+          var nome = tipo.indexOf("png") === -1 ? "foto-aluno.jpg" : "foto-aluno.png";
+          return resposta.blob().then(function (blob) {
+            return new File([blob], nome, { type: tipo.split(";")[0] });
+          });
+        })
+        .then(function (arquivo) {
+          if (geracao !== geracaoCelular) {
+            return;
+          }
+          if (anexarFoto(arquivo)) {
+            fecharModalCelular(true);
+            if (window.messageUtils && messageUtils.success) {
+              messageUtils.success("Foto recebida do celular. Grave o cadastro para salvar.");
+            }
+          }
+        })
+        .catch(function () {
+          if (geracao !== geracaoCelular) {
+            return;
+          }
+          situacaoCelular.textContent = "A foto chegou, mas não foi possível anexá-la. Tente gerar outro código.";
+        });
+    }
+
+    function consultarCelular(geracao, token) {
+      if (geracao !== geracaoCelular) {
+        return;
+      }
+      fetch("/foto-celular/" + token + "/status", { headers: cabecalhosCelular() })
+        .then(function (resposta) {
+          if (geracao !== geracaoCelular) {
+            return null;
+          }
+          if (resposta.status === 404) {
+            situacaoCelular.textContent = "O código expirou. Feche e gere outro.";
+            return null;
+          }
+          return resposta.json();
+        })
+        .then(function (corpo) {
+          if (!corpo || geracao !== geracaoCelular) {
+            return;
+          }
+          if (corpo.pronto) {
+            situacaoCelular.textContent = "Foto recebida. Anexando ao cadastro...";
+            baixarFotoCelular(geracao, token);
+            return;
+          }
+          window.setTimeout(function () { consultarCelular(geracao, token); }, 2000);
+        })
+        .catch(function () {
+          if (geracao !== geracaoCelular) {
+            return;
+          }
+          window.setTimeout(function () { consultarCelular(geracao, token); }, 3000);
+        });
+    }
+
+    celular.addEventListener("click", function () {
+      encerrarCelular(true);
+      var geracao = geracaoCelular;
+      modalCelular.hidden = false;
+      qrCelular.innerHTML = "";
+      situacaoCelular.textContent = "Gerando o código...";
+      caixaCelular.tabIndex = -1;
+      caixaCelular.focus();
+
+      fetch("/foto-celular", { method: "POST", headers: cabecalhosCelular() })
+        .then(function (resposta) {
+          if (!resposta.ok) {
+            throw new Error("criar");
+          }
+          return resposta.json();
+        })
+        .then(function (corpo) {
+          if (geracao !== geracaoCelular || !corpo.url || !corpo.token) {
+            return;
+          }
+          tokenCelular = corpo.token;
+          situacaoCelular.textContent = "Aguardando a foto do celular...";
+          carregarGeradorQr(function (falha) {
+            if (geracao !== geracaoCelular) {
+              return;
+            }
+            if (falha) {
+              situacaoCelular.textContent = "O QR code não carregou. Feche e tente de novo.";
+              return;
+            }
+            try {
+              if (!desenharQr(corpo.url)) {
+                situacaoCelular.textContent = "O QR code não foi desenhado. Feche e tente de novo.";
+              }
+            } catch (erroQr) {
+              situacaoCelular.textContent = "O QR code não foi desenhado. Feche e tente de novo.";
+            }
+          });
+          consultarCelular(geracao, corpo.token);
+        })
+        .catch(function () {
+          if (geracao !== geracaoCelular) {
+            return;
+          }
+          situacaoCelular.textContent = "Não foi possível gerar o código. Entre novamente no sistema e tente de novo.";
+        });
+    });
+
+    fecharCelular.addEventListener("click", function () { fecharModalCelular(true); });
+    modalCelular.addEventListener("click", function (event) {
+      if (event.target === modalCelular) {
+        fecharModalCelular(true);
+      }
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !modalCelular.hidden) {
+        fecharModalCelular(true);
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initFotoWebcam);
+  } else {
+    initFotoWebcam();
+  }
+})();

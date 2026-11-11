@@ -216,3 +216,219 @@ input{
 #orgao_emissao_rg {
   width: 184px !important;
 }
+
+#tr_file .inputfile-buttom + label {
+  max-width: none;
+  vertical-align: top;
+}
+
+.btn-tirar-foto,
+.btn-capturar-celular {
+  display: inline-block;
+  margin: 0 0 8px 8px;
+  vertical-align: top;
+  border-radius: 3px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: "Open Sans", sans-serif;
+}
+
+.btn-tirar-foto {
+  border: 1px solid #35586f;
+  background-color: #47728f;
+  color: #fff;
+}
+
+.btn-capturar-celular {
+  border: 1px solid #47728f;
+  background-color: #fff;
+  color: #47728f;
+}
+
+.btn-tirar-foto:hover,
+.btn-tirar-foto:focus {
+  background-color: #35586f;
+}
+
+.preview-foto-capturada {
+  margin-top: 8px;
+}
+
+.preview-foto-capturada[hidden] {
+  display: none !important;
+}
+
+.preview-foto-capturada img {
+  height: 117px;
+  display: block;
+  border: 1px solid #cddce6;
+  background: #fff;
+}
+
+.preview-foto-capturada span {
+  display: block;
+  font-style: italic;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.webcam-foto-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.webcam-foto-overlay[hidden] {
+  display: none !important;
+}
+
+.webcam-foto-dialog {
+  background: #fff;
+  border-radius: 6px;
+  width: min(640px, 100%);
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.webcam-foto-dialog h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  color: #495c67;
+}
+
+.webcam-foto-erro {
+  color: #b00020;
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.webcam-foto-erro[hidden] {
+  display: none !important;
+}
+
+.webcam-foto-stage {
+  background: #111;
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 180px;
+}
+
+.webcam-foto-stage video {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  display: block;
+  object-fit: contain;
+  background: #111;
+}
+
+.webcam-foto-stage video[hidden],
+.webcam-foto-recorte[hidden],
+.webcam-foto-dica[hidden] {
+  display: none !important;
+}
+
+.webcam-foto-recorte {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.webcam-foto-recorte canvas {
+  display: block;
+  max-width: 100%;
+  background: #111;
+}
+
+.webcam-foto-moldura {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  z-index: 2;
+}
+
+.webcam-foto-moldura:active {
+  cursor: grabbing;
+}
+
+.webcam-foto-moldura-rotulo {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-family: "Open Sans", sans-serif;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
+.webcam-foto-dica {
+  margin: 8px 0 0;
+  color: #495c67;
+  font-size: 13px;
+}
+
+.webcam-foto-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.webcam-foto-actions button {
+  border: 0;
+  border-radius: 3px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: "Open Sans", sans-serif;
+}
+
+.webcam-foto-actions button[hidden] {
+  display: none !important;
+}
+
+.webcam-foto-capturar,
+.webcam-foto-usar {
+  background: #0ac336;
+  color: #fff;
+}
+
+.webcam-foto-novamente,
+.webcam-foto-cancelar {
+  background: #e9f0f8;
+  color: #47728f;
+}
+
+.foto-celular-qr {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0;
+  background: #fff;
+}
+
+.foto-celular-qr svg {
+  width: 220px;
+  height: 220px;
+}
+
+.foto-celular-status {
+  margin: 8px 0 0;
+  color: #495c67;
+  font-size: 13px;
+}

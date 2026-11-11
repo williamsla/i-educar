@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\EnrollmentInepController;
+use App\Http\Controllers\FotoCelularController;
 use App\Http\Controllers\IdiarioSyncController;
 use App\Http\Controllers\FrequenciaSistemaPresencaController;
+use App\Http\Controllers\InstitutoBrasilSolidarioExportController;
 use App\Http\Controllers\EnrollmentsPromotionController;
 use App\Http\Controllers\ExportacaoXmlController;
 use App\Http\Controllers\ExportController;
@@ -35,7 +37,25 @@ Route::any('intranet/suspenso.php', 'LegacyController@intranet')
 Route::group(['middleware' => ['auth']], function () {
     Route::get('alterar-senha', 'PasswordController@change')->name('change-password');
     Route::post('alterar-senha', 'PasswordController@change')->name('post-change-password');
+
+    Route::post('/foto-celular', [FotoCelularController::class, 'criar'])->name('foto-celular.criar');
+    Route::get('/foto-celular/{token}/status', [FotoCelularController::class, 'status'])
+        ->where('token', '[a-z0-9]{40}')
+        ->name('foto-celular.status');
+    Route::get('/foto-celular/{token}/arquivo', [FotoCelularController::class, 'arquivo'])
+        ->where('token', '[a-z0-9]{40}')
+        ->name('foto-celular.arquivo');
+    Route::delete('/foto-celular/{token}', [FotoCelularController::class, 'descartar'])
+        ->where('token', '[a-z0-9]{40}')
+        ->name('foto-celular.descartar');
 });
+
+Route::get('/foto-celular/{token}', [FotoCelularController::class, 'mostrar'])
+    ->where('token', '[a-z0-9]{40}')
+    ->name('foto-celular.mostrar');
+Route::post('/foto-celular/{token}', [FotoCelularController::class, 'receber'])
+    ->where('token', '[a-z0-9]{40}')
+    ->name('foto-celular.receber');
 
 Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.xssbypass', 'ieducar.suspended', 'auth', 'ieducar.checkresetpassword']], function () {
     Route::get('/idiario-sync/status', [IdiarioSyncController::class, 'status'])->name('idiario-sync.status');
@@ -253,6 +273,16 @@ Route::group(['middleware' => ['ieducar.navigation', 'ieducar.footer', 'ieducar.
     Route::post('/exportacao-tc-gestao-publica', [TcGestaoExportController::class, 'export'])
         ->middleware('can:modify:' . Process::TC_GESTAO_PUBLICA_EXPORT)
         ->name('tc-gestao-export.export');
+
+    Route::get('/exportacao-instituto-brasil-solidario', [InstitutoBrasilSolidarioExportController::class, 'index'])
+        ->middleware('can:view:' . Process::INSTITUTO_BRASIL_SOLIDARIO_EXPORT)
+        ->name('instituto-brasil-solidario-export.index');
+    Route::get('/exportacao-instituto-brasil-solidario/cursos', [InstitutoBrasilSolidarioExportController::class, 'cursos'])
+        ->middleware('can:view:' . Process::INSTITUTO_BRASIL_SOLIDARIO_EXPORT)
+        ->name('instituto-brasil-solidario-export.cursos');
+    Route::post('/exportacao-instituto-brasil-solidario', [InstitutoBrasilSolidarioExportController::class, 'export'])
+        ->middleware('can:modify:' . Process::INSTITUTO_BRASIL_SOLIDARIO_EXPORT)
+        ->name('instituto-brasil-solidario-export.export');
 
     Route::get('/exportar-xml-view', [ExportacaoXmlController::class, 'index']);
     Route::get('/exportar-xml', [ExportacaoXmlController::class, 'exportar']);

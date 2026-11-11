@@ -58,6 +58,8 @@ class Process
 
     public const FREQUENCIA_SISTEMA_PRESENCA = 1033;
 
+    public const INSTITUTO_BRASIL_SOLIDARIO_EXPORT = 1034;
+
     public const UNDO_STUDENT_UNIFICATION = 2001;
 
     public const EXEMPTION_LIST = 2002;
