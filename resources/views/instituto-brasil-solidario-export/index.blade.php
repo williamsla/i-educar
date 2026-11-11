@@ -102,20 +102,24 @@
             src="{{ Asset::get("/vendor/legacy/DynamicInput/Assets/Javascripts/Escola.js") }}"></script>
 @endprepend
 
+@php
+    $camposCurso = array_values(array_intersect_key(
+        \App\Services\InstitutoBrasilSolidario\CursoGrupos::CAMPOS,
+        array_flip(\App\Services\InstitutoBrasilSolidario\CursoGrupos::GRUPOS_FORMULARIO)
+    ));
+    $selecionadosCurso = [];
+
+    foreach ($camposCurso as $campoCurso) {
+        $selecionadosCurso[$campoCurso] = array_values(array_map('intval', (array) old($campoCurso, [])));
+    }
+@endphp
+
 @push('scripts')
     <script>
         (function ($) {
             var urlCursos = @json(route('instituto-brasil-solidario-export.cursos'));
-            var campos = @json(array_values(array_intersect_key(
-                \App\Services\InstitutoBrasilSolidario\CursoGrupos::CAMPOS,
-                array_flip(\App\Services\InstitutoBrasilSolidario\CursoGrupos::GRUPOS_FORMULARIO)
-            )));
-            var selecionados = @json(collect(array_intersect_key(
-                \App\Services\InstitutoBrasilSolidario\CursoGrupos::CAMPOS,
-                array_flip(\App\Services\InstitutoBrasilSolidario\CursoGrupos::GRUPOS_FORMULARIO)
-            ))->mapWithKeys(
-                fn (string $campo) => [$campo => array_values(array_map('intval', (array) old($campo, [])))]
-            ));
+            var campos = @json($camposCurso);
+            var selecionados = @json($selecionadosCurso);
 
             function bloquearRepetidos() {
                 var usados = {};
