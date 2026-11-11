@@ -8,6 +8,7 @@ use App\Models\LegacyRemedialRule;
 use App\Models\LegacySchoolAcademicYear;
 use App\Models\LegacySchoolClass;
 use App\Process;
+use App\Services\Evaluation\TransferredEnrollmentStageAccess;
 use App\Services\ReleasePeriodService;
 use App\Services\RemoveHtmlTagsStringService;
 use iEducar\Modules\Stages\Exceptions\MissingStagesException;
@@ -24,6 +25,9 @@ class DiarioApiController extends ApiCoreController
     protected $_processoAp = 642;
 
     protected $_currentMatriculaId;
+
+    /** @var array<int|string, bool> */
+    private array $permiteEtapasAnterioresCache = [];
 
     private RemoveHtmlTagsStringService $removeHtmlTagsService;
 
@@ -1266,11 +1270,12 @@ class DiarioApiController extends ApiCoreController
     // outros metodos auxiliares
 
     /**
-     * Verifica se o aluno transferido/remanejado esteve na turma por ao menos um dia da etapa.
+     * Verifica se o aluno transferido/remanejado pode lançar nota nesta etapa.
      */
     protected function matriculaTransferidaCursouEtapa(LegacyEnrollment $enrollment, int $turmaId, $etapa): bool
     {
         $etapasTurma = App_Model_IedFinder::getEtapasDaTurma($turmaId);
+        $permiteEtapasAnteriores = $this->permiteLancamentoDeEtapasAnterioresAEnturmacao($enrollment);
 
         if (!is_numeric($etapa)) {
             if (!in_array($etapa, ['Rc', 'An'], true)) {
@@ -1282,7 +1287,8 @@ class DiarioApiController extends ApiCoreController
                     $enrollment->data_enturmacao,
                     $enrollment->data_exclusao,
                     $etapaTurma['data_inicio'] ?? null,
-                    $etapaTurma['data_fim'] ?? null
+                    $etapaTurma['data_fim'] ?? null,
+                    $permiteEtapasAnteriores
                 )) {
                     return true;
                 }
@@ -1300,7 +1306,8 @@ class DiarioApiController extends ApiCoreController
                 $enrollment->data_enturmacao,
                 $enrollment->data_exclusao,
                 $etapaTurma['data_inicio'] ?? null,
-                $etapaTurma['data_fim'] ?? null
+                $etapaTurma['data_fim'] ?? null,
+                $permiteEtapasAnteriores
             );
         }
 
@@ -1308,20 +1315,22 @@ class DiarioApiController extends ApiCoreController
     }
 
     /**
-     * Etapas numéricas em que o aluno transferido/remanejado frequentou ao menos um dia letivo.
+     * Etapas numéricas em que o aluno transferido/remanejado pode receber lançamento.
      *
      * @return int[]
      */
     protected function getEtapasPermitidasMatriculaTransferida(LegacyEnrollment $enrollment, int $turmaId): array
     {
         $etapasPermitidas = [];
+        $permiteEtapasAnteriores = $this->permiteLancamentoDeEtapasAnterioresAEnturmacao($enrollment);
 
         foreach (App_Model_IedFinder::getEtapasDaTurma($turmaId) as $etapaTurma) {
             if ($this->matriculaTransferidaCursouEtapaPorDatas(
                 $enrollment->data_enturmacao,
                 $enrollment->data_exclusao,
                 $etapaTurma['data_inicio'] ?? null,
-                $etapaTurma['data_fim'] ?? null
+                $etapaTurma['data_fim'] ?? null,
+                $permiteEtapasAnteriores
             )) {
                 $etapasPermitidas[] = (int) $etapaTurma['sequencial'];
             }
@@ -1331,25 +1340,65 @@ class DiarioApiController extends ApiCoreController
     }
 
     /**
-     * Há interseção entre o período de enturmação/saída e o intervalo da etapa.
-     * Ex.: saída ao fim da etapa 2 libera etapas 1 e 2 e bloqueia 3 e 4.
+     * Primeira enturmação da matrícula pode receber notas de etapas já encerradas
+     * antes da entrada (aluno chegou no meio do ano). Enturmações seguintes ficam
+     * restritas ao período em que o aluno esteve naquela turma.
+     */
+    protected function permiteLancamentoDeEtapasAnterioresAEnturmacao(LegacyEnrollment $enrollment): bool
+    {
+        $cacheKey = $enrollment->getKey() ?: spl_object_id($enrollment);
+
+        if (array_key_exists($cacheKey, $this->permiteEtapasAnterioresCache)) {
+            return $this->permiteEtapasAnterioresCache[$cacheKey];
+        }
+
+        if (empty($enrollment->data_enturmacao) || empty($enrollment->ref_cod_matricula)) {
+            return $this->permiteEtapasAnterioresCache[$cacheKey] = false;
+        }
+
+        $dataEnturmacao = $enrollment->data_enturmacao instanceof DateTimeInterface
+            ? $enrollment->data_enturmacao->format('Y-m-d')
+            : substr((string) $enrollment->data_enturmacao, 0, 10);
+
+        $existeEnturmacaoAnterior = LegacyEnrollment::query()
+            ->where('ref_cod_matricula', $enrollment->ref_cod_matricula)
+            ->when($enrollment->getKey(), function ($query) use ($enrollment) {
+                $query->where($enrollment->getKeyName(), '!=', $enrollment->getKey());
+            })
+            ->where(function ($query) use ($enrollment, $dataEnturmacao) {
+                $query->whereDate('data_enturmacao', '<', $dataEnturmacao);
+
+                if ($enrollment->getKey()) {
+                    $query->orWhere(function ($query) use ($enrollment, $dataEnturmacao) {
+                        $query->whereDate('data_enturmacao', '=', $dataEnturmacao)
+                            ->where($enrollment->getKeyName(), '<', $enrollment->getKey());
+                    });
+                }
+            })
+            ->exists();
+
+        return $this->permiteEtapasAnterioresCache[$cacheKey] = !$existeEnturmacaoAnterior;
+    }
+
+    /**
+     * Há interseção entre o período na turma e a etapa, ou a etapa terminou
+     * antes da primeira enturmação. Saída no fim da etapa 2 libera 1 e 2 e
+     * bloqueia 3 e 4. Enturmação em 14/07 e saída em 28/10 também libera a etapa 1.
      */
     protected function matriculaTransferidaCursouEtapaPorDatas(
         $dataEnturmacao,
         $dataExclusao,
         ?string $dataInicioEtapa,
-        ?string $dataFimEtapa
+        ?string $dataFimEtapa,
+        bool $permiteEtapasAnteriores = false
     ): bool {
-        if (empty($dataInicioEtapa) || empty($dataFimEtapa) || empty($dataEnturmacao) || empty($dataExclusao)) {
-            return false;
-        }
-
-        $enturmacao = strtotime(date('Y-m-d', strtotime((string) $dataEnturmacao)));
-        $exclusao = strtotime(date('Y-m-d', strtotime((string) $dataExclusao)));
-        $inicioEtapa = strtotime(date('Y-m-d', strtotime($dataInicioEtapa)));
-        $fimEtapa = strtotime(date('Y-m-d', strtotime($dataFimEtapa)));
-
-        return $enturmacao <= $fimEtapa && $exclusao >= $inicioEtapa;
+        return TransferredEnrollmentStageAccess::allows(
+            $dataEnturmacao,
+            $dataExclusao,
+            $dataInicioEtapa,
+            $dataFimEtapa,
+            $permiteEtapasAnteriores
+        );
     }
 
     protected function loadComponentesCurricularesForMatricula(
