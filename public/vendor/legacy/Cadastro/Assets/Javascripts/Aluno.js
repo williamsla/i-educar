@@ -3320,7 +3320,7 @@ aluno_inep_id.on("keyup change", function () {
     abrir.type = "button";
     abrir.className = "btn-tirar-foto";
     abrir.id = "btn-tirar-foto";
-    abrir.textContent = "Tirar foto";
+    abrir.textContent = "Usar webcam";
 
     var celular = document.createElement("button");
     celular.type = "button";
@@ -3374,7 +3374,7 @@ aluno_inep_id.on("keyup change", function () {
 
     var titulo = document.createElement("h3");
     titulo.id = "webcam-foto-titulo";
-    titulo.textContent = "Tirar foto";
+    titulo.textContent = "Usar webcam";
 
     var erro = document.createElement("p");
     erro.className = "webcam-foto-erro";

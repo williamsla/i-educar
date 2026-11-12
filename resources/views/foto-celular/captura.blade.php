@@ -19,11 +19,9 @@
         .moldura { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); touch-action: none; cursor: grab; }
         .moldura span { position: absolute; top: 6px; left: 6px; font-size: 12px; text-shadow: 0 1px 2px #000; }
         .acoes { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.85rem; }
-        button, .arquivo { border: 0; border-radius: 6px; padding: 0.8rem 1rem; font-size: 1rem; cursor: pointer; }
+        button { border: 0; border-radius: 6px; padding: 0.8rem 1rem; font-size: 1rem; cursor: pointer; }
         .primario { background: #0ac336; color: #fff; }
         .secundario { background: #e9f0f8; color: #24343c; }
-        .arquivo { display: inline-block; background: #47728f; color: #fff; }
-        input[type="file"] { display: none; }
         .erro { color: #ffb4b4; }
         .sucesso { background: #fff; color: #24343c; border-radius: 8px; padding: 1.25rem; }
         button:disabled { opacity: 0.6; }
@@ -33,7 +31,7 @@
 <main>
     <section id="captura">
         <h1>Foto do aluno</h1>
-        <p id="instrucao">Abra a câmera, posicione o retângulo 3x4 e envie a foto para o computador. O código vale {{ $expiraEmMinutos }} minutos.</p>
+        <p id="instrucao">Posicione o aluno, capture a foto e ajuste o retângulo 3x4. O código vale {{ $expiraEmMinutos }} minutos.</p>
         <p id="erro" class="erro" hidden></p>
         <div class="stage">
             <video id="video" autoplay playsinline muted hidden></video>
@@ -43,12 +41,10 @@
             </div>
         </div>
         <div class="acoes">
-            <button type="button" id="ao-vivo" class="primario">Usar câmera agora</button>
-            <label id="abrir-arquivo" class="arquivo" for="arquivo-foto">Abrir câmera</label>
-            <input id="arquivo-foto" type="file" accept="image/jpeg,image/png" capture="environment">
+            <button type="button" id="ao-vivo" class="primario" hidden>Usar câmera agora</button>
             <button type="button" id="capturar" class="primario" hidden>Capturar</button>
-            <button type="button" id="virar" class="secundario" hidden>Virar câmera</button>
             <button type="button" id="outra" class="secundario" hidden>Trocar foto</button>
+            <button type="button" id="remover-fundo" class="secundario" hidden>Remover fundo</button>
             <button type="button" id="enviar" class="primario" hidden>Enviar foto</button>
         </div>
     </section>
@@ -68,14 +64,15 @@
     var moldura = document.getElementById("moldura");
     var erro = document.getElementById("erro");
     var aoVivo = document.getElementById("ao-vivo");
-    var arquivo = document.getElementById("arquivo-foto");
-    var abrirArquivo = document.getElementById("abrir-arquivo");
     var capturar = document.getElementById("capturar");
-    var virar = document.getElementById("virar");
     var outra = document.getElementById("outra");
+    var removerFundo = document.getElementById("remover-fundo");
     var enviar = document.getElementById("enviar");
     var stream = null;
-    var frontal = false;
+    var segmentador = null;
+    var carregandoSegmentador = null;
+    var fotoOriginal = null;
+    var fundoRemovido = false;
     var arrastando = false;
     var origemX = 0;
     var origemY = 0;
@@ -84,6 +81,7 @@
 
     if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         aoVivo.hidden = true;
+        mostrarErro("A câmera só abre em uma conexão segura (HTTPS).");
     }
 
     function mostrarErro(mensagem) {
@@ -137,10 +135,11 @@
         video.hidden = true;
         recorte.hidden = false;
         aoVivo.hidden = true;
-        abrirArquivo.hidden = true;
         capturar.hidden = true;
-        virar.hidden = true;
         outra.hidden = false;
+        removerFundo.hidden = false;
+        removerFundo.disabled = false;
+        removerFundo.textContent = fundoRemovido ? "Restaurar fundo" : "Remover fundo";
         enviar.hidden = false;
         posicionarMoldura();
         requestAnimationFrame(posicionarMoldura);
@@ -154,48 +153,120 @@
         canvas.height = Math.max(1, Math.round(altura * escala));
         canvas.getContext("2d").drawImage(imagem, 0, 0, canvas.width, canvas.height);
         if (imagem.close) imagem.close();
+        fotoOriginal = document.createElement("canvas");
+        fotoOriginal.width = canvas.width;
+        fotoOriginal.height = canvas.height;
+        fotoOriginal.getContext("2d").drawImage(canvas, 0, 0);
+        fundoRemovido = false;
         mostrarErro("");
         mostrarRecorte();
     }
 
-    function carregarArquivo(file) {
-        if (!file) return;
-        var leitura = window.createImageBitmap
-            ? createImageBitmap(file, { imageOrientation: "from-image" })
-            : new Promise(function (resolve, reject) {
-                var url = URL.createObjectURL(file);
-                var img = new Image();
-                img.onload = function () { URL.revokeObjectURL(url); resolve(img); };
-                img.onerror = function () { URL.revokeObjectURL(url); reject(); };
-                img.src = url;
+    function restaurarFundo() {
+        if (!fotoOriginal) return;
+        canvas.width = fotoOriginal.width;
+        canvas.height = fotoOriginal.height;
+        canvas.getContext("2d").drawImage(fotoOriginal, 0, 0);
+        fundoRemovido = false;
+        removerFundo.textContent = "Remover fundo";
+        posicionarMoldura();
+    }
+
+    function carregarSegmentador() {
+        if (segmentador) return Promise.resolve(segmentador);
+        if (carregandoSegmentador) return carregandoSegmentador;
+        carregandoSegmentador = new Promise(function (resolve, reject) {
+            var script = document.createElement("script");
+            script.src = "/vendor/selfie-segmentation/selfie_segmentation.js";
+            script.onload = function () {
+                try {
+                    var instancia = new SelfieSegmentation({
+                        locateFile: function (arquivo) {
+                            return "/vendor/selfie-segmentation/" + arquivo;
+                        }
+                    });
+                    instancia.setOptions({ modelSelection: 0, selfieMode: false });
+                    segmentador = instancia;
+                    resolve(instancia);
+                } catch (erro) {
+                    carregandoSegmentador = null;
+                    reject(erro);
+                }
+            };
+            script.onerror = function () {
+                carregandoSegmentador = null;
+                reject(new Error("script"));
+            };
+            document.head.appendChild(script);
+        });
+        return carregandoSegmentador;
+    }
+
+    function aplicarMascara(resultados) {
+        var largura = canvas.width;
+        var altura = canvas.height;
+        var pessoa = document.createElement("canvas");
+        pessoa.width = largura;
+        pessoa.height = altura;
+        var recortePessoa = pessoa.getContext("2d");
+        recortePessoa.drawImage(resultados.segmentationMask, 0, 0, largura, altura);
+        recortePessoa.globalCompositeOperation = "source-in";
+        recortePessoa.drawImage(resultados.image, 0, 0, largura, altura);
+
+        var saida = canvas.getContext("2d");
+        saida.globalCompositeOperation = "source-over";
+        saida.fillStyle = "#ffffff";
+        saida.fillRect(0, 0, largura, altura);
+        saida.drawImage(pessoa, 0, 0);
+    }
+
+    function removerFundoDaFoto() {
+        if (fundoRemovido) {
+            restaurarFundo();
+            return;
+        }
+        removerFundo.disabled = true;
+        removerFundo.textContent = "Removendo fundo...";
+        mostrarErro("");
+        carregarSegmentador().then(function (instancia) {
+            return new Promise(function (resolve, reject) {
+                instancia.onResults(resolve);
+                instancia.send({ image: canvas }).catch(reject);
             });
-        leitura.then(desenhar).catch(function () {
-            mostrarErro("Não foi possível ler essa imagem. Escolha uma foto JPG ou PNG.");
+        }).then(function (resultados) {
+            aplicarMascara(resultados);
+            fundoRemovido = true;
+            removerFundo.textContent = "Restaurar fundo";
+            posicionarMoldura();
+        }).catch(function () {
+            removerFundo.textContent = "Remover fundo";
+            mostrarErro("Não foi possível remover o fundo. Tente de novo.");
+        }).then(function () {
+            removerFundo.disabled = false;
         });
     }
 
     function abrirCamera() {
         mostrarErro("");
-        var modo = frontal ? "user" : "environment";
         navigator.mediaDevices.getUserMedia({
             audio: false,
-            video: { facingMode: { ideal: modo } }
+            video: { facingMode: "environment" }
         }).then(function (midia) {
             stream = midia;
             video.srcObject = midia;
             video.hidden = false;
             recorte.hidden = true;
+            aoVivo.hidden = true;
             capturar.hidden = false;
-            virar.hidden = false;
             return video.play();
         }).catch(function () {
             pararCamera();
-            mostrarErro("A câmera ao vivo não abriu. Use o botão Abrir câmera.");
+            aoVivo.hidden = false;
+            mostrarErro("Toque em Usar câmera agora e permita o acesso à câmera traseira.");
         });
     }
 
     aoVivo.addEventListener("click", abrirCamera);
-    arquivo.addEventListener("change", function () { carregarArquivo(arquivo.files[0]); });
     capturar.addEventListener("click", function () {
         if (!video.videoWidth) {
             mostrarErro("Aguarde a câmera iniciar.");
@@ -203,19 +274,19 @@
         }
         desenhar(video);
     });
-    virar.addEventListener("click", function () {
-        frontal = !frontal;
-        pararCamera();
-        abrirCamera();
-    });
     outra.addEventListener("click", function () {
         recorte.hidden = true;
         outra.hidden = true;
         enviar.hidden = true;
-        abrirArquivo.hidden = false;
-        arquivo.value = "";
-        if (window.isSecureContext && navigator.mediaDevices) aoVivo.hidden = false;
+        removerFundo.hidden = true;
+        capturar.hidden = true;
+        abrirCamera();
     });
+    removerFundo.addEventListener("click", removerFundoDaFoto);
+
+    if (window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        abrirCamera();
+    }
 
     moldura.addEventListener("pointerdown", function (event) {
         arrastando = true;
