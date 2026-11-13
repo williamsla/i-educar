@@ -1312,6 +1312,7 @@ class AlunoController extends ApiCoreController
                 p.nome as nome_aluno,
                 f.nome_social,
                 f.data_nasc as data_nascimento,
+                public.formata_cpf(f.cpf) as cpf,
                 ff.caminho as foto_aluno,
                 greatest(p.data_rev::timestamp(0), f.data_rev::timestamp(0), a.updated_at, ff.updated_at) as updated_at,
                 (
@@ -1342,6 +1343,7 @@ class AlunoController extends ApiCoreController
                 COALESCE(p.nome, '-') as nome_aluno,
                 f.nome_social,
                 COALESCE(f.data_nasc, CURRENT_DATE) as data_nascimento,
+                public.formata_cpf(f.cpf) as cpf,
                 ff.caminho as foto_aluno,
                 greatest(p.data_rev::timestamp(0), f.data_rev::timestamp(0), aluno_excluidos.updated_at, ff.updated_at) as updated_at,
                 aluno_excluidos.deleted_at as deleted_at
@@ -1367,7 +1369,7 @@ class AlunoController extends ApiCoreController
 
             $alunos = Portabilis_Array_Utils::filterSet($alunos, [
                 'aluno_id', 'nome_aluno', 'nome_social', 'foto_aluno',
-                'data_nascimento', 'updated_at', 'deleted_at',
+                'data_nascimento', 'cpf', 'updated_at', 'deleted_at',
             ]);
 
             return [
