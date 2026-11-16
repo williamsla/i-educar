@@ -200,7 +200,7 @@
             
             <!-- Título e subtítulo centralizados -->
             <h1 class="login-title">Acessar Sistema</h1>
-            <p class="login-subtitle">Informe suas credenciais para continuar</p>
+            <p class="login-subtitle">Acesso para a gestão administrativa</p>
         </div>
 
         <!-- CONTAINER PARA FORMULÁRIO CENTRALIZADO -->
@@ -218,7 +218,7 @@
                 @csrf
                 
                 <div class="form-group">
-                    <label for="login" class="form-label">Matrícula ou CPF</label>
+                    <label for="login" class="form-label">CPF ou Matrícula</label>
                     <input type="text" id="login" name="login" class="form-control" required autofocus>
                 </div>
                 
@@ -250,6 +250,10 @@
                         Suporte via WhatsApp
                     </a>
                     @if($diarioProfessorUrl && !empty($diarioProfessorUrl))
+                    <a href="{{ $diarioProfessorUrl }}" class="support-link diary" target="_blank">
+                        <i class="fas fa-book-open"></i>
+                        Boletim do Aluno
+                    </a>
                     <a href="{{ $diarioProfessorUrl }}" class="support-link diary" target="_blank">
                         <i class="fas fa-book-open"></i>
                         Diário do Professor
