@@ -212,16 +212,8 @@ class PromocaoApiController extends ApiCoreController
         // Conta quantas etapas existem para a turma
         $totalStages = (clone $stagesQuery)->count();
 
-        if ($totalStages === 1) {
-            // Só tem uma etapa → ignora filtro por data
-            $stages = $stagesQuery;
-        } else {
-            // Mais de uma → considera apenas as encerradas
-            $stages = $stagesQuery->where('data_fim', '<', now());
-        }
-
-
-        if (!$stages->exists()) {
+        if ($totalStages === 0) {
+            // Turma sem calendário próprio usa as etapas do ano letivo da escola.
             $stages = LegacyAcademicYearStage::query(['sequencial'])
                 ->where([
                     'ref_ref_cod_escola' => $escolaId,
@@ -229,6 +221,10 @@ class PromocaoApiController extends ApiCoreController
                 ])
                 ->where('data_fim', '<', now())
                 ->orderBy('sequencial');
+        } elseif ($totalStages === 1) {
+            $stages = $stagesQuery;
+        } else {
+            $stages = $stagesQuery->where('data_fim', '<', now());
         }
 
         $getStages = [];
@@ -236,9 +232,10 @@ class PromocaoApiController extends ApiCoreController
             $getStages[] = $stage->sequencial;
         }
 
-        $etapas = array_map(function ($arr) {
-            return $arr;
-        }, $getStages);
+        $limite = (int) $this->boletimService()->getOption('etapas');
+        $etapas = array_values(array_filter($getStages, function ($etapa) use ($limite) {
+            return $limite > 0 && (int) $etapa >= 1 && (int) $etapa <= $limite;
+        }));
 
         if ($tpPresenca == RegraAvaliacao_Model_TipoPresenca::GERAL) {
             // FIXME #parameters
@@ -474,12 +471,16 @@ class PromocaoApiController extends ApiCoreController
 
     private function maiorEtapaUtilizada($registration)
     {
-        $where = [
+        $stages = (int) $registration->schoolClass?->stages()->count();
+
+        if ($stages > 0) {
+            return $stages;
+        }
+
+        return LegacyAcademicYearStage::query()->where([
             'ref_ref_cod_escola' => $registration->ref_ref_cod_escola,
             'ref_ano' => $registration->ano,
-        ];
-
-        return LegacyAcademicYearStage::query()->where($where)->count();
+        ])->count();
     }
 
     public function processEnrollmentsPromotion(int $userId, int $enrollmentsId, bool $updateScore = false): void

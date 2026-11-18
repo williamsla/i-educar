@@ -1248,6 +1248,8 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
                 $faltas = $this->getFaltasGeraisCiclo();
             }
 
+            $faltas = $this->faltasDentroDasEtapas($faltas);
+
             if (count($faltas) == 0) {
                 $total = 0;
                 $etapa = 0;
@@ -1277,6 +1279,12 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
             $totalHorasFaltaComponentes = 0;
             foreach ($faltas as $key => $falta) {
+                $falta = $this->faltasDentroDasEtapas($falta);
+
+                if ($falta === []) {
+                    continue;
+                }
+
                 // Total de faltas do componente
                 $componenteTotal = array_sum(CoreExt_Entity::entityFilterAttr(
                     $falta,
@@ -1558,8 +1566,12 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
                 'SELECT COALESCE(SUM(fg.quantidade), 0)
                  FROM modules.falta_aluno fa
                  JOIN modules.falta_geral fg ON fg.falta_aluno_id = fa.id
-                 WHERE fa.matricula_id = $1',
-                [$matriculaId]
+                 WHERE fa.matricula_id = $1
+                   AND (
+                       fg.etapa = \'Rc\'
+                       OR (fg.etapa ~ \'^[0-9]+$\' AND fg.etapa::int BETWEEN 1 AND $2)
+                   )',
+                [$matriculaId, (int) $this->getOption('etapas')]
             );
         } catch (Throwable) {
             return null;
@@ -1709,6 +1721,33 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
         }
 
         return trim(strip_tags((string) $parecer->parecer)) !== '';
+    }
+
+    /**
+     * Falta lançada além das etapas da turma não entra no fechamento.
+     * Uma etapa 3 com quantidade 0, numa turma de 2 etapas, não pode
+     * virar a última etapa e manter a matrícula cursando.
+     *
+     * @param array<int|string, mixed> $faltas
+     * @return array<int|string, mixed>
+     */
+    private function faltasDentroDasEtapas(array $faltas): array
+    {
+        $limite = (int) $this->getOption('etapas');
+
+        if ($limite < 1) {
+            return $faltas;
+        }
+
+        return array_filter($faltas, function ($falta) use ($limite) {
+            $etapa = is_object($falta) ? $falta->etapa : null;
+
+            if ((string) $etapa === 'Rc') {
+                return true;
+            }
+
+            return is_numeric($etapa) && (int) $etapa >= 1 && (int) $etapa <= $limite;
+        });
     }
 
     /**

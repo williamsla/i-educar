@@ -27,6 +27,12 @@ class SchoolClassStageService
         foreach ($schoolClassStage as $stage) {
             $this->storeStage($stage);
         }
+
+        $schoolClass->loadMissing('course');
+
+        if (!$schoolClass->course?->is_standard_calendar) {
+            $this->removeAbsencesBeyondStages($schoolClass, count($schoolClassStage));
+        }
     }
 
     public function validate(LegacySchoolClass $schoolClass, array $startDates)
@@ -101,6 +107,49 @@ class SchoolClassStageService
         $legacySchoolClassStage = new LegacySchoolClassStage;
         $legacySchoolClassStage->fill($stage);
         $legacySchoolClassStage->save();
+    }
+
+    /**
+     * Remove faltas de etapas que o calendário da turma não tem mais.
+     * Quantidade zero nessas etapas não bloqueia a redução e, se permanecer,
+     * o fechamento trata a etapa extra como a última e deixa o aluno cursando.
+     */
+    public function removeAbsencesBeyondStages(LegacySchoolClass $schoolClass, int $stageCount): void
+    {
+        if ($stageCount < 1) {
+            return;
+        }
+
+        $enrollmentIds = DB::table('pmieducar.matricula_turma as mt')
+            ->join('pmieducar.matricula as m', 'm.cod_matricula', '=', 'mt.ref_cod_matricula')
+            ->where('mt.ref_cod_turma', $schoolClass->cod_turma)
+            ->where('mt.ativo', 1)
+            ->where('m.ativo', 1)
+            ->pluck('m.cod_matricula');
+
+        if ($enrollmentIds->isEmpty()) {
+            return;
+        }
+
+        $absenceIds = DB::table('modules.falta_aluno')
+            ->whereIn('matricula_id', $enrollmentIds)
+            ->pluck('id');
+
+        if ($absenceIds->isEmpty()) {
+            return;
+        }
+
+        DB::table('modules.falta_geral')
+            ->whereIn('falta_aluno_id', $absenceIds)
+            ->whereRaw("etapa ~ '^[0-9]+$'")
+            ->whereRaw('etapa::int > ?', [$stageCount])
+            ->delete();
+
+        DB::table('modules.falta_componente_curricular')
+            ->whereIn('falta_aluno_id', $absenceIds)
+            ->whereRaw("etapa ~ '^[0-9]+$'")
+            ->whereRaw('etapa::int > ?', [$stageCount])
+            ->delete();
     }
 
     /**

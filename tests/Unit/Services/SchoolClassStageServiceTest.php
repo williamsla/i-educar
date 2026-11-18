@@ -2,10 +2,14 @@
 
 namespace Tests\Unit\Services;
 
+use App\Models\LegacyGeneralAbsence;
 use App\Services\SchoolClassStageService;
+use Database\Factories\LegacyGeneralAbsenceFactory;
+use Database\Factories\LegacyRegistrationFactory;
 use Database\Factories\LegacySchoolClassFactory;
 use Database\Factories\LegacySchoolClassStageFactory;
 use Database\Factories\LegacyStageTypeFactory;
+use Database\Factories\LegacyStudentAbsenceFactory;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -147,6 +151,61 @@ class SchoolClassStageServiceTest extends TestCase
         $this->assertEquals(
             [5, 6],
             $this->service->getStagesBlockedOnReduction($schoolClass->fresh(), 2)
+        );
+    }
+
+    public function test_store_removes_absences_in_stages_the_class_no_longer_has(): void
+    {
+        $schoolClass = LegacySchoolClassFactory::new()->create();
+        $schoolClass->course->update(['padrao_ano_escolar' => 0]);
+        $schoolClass->unsetRelation('course');
+
+        $stageType = LegacyStageTypeFactory::new()->create(['num_etapas' => 2]);
+        $year = now()->year;
+        $registration = LegacyRegistrationFactory::new()->withEnrollment($schoolClass)->create();
+        $studentAbsence = LegacyStudentAbsenceFactory::new()->create([
+            'matricula_id' => $registration->getKey(),
+        ]);
+
+        LegacyGeneralAbsenceFactory::new()->create([
+            'falta_aluno_id' => $studentAbsence->getKey(),
+            'etapa' => '2',
+            'quantidade' => 1,
+        ]);
+        LegacyGeneralAbsenceFactory::new()->create([
+            'falta_aluno_id' => $studentAbsence->getKey(),
+            'etapa' => '3',
+            'quantidade' => 0,
+        ]);
+
+        $this->service->store(
+            $schoolClass,
+            [
+                0 => '02/03/' . $year,
+                1 => '05/08/' . $year,
+            ],
+            [
+                0 => '04/08/' . $year,
+                1 => '24/12/' . $year,
+            ],
+            [
+                0 => 100,
+                1 => 100,
+            ],
+            $stageType->cod_modulo
+        );
+
+        $this->assertTrue(
+            LegacyGeneralAbsence::query()
+                ->where('falta_aluno_id', $studentAbsence->getKey())
+                ->where('etapa', '2')
+                ->exists()
+        );
+        $this->assertFalse(
+            LegacyGeneralAbsence::query()
+                ->where('falta_aluno_id', $studentAbsence->getKey())
+                ->where('etapa', '3')
+                ->exists()
         );
     }
 }
