@@ -1020,10 +1020,31 @@ class clsModulesProfessorTurma extends Model
                 $sql .= " AND id <> {$this->id}";
             }
 
+            // Vínculos na mesma turma e turno coexistem quando os períodos não se cruzam.
+            // Data ausente fica em aberto: início nulo vale desde sempre e fim nulo vale vínculo vigente.
+            $sql .= '
+                AND (
+                    (' . $this->dataSql($this->data_inicial) . ' IS NULL OR pt.data_fim IS NULL OR ' . $this->dataSql($this->data_inicial) . ' <= pt.data_fim)
+                    AND (' . $this->dataSql($this->data_fim) . ' IS NULL OR pt.data_inicial IS NULL OR pt.data_inicial <= ' . $this->dataSql($this->data_fim) . ')
+                )
+            ';
+
             return $db->UnicoCampo($sql);
         }
 
         return false;
+    }
+
+    /**
+     * @param mixed $data
+     */
+    private function dataSql($data): string
+    {
+        if (is_string($data) && preg_match('/^(\d{4}-\d{2}-\d{2})/', $data, $match)) {
+            return "'{$match[1]}'::date";
+        }
+
+        return 'NULL';
     }
 
     /**

@@ -61,6 +61,7 @@ return new class extends clsListagem
                 'Série',
                 'Turma',
                 'Turno',
+                'Período',
                 'Professor de área específica',
                 'Disciplinas',
             ]);
@@ -153,6 +154,7 @@ return new class extends clsListagem
                     $url->l(text: $registro['nm_serie'], path: $path, options: $options),
                     $url->l(text: $registro['nm_turma'], path: $path, options: $options),
                     $url->l(text: $registro['nm_turno'], path: $path, options: $options),
+                    $url->l(text: $this->periodoVinculo($registro), path: $path, options: $options),
                     $url->l(text: ((int) $registro['permite_lancar_faltas_componente'] === 1 ? 'Sim' : 'Não'), path: $path, options: $options),
                     $url->l(text: $registro['disciplinas'], path: $path, options: $options),
                 ]);
@@ -190,6 +192,26 @@ return new class extends clsListagem
         $this->breadcrumb(currentPage: $abaExcluidos ? 'Vínculos excluídos do professor' : 'Registro de vínculos do professor', breadcrumbs: [
             url(path: 'intranet/educar_servidores_index.php') => 'Servidores',
         ]);
+    }
+
+    private function periodoVinculo(array $registro): string
+    {
+        $inicio = !empty($registro['data_inicial']) ? dataToBrasil($registro['data_inicial']) : '';
+        $fim = !empty($registro['data_fim']) ? dataToBrasil($registro['data_fim']) : '';
+
+        if ($inicio && $fim) {
+            return $inicio . ' a ' . $fim;
+        }
+
+        if ($inicio) {
+            return 'A partir de ' . $inicio;
+        }
+
+        if ($fim) {
+            return 'Até ' . $fim;
+        }
+
+        return '-';
     }
 
     private function podeVerVinculosExcluidos(): bool

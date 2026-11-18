@@ -78,6 +78,11 @@ return new class extends clsDetalhe
             $this->addDetalhe(detalhe: ['Tipo de vínculo', $resources_tipo[$registro['tipo_vinculo']]]);
         }
 
+        $dataInicial = !empty($registro['data_inicial']) ? dataToBrasil($registro['data_inicial']) : '-';
+        $dataFim = !empty($registro['data_fim']) ? dataToBrasil($registro['data_fim']) : '-';
+        $this->addDetalhe(detalhe: ['Data inicial do vínculo', $dataInicial]);
+        $this->addDetalhe(detalhe: ['Data final do vínculo', $dataFim]);
+
         $sql = 'SELECT nome
             FROM modules.professor_turma_disciplina
             INNER JOIN modules.componente_curricular cc ON (cc.id = componente_curricular_id)

@@ -236,7 +236,7 @@ return new class extends clsCadastro
         $options = [
             'label' => 'Data inicial do vínculo',
             'placeholder' => 'dd/mm/yyyy',
-            'hint' => 'Este campo é utilizado exclusivamente para definir a exportação do servidor no Censo Escolar.',
+            'hint' => 'Início da atuação nesta turma e turno. O retorno do professor é permitido quando esta data é posterior à data final do vínculo anterior.',
             'value' => $this->data_inicial,
             'required' => false,
         ];
@@ -246,7 +246,7 @@ return new class extends clsCadastro
         $options = [
             'label' => 'Data final do vínculo',
             'placeholder' => 'dd/mm/yyyy',
-            'hint' => 'Este campo é utilizado exclusivamente para definir a exportação do servidor no Censo Escolar.',
+            'hint' => 'Encerra a atuação nesta turma. Preencha ao sair para permitir um novo vínculo na mesma turma e turno em data posterior. Também usado na exportação do Censo Escolar.',
             'value' => $this->data_fim,
             'required' => false,
         ];
@@ -336,8 +336,7 @@ return new class extends clsCadastro
         );
         $id = $professorTurma->existe2();
         if ($id) {
-            $link = "<a href=\"educar_servidor_vinculo_turma_det.php?id=$id\"><b>Acesse aqui</b></a>";
-            $this->mensagem = "Já existe um vínculo para o(a) professor(a) nesta turma na escola e ano letivo selecionado. $link";
+            $this->mensagem = $this->mensagemVinculoSobreposto($id);
 
             return false;
         }
@@ -350,6 +349,13 @@ return new class extends clsCadastro
 
         $this->mensagem = 'Cadastro efetuado com sucesso.<br>';
         $this->simpleRedirect(url: $backUrl);
+    }
+
+    private function mensagemVinculoSobreposto($id): string
+    {
+        $link = "<a href=\"educar_servidor_vinculo_turma_det.php?id=$id\"><b>Acesse aqui</b></a>";
+
+        return "Já existe um vínculo deste(a) professor(a) nesta turma e turno com período sobreposto. Encerre o vínculo anterior com uma data final anterior à nova data inicial. $link";
     }
 
     private function validaDatas()
@@ -483,8 +489,7 @@ return new class extends clsCadastro
 
         $id = $professorTurma->existe2();
         if ($id) {
-            $link = "<a href=\"educar_servidor_vinculo_turma_det.php?id=$id\"><b>Acesse aqui</b></a>";
-            $this->mensagem = "Já existe um vínculo para o(a) professor(a) nesta turma na escola e ano letivo selecionado. $link";
+            $this->mensagem = $this->mensagemVinculoSobreposto($id);
 
             return false;
         }
