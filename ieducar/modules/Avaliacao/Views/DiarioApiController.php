@@ -9,6 +9,7 @@ use App\Models\LegacySchoolAcademicYear;
 use App\Models\LegacySchoolClass;
 use App\Process;
 use App\Services\Evaluation\TransferredEnrollmentStageAccess;
+use App\Services\Idiario\IdiarioSync;
 use App\Services\ReleasePeriodService;
 use App\Services\RemoveHtmlTagsStringService;
 use iEducar\Modules\Stages\Exceptions\MissingStagesException;
@@ -2061,6 +2062,7 @@ class DiarioApiController extends ApiCoreController
         }
 
         $this->serviceBoletim()->alterarSituacao($newStatus, $matriculaId);
+        IdiarioSync::request();
         $this->appendResponse('matricula_id', $matriculaId);
         $this->messenger->append('Situação da matrícula ' . $matriculaId . ' alterada com sucesso.', 'success');
     }

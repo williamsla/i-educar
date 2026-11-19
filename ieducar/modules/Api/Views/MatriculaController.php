@@ -3,6 +3,7 @@
 use App\Models\LegacyActiveLooking;
 use App\Models\LegacyRegistration;
 use App\Services\EnrollmentService;
+use App\Services\Idiario\IdiarioSync;
 use App\Services\RegistrationService;
 use Carbon\Carbon;
 use iEducar\Modules\School\Model\ActiveLooking;
@@ -742,6 +743,7 @@ class MatriculaController extends ApiCoreController
 
             if ($matricula->edita()) {
                 $this->alteraFalecimentoPessoa($codAluno);
+                IdiarioSync::request();
 
                 return $this->messenger->append('Situação da matrícula alterada com sucesso.', 'success');
             }

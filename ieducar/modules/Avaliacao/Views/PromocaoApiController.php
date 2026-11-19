@@ -10,6 +10,7 @@ use App\Models\LegacySchool;
 use App\Models\LegacySchoolClass;
 use App\Models\LegacySchoolClassStage;
 use App\Models\View\Discipline;
+use App\Services\Idiario\IdiarioSync;
 use iEducar\Modules\Enrollments\Model\EnrollmentStatusFilter;
 use Illuminate\Support\Facades\Auth;
 
@@ -376,6 +377,8 @@ class PromocaoApiController extends ApiCoreController
                 $novaSituacao = $this->loadSituacaoArmazenadaMatricula($this->matriculaId());
 
                 if ($situacaoAnterior != $novaSituacao) {
+                    IdiarioSync::request();
+
                     if ($novaSituacao == 1) {
                         $this->messenger->append("Matrícula {$this->matriculaId()} foi aprovada (situaçao antiga $situacaoAnterior)", 'success');
                     } elseif ($novaSituacao == 2) {
