@@ -213,6 +213,21 @@ class ServidorController extends ApiCoreController
                                        AND sa.ano = pt.ano
                                        AND sa.ativo = 1
                                        AND sa.data_saida IS NOT NULL
+                                       AND (pt.data_inicial IS NULL OR sa.data_saida >= pt.data_inicial)
+                                       AND NOT EXISTS (
+                                           SELECT 1
+                                           FROM pmieducar.servidor_alocacao aberta
+                                           WHERE aberta.ref_cod_servidor = pt.servidor_id
+                                             AND aberta.ref_cod_escola = t.ref_ref_cod_escola
+                                             AND aberta.ano = pt.ano
+                                             AND aberta.ativo = 1
+                                             AND (aberta.data_saida IS NULL OR aberta.data_saida > CURRENT_DATE)
+                                             AND (
+                                                 pt.data_fim IS NULL
+                                                 OR aberta.data_admissao IS NULL
+                                                 OR aberta.data_admissao <= pt.data_fim
+                                             )
+                                       )
                                      ORDER BY sa.data_saida DESC
                                      LIMIT 1
                                  ) AS data_saida
