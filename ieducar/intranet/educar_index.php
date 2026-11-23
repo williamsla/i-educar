@@ -418,6 +418,7 @@ return new class
                                     <li><a href="/module/Reports/EnrollmentQuantitativeMap" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Quantitativo de matrículas</a></li>
                                     ' . $itemTaxaFrequenciaPorSerie . '
                                     ' . $itemDistorcaoIdadeSerie . '
+                                    <li><a href="/module/Reports/EthnicRacial" style="text-decoration: none; color: inherit; display: block;"><span class="item-bullet">•</span> Étnico-Racial</a></li>
                                 </ul>
                             </div>
                         </div>
