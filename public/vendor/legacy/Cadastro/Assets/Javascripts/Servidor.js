@@ -499,8 +499,8 @@ function validateGraduations() {
 
 function validaCargaHoraria() {
   if ($j('#carga_horaria').val() < $j('#total_horas_alocadas_').val()) {
-    messageUtils.error('A Carga horária total deve ser maior ou igual a quantidade de horas alocadas para o servidor.<br>');
-    return false;
+    messageUtils.error('A Carga horária total deve ser maior ou igual a quantidade de horas alocadas na escola.<br>');
+    return true; // permitindo enviar o formulário mesmo que a carga horária total seja menor que a carga horária alocada na escola
   }
   return true;
 }
