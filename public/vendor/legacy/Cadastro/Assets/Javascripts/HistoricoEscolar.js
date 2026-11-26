@@ -467,12 +467,6 @@ $submitButton.click(validaSubmit);
       $item.append($j('<strong>').css({ display: 'inline-block', width: '1.2em' }).text(letra || '·'));
       $item.append(document.createTextNode(' ' + linha.nome));
 
-      if (!linha.encontrada) {
-        $item.append($j('<span>').css({ color: '#a15c07' }).text(' — não encontrada no componente curricular'));
-      } else if (linha.ordemComponente === SEM_ORDEM) {
-        $item.append($j('<span>').css({ color: '#666' }).text(' — sem ordem de apresentação'));
-      }
-
       $lista.append($item);
     });
 
