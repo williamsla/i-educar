@@ -3134,12 +3134,10 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             } else {
                 switch ($tipoProgressao) {
                     case RegraAvaliacao_Model_TipoProgressao::CONTINUADA:
-                        // Verifica se a data atual está <= 15 dias do encerramento ou > que a data de encerramento
-                        if ($this->verificaDataEncerramentoUltimaEtapa()) {
-                            $novaSituacaoMatricula = App_Model_MatriculaSituacao::APROVADO;
-                        } else {
-                            $novaSituacaoMatricula = App_Model_MatriculaSituacao::EM_ANDAMENTO;
-                        }
+                        // Avaliação já encerrada (notas, faltas ou parecer). Aprovar agora:
+                        // deixar Cursando faz a situação final sumir no diário, porque
+                        // essa situação transitória não entra nas opções do campo.
+                        $novaSituacaoMatricula = App_Model_MatriculaSituacao::APROVADO;
                         break;
                     case RegraAvaliacao_Model_TipoProgressao::NAO_CONTINUADA_MEDIA_PRESENCA:
                         if ($situacaoBoletim->aprovado && !$situacaoBoletim->retidoFalta && $situacaoBoletim->aprovadoComDependencia) {
@@ -3985,63 +3983,5 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
             return $this->getOption('cursoHoraFalta');
         });
-    }
-
-    /**
-     * Verifica se a data atual está <= 15 dias do encerramento da última etapa ou > que a data de encerramento.
-     *
-     * @return bool Retorna true se a data está no intervalo (<= 15 dias do encerramento ou > que a data de encerramento)
-     */
-    private function verificaDataEncerramentoUltimaEtapa()
-    {
-        $turmaId = $this->getOption('turmaId');
-        
-        if (!$turmaId) {
-            return false;
-        }
-
-        try {
-            $etapas = App_Model_IedFinder::getEtapasDaTurma($turmaId);
-            
-            if (empty($etapas)) {
-                return false;
-            }
-
-            // Encontra a última etapa (maior sequencial)
-            $ultimaEtapa = null;
-            $maiorSequencial = 0;
-            
-            foreach ($etapas as $etapa) {
-                $sequencial = (int) $etapa['sequencial'];
-                if ($sequencial > $maiorSequencial) {
-                    $maiorSequencial = $sequencial;
-                    $ultimaEtapa = $etapa;
-                }
-            }
-            
-            if (!$ultimaEtapa || empty($ultimaEtapa['data_fim'])) {
-                return false;
-            }
-
-            $dataEncerramento = new \DateTime($ultimaEtapa['data_fim']);
-            $dataEncerramento->setTime(23, 59, 59); // Fim do dia de encerramento
-            $dataAtual = new \DateTime();
-            $dataAtual->setTime(0, 0, 0); // Início do dia atual
-            
-            // Verifica se a data atual está > que a data de encerramento
-            if ($dataAtual > $dataEncerramento) {
-                return true;
-            }
-            
-            // Calcula a diferença em dias até o encerramento
-            $intervalo = $dataAtual->diff($dataEncerramento);
-            $diferencaDias = (int) $intervalo->days;
-            
-            // Verifica se está <= 15 dias do encerramento
-            return $diferencaDias <= 15;
-        } catch (Exception $e) {
-            // Em caso de erro ao obter as etapas, retorna false para continuar o fluxo normal
-            return false;
-        }
     }
 }

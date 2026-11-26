@@ -5,6 +5,7 @@ use App\Models\LegacyInstitution;
 use App\Models\RegistrationStatus;
 use App\Models\State;
 use iEducar\Modules\Enrollments\Model\EnrollmentStatusFilter;
+use Illuminate\Support\Facades\DB;
 
 return new class extends clsCadastro
 {
@@ -285,7 +286,7 @@ return new class extends clsCadastro
         $this->campoTexto(nome: 'nota', campo: 'Nota', valor: $this->nota, tamanhovisivel: 10, tamanhomaximo: 255);
         $this->campoNumero(nome: 'faltas', campo: 'Faltas', valor: $this->faltas, tamanhovisivel: 3, tamanhomaximo: 3);
         $this->campoNumero(nome: 'carga_horaria_disciplina', campo: 'carga_horaria_disciplina', valor: $this->carga_horaria_disciplina, tamanhovisivel: 3, tamanhomaximo: 3, descricao: null, descricao2: null, script: null, evento: null, duplo: null, disabled: $habilitaCargaHoraria);
-        $this->campoNumero(nome: 'ordenamento', campo: 'ordenamento', valor: $this->ordenamento, tamanhovisivel: 3, tamanhomaximo: 3);
+        $this->campoNumero(nome: 'ordenamento', campo: 'ordenamento', valor: $this->ordenamento, tamanhovisivel: 5, tamanhomaximo: 5);
         $options = ['label' => 'Dependência', 'value' => $this->disciplinaDependencia];
         $this->inputsHelper()->checkbox(attrName: 'disciplinaDependencia', inputOptions: $options);
 
@@ -300,6 +301,11 @@ return new class extends clsCadastro
         $style = '/vendor/legacy/Portabilis/Assets/Stylesheets/Frontend.css';
         Portabilis_View_Helper_Application::loadStylesheet(viewInstance: $this, files: $style);
 
+        Portabilis_View_Helper_Application::embedJavascript(
+            viewInstance: $this,
+            script: 'window.componentesOrdenamentoHistorico = ' . $this->componentesOrdenamentoJson() . ';'
+        );
+
         Portabilis_View_Helper_Application::loadJavascript(
             viewInstance: $this,
             files: [
@@ -309,6 +315,41 @@ return new class extends clsCadastro
                 '/vendor/legacy/Cadastro/Assets/Javascripts/HistoricoEscolar.js',
             ]
         );
+    }
+
+    /**
+     * Nome e ordem de apresentação dos componentes da instituição.
+     * A distribuição da palavra usa esta ordem, a mesma da impressão.
+     */
+    private function componentesOrdenamentoJson(): string
+    {
+        $instituicaoId = $this->ref_cod_instituicao ?: LegacyInstitution::active()->value('cod_instituicao');
+
+        $consulta = DB::table('modules.componente_curricular')->select('nome', 'ordenamento');
+
+        if ($instituicaoId) {
+            $consulta->where('instituicao_id', $instituicaoId);
+        }
+
+        $componentes = $consulta
+            ->orderBy('ordenamento')
+            ->orderBy('nome')
+            ->get()
+            ->map(fn ($componente) => [
+                'nome' => $componente->nome,
+                'ordenamento' => (int) $componente->ordenamento,
+            ])
+            ->values();
+
+        $json = json_encode(
+            [
+                'instituicaoId' => $instituicaoId ? (int) $instituicaoId : null,
+                'componentes' => $componentes,
+            ],
+            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+
+        return $json === false ? '{"instituicaoId":null,"componentes":[]}' : $json;
     }
 
     public function Novo()

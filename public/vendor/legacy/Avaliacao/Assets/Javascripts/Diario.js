@@ -1803,14 +1803,20 @@ function changeMediaValue(elementId, nota, notaArredondada, regra){
 
 function situacaoFinalField($matriculaId, $situacao, value){
 
-  let situacaoValueAvailable = [1,2,12,13];
+  let situacaoAtual = parseInt(value.situacao, 10);
+  if (isNaN(situacaoAtual)) {
+    situacaoAtual = 0;
+  }
+  let situacaoValueAvailable = [1, 2, 8, 12, 13, 14];
   let selectId = 'situacao' + '-matricula-' + $matriculaId + '-cc-';
   let $selectSituacao               = $j('<select />').attr('id', selectId).addClass('situacao-cc').data('matricula_id', $matriculaId);
-  let $optionDefault                = $j('<option />').html('').val(0).attr('selected', !situacaoValueAvailable.includes(value.situacao));
-  let $optionAprovado               = $j('<option />').html('Aprovado').val(1).attr('selected', value.situacao === 1);
-  let $optionRetido                 = $j('<option />').html('Retido').val(2).attr('selected', value.situacao === 2);
-  let $optionAprovadoPeloConselho   = $j('<option />').html('Aprovado pelo conselho').val(13).attr('selected', value.situacao === 13);
-  let $optionAprovadoComDependencia = $j('<option />').html('Aprovado com dependência').val(12).attr('selected', value.situacao === 12);
+  let $optionDefault                = $j('<option />').html('').val(0).attr('selected', !situacaoValueAvailable.includes(situacaoAtual));
+  let $optionAprovado               = $j('<option />').html('Aprovado').val(1).attr('selected', situacaoAtual === 1);
+  let $optionRetido                 = $j('<option />').html('Retido').val(2).attr('selected', situacaoAtual === 2);
+  let $optionAprovadoAposExame      = $j('<option />').html('Aprovado após exame').val(8).attr('selected', situacaoAtual === 8);
+  let $optionAprovadoPeloConselho   = $j('<option />').html('Aprovado pelo conselho').val(13).attr('selected', situacaoAtual === 13);
+  let $optionAprovadoComDependencia = $j('<option />').html('Aprovado com dependência').val(12).attr('selected', situacaoAtual === 12);
+  let $optionReprovadoPorFaltas     = $j('<option />').html('Reprovado por faltas').val(14).attr('selected', situacaoAtual === 14);
 
   let $checkbox = $j('<input />')
     .attr('type', 'checkbox')
@@ -1826,6 +1832,8 @@ function situacaoFinalField($matriculaId, $situacao, value){
   $optionDefault.appendTo($selectSituacao);
   $optionAprovado.appendTo($selectSituacao);
   $optionRetido.appendTo($selectSituacao);
+  $optionAprovadoAposExame.appendTo($selectSituacao);
+  $optionReprovadoPorFaltas.appendTo($selectSituacao);
   $optionAprovadoPeloConselho.appendTo($selectSituacao);
 
   if (regra_dependencia) {

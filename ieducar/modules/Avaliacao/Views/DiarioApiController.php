@@ -1008,6 +1008,8 @@ class DiarioApiController extends ApiCoreController
                 $deficiencyEvaluationRule->load('remedialRules');
             }
 
+            $ultimaEtapa = $schoolClass->stages->count() === (int) $this->getRequest()->etapa;
+
             foreach ($enrollments as $enrollment) {
                 /*** @var LegacyRegistration $registration */
                 $registration = $enrollment->registration;
@@ -1038,8 +1040,12 @@ class DiarioApiController extends ApiCoreController
                     );
                 }
 
+                $deslocado = $enrollment->abandono || $enrollment->reclassificado || $enrollment->falecido
+                    || $enrollment->transferido || $enrollment->remanejado;
+                $this->promoveSituacaoFinalPendente($registration, $ultimaEtapa, $deslocado);
+
                 $matricula['bloquear_troca_de_situacao'] = $registration->isLockedToChangeStatus();
-                $matricula['situacao'] = $registration->aprovado;
+                $matricula['situacao'] = (int) $registration->aprovado;
                 $matricula['matricula_id'] = $registration->getKey();
                 $matricula['aluno_id'] = $student->getKey();
                 $matricula['nome'] = $person->name;
@@ -1091,6 +1097,34 @@ class DiarioApiController extends ApiCoreController
         $this->appendResponse('matricula_id', $this->getRequest()->matricula_id);
 
         return $matriculas;
+    }
+
+    /**
+     * Na última etapa, matrícula ainda Cursando ou Em exame é promovida se a
+     * avaliação já encerrou. Sem isso o diário mostra os componentes aprovados
+     * e a situação final em branco.
+     */
+    protected function promoveSituacaoFinalPendente(LegacyRegistration $registration, bool $ultimaEtapa, bool $deslocado): void
+    {
+        if (!$ultimaEtapa || $deslocado || $registration->isLockedToChangeStatus()) {
+            return;
+        }
+
+        $situacaoAtual = (int) $registration->aprovado;
+        $transitarias = [
+            App_Model_MatriculaSituacao::EM_ANDAMENTO,
+            App_Model_MatriculaSituacao::EM_EXAME,
+        ];
+
+        if (!in_array($situacaoAtual, $transitarias, true)) {
+            return;
+        }
+
+        try {
+            $this->serviceBoletim()->promover();
+            $registration->refresh();
+        } catch (Throwable) {
+        }
     }
 
     // metodos auxiliares responders
