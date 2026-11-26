@@ -1100,9 +1100,9 @@ class DiarioApiController extends ApiCoreController
     }
 
     /**
-     * Na última etapa, matrícula ainda Cursando ou Em exame é promovida se a
-     * avaliação já encerrou. Sem isso o diário mostra os componentes aprovados
-     * e a situação final em branco.
+     * Na última etapa, matrícula ainda Cursando ou Em exame é recalculada.
+     * Progressão continuada só grava Aprovado com a avaliação encerrada e
+     * dentro dos 30 dias finais da última etapa.
      */
     protected function promoveSituacaoFinalPendente(LegacyRegistration $registration, bool $ultimaEtapa, bool $deslocado): void
     {

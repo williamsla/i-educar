@@ -21,6 +21,11 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 {
     use Avaliacao_Service_Boletim_Acessores;
 
+    /**
+     * Progressão continuada só grava Aprovado neste prazo antes do fim da última etapa.
+     */
+    private const DIAS_ANTES_ENCERRAMENTO_PARA_APROVAR = 30;
+
     private $exemptedStages = [];
 
     /**
@@ -3134,10 +3139,14 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
             } else {
                 switch ($tipoProgressao) {
                     case RegraAvaliacao_Model_TipoProgressao::CONTINUADA:
-                        // Avaliação já encerrada (notas, faltas ou parecer). Aprovar agora:
-                        // deixar Cursando faz a situação final sumir no diário, porque
-                        // essa situação transitória não entra nas opções do campo.
-                        $novaSituacaoMatricula = App_Model_MatriculaSituacao::APROVADO;
+                        // Notas, faltas ou parecer já encerraram a avaliação (andamento
+                        // falso). Mesmo assim só aprova nos 30 dias finais da última etapa,
+                        // para não marcar Aprovado no início do ano.
+                        if ($this->dentroDoPrazoDeEncerramentoDaUltimaEtapa()) {
+                            $novaSituacaoMatricula = App_Model_MatriculaSituacao::APROVADO;
+                        } else {
+                            $novaSituacaoMatricula = App_Model_MatriculaSituacao::EM_ANDAMENTO;
+                        }
                         break;
                     case RegraAvaliacao_Model_TipoProgressao::NAO_CONTINUADA_MEDIA_PRESENCA:
                         if ($situacaoBoletim->aprovado && !$situacaoBoletim->retidoFalta && $situacaoBoletim->aprovadoComDependencia) {
@@ -3983,5 +3992,56 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
 
             return $this->getOption('cursoHoraFalta');
         });
+    }
+
+    /**
+     * Progressão continuada: true a partir de 30 dias antes do fim da última etapa,
+     * inclusive depois do encerramento.
+     */
+    private function dentroDoPrazoDeEncerramentoDaUltimaEtapa(): bool
+    {
+        $turmaId = $this->getOption('turmaId');
+
+        if (!$turmaId) {
+            return false;
+        }
+
+        try {
+            $etapas = App_Model_IedFinder::getEtapasDaTurma($turmaId);
+
+            if (empty($etapas)) {
+                return false;
+            }
+
+            $ultimaEtapa = null;
+            $maiorSequencial = 0;
+
+            foreach ($etapas as $etapa) {
+                $sequencial = (int) $etapa['sequencial'];
+                if ($sequencial > $maiorSequencial) {
+                    $maiorSequencial = $sequencial;
+                    $ultimaEtapa = $etapa;
+                }
+            }
+
+            if (!$ultimaEtapa || empty($ultimaEtapa['data_fim'])) {
+                return false;
+            }
+
+            $dataEncerramento = new \DateTime($ultimaEtapa['data_fim']);
+            $dataEncerramento->setTime(23, 59, 59);
+            $dataAtual = new \DateTime();
+            $dataAtual->setTime(0, 0, 0);
+
+            if ($dataAtual > $dataEncerramento) {
+                return true;
+            }
+
+            $intervalo = $dataAtual->diff($dataEncerramento);
+
+            return (int) $intervalo->days <= self::DIAS_ANTES_ENCERRAMENTO_PARA_APROVAR;
+        } catch (Exception) {
+            return false;
+        }
     }
 }
