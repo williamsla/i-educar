@@ -502,6 +502,7 @@ class PromocaoApiController extends ApiCoreController
             'user_id' => $userId,
             'etapa' => $maiorEtapaUtilizada,
             'updateScore' => $updateScore,
+            'turmaId' => $registration->schoolClass?->getKey(),
         ];
 
         $this->boletimService(

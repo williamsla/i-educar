@@ -4000,7 +4000,10 @@ class Avaliacao_Service_Boletim implements CoreExt_Configurable
      */
     private function dentroDoPrazoDeEncerramentoDaUltimaEtapa(): bool
     {
-        $turmaId = $this->getOption('turmaId');
+        // A promoção em lote não envia turmaId. A turma da matrícula já foi
+        // carregada em ref_cod_turma; sem ela o prazo nunca é reconhecido
+        // e a situação permanece Cursando.
+        $turmaId = $this->getOption('turmaId') ?: $this->getOption('ref_cod_turma');
 
         if (!$turmaId) {
             return false;
